@@ -117,7 +117,7 @@ avg_pH_treatment_time <- Data %>%
   theme(axis.title = element_text(size = 16),
         axis.text = element_text(size = 14))
 avg_pH_treatment_time
-ggsave(plot = avg_pH_treatment_time, filename = here("Output", "avg_pH_treatment_time.png"), width = 9, height = 6)
+ggsave(plot = avg_pH_treatment_time, filename = here("Output", "avg_pH_treatment_time.png"), width = 9, height = 7)
 
 ## deltaTA plots
 delta_TA <- Data %>%
