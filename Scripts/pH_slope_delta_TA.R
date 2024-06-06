@@ -11,6 +11,7 @@ pHcalib<-read_csv(here("Data","TrisCalSummer2024.csv"))
 pHData<-read_csv(here("Data", "CarbonateChemistry.csv"))
 TableID<-read_csv(here("Data", "TableID.csv"))
 
+## update daily!
 pHSlope<-pHcalib %>%
   nest_by(TrisCalDate)%>%
   mutate(fitpH = list(lm(mVTris~TTris, data = data))) %>% # linear regression of mV and temp of the tris
@@ -23,6 +24,7 @@ pHSlope<-pHcalib %>%
   drop_na(mV) %>%
   mutate(pH = pH(Ex=mV,Etris=mVTris,S=Salinity,T=TempInLab))  # calculate pH of the samples using the pH seacarb function
 
+
 #Now calculate pH
 pHSlope <-pHSlope%>%
   mutate(pH_insitu = pHinsi(pH = pH, ALK = 2200, Tinsi = TempInSitu, Tlab = TempInLab, 
@@ -31,6 +33,10 @@ pHSlope <-pHSlope%>%
   rename(pH = pH_insitu) %>% # rename it 
   ungroup() %>%
   select(-c(TempInLab, mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
+
+
+#don't forget to push to git!
+write_csv(x = pHSlope, file = here("Data", "pH_Slope_06_06.csv"))
 
 # remove the inflow data and join it with the tanks that had that specific inflow water
 InflowData <- pHSlope %>%
@@ -98,7 +104,7 @@ avg_pH_treatment_time <- Data %>%
             fill = "lightyellow", color = NA)+ 
   geom_rect(aes(xmin = ymd_hms("2024-06-05 18:00:00"), xmax = ymd_hms("2024-06-06 06:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
-            fill = "lightyellow", color = NA)+ 
+            fill = "lightgrey", color = NA)+ 
   geom_hline(yintercept = 0, lty = 2)+ # show where values shifts from positive to negative
   geom_point(size = 1.5)+
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
@@ -110,6 +116,7 @@ avg_pH_treatment_time <- Data %>%
   theme(axis.title = element_text(size = 16),
         axis.text = element_text(size = 14))
 avg_pH_treatment_time
+ggsave(plot = avg_pH_treatment_time, filename = here("Output", "avg_pH_treatment_time.png"), width = 9, height = 6)
 
 ## deltaTA plots
 delta_TA <- Data %>%
