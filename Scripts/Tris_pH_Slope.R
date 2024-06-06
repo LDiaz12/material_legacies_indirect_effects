@@ -40,7 +40,7 @@ View(pHSlope)
 write_csv(x = pHSlope, file = here("Data", "pH_Slope_05_31.csv"))
 
 
-pHSlope %>%
+pH_plot <- pHSlope %>%
   group_by(Treatment, DateTime, Date) %>%
   summarise(meanpH = mean(pH, na.rm = TRUE), 
             meanDO = mean(DO, na.rm = TRUE), 
@@ -53,6 +53,9 @@ pHSlope %>%
   geom_errorbar( aes(ymin = meanpH - sepH, ymax = meanpH + sepH), width = 0.1)+
   geom_line() +
   facet_wrap(~Date, scale = "free")
+
+ggsave(plot = pH_plot, filename = here("Output", "pH_plot.png"), width = 9, height = 6)
+
 
 ggplot(pHSlope, aes(x = DateTime, y = DO_mg_L, color = Treatment, group = TankID))+
   geom_point() +
