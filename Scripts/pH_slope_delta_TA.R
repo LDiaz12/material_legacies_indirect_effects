@@ -110,14 +110,14 @@ avg_pH_treatment_time <- Data %>%
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
   geom_line()+
   annotate("text", x = ymd_hms("2024-06-03 08:00:00"), y = 0.1, label = "Overcast", size = 5)+
-  annotate("text", x = ymd_hms("2024-06-05 08:00:00"), y = 0.175, label = "Very Sunny", size = 5)+
+  annotate("text", x = ymd_hms("2024-06-05 08:00:00"), y = 0.165, label = "Very Sunny", size = 5)+
   labs(x="",
        y = "Change in pH due to community")+
   theme_classic()+
   theme(axis.title = element_text(size = 16),
         axis.text = element_text(size = 14))
 avg_pH_treatment_time
-ggsave(plot = avg_pH_treatment_time, filename = here("Output", "avg_pH_treatment_time.png"), width = 9, height = 7)
+ggsave(plot = avg_pH_treatment_time, filename = here("Output", "avg_pH_treatment_time.png"), width = 11, height = 9)
 
 ## deltaTA plots
 delta_TA <- Data %>%
