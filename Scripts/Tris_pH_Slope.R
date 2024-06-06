@@ -6,10 +6,14 @@ library(tidyverse)
 library(seacarb)
 library(broom)
 library(lubridate)
-
+library(here)
+here()
 ## bring in pH calibration files and raw data files
-pHcalib<-read.csv('~/Desktop/Repositories/material_legacies_indirect_effects/Data/TrisCal05_28.csv')
-pHData<-read.csv('~/Desktop/Repositories/material_legacies_indirect_effects/Data/Community_Test_Measurements.csv')
+pHcalib<-read_csv(here("Data","TrisCal05_28.csv"))
+
+#pHcalib<-read_csv('~/Desktop/Repositories/material_legacies_indirect_effects/Data/TrisCal05_28.csv')
+pHData<-read_csv(here("Data", "Community_Test_Measurements.csv"))
+#pHData<-read_csv('~/Desktop/Repositories/material_legacies_indirect_effects/Data/Community_Test_Measurements.csv')
 
 ## take the mV calibration files by each date and use them to calculate pH
 
@@ -24,17 +28,17 @@ pHSlope<-pHcalib %>%
   mutate(pH = pH(Ex=mV,Etris=mVTris,S=Salinity,T=TempInLab)) %>% # calculate pH of the samples using the pH seacarb function
   #mutate(pH_insitu = pHinsi(pH = pH, ALK = TA_Raw, Tinsi = TempInSitu, Tlab = Temp, S = Salinity_lab_Silbiger)) %>%
   mutate(pH_insi = pHinsi(pH = pH, Tinsi = TempInSitu, Tlab = TempInLab, S = Salinity, pHscale = "T" )) %>%
-  select(Date, Rep, Treatment, TankID, Salinity,pH = pH_insi, TempInSitu, DO, DO_mg_L, Time) ## need to calculate pH insi then it is done
-
-pHSlope <- pHSlope %>%
+  select(Date, Rep, Treatment, TankID, Salinity,pH = pH_insi, TempInSitu, DO, DO_mg_L, Time) %>% ## need to calculate pH insi then it is done
   mutate(DateTime = paste(Date, Time),
-         DateTime = ymd_hm(DateTime))
+         DateTime = ymd_hms(DateTime))
+  
   
 View(pHSlope)
 
 ## write the data
 # update daily
-write.csv(x = pHSlope, file = '~/Desktop/pH_Slope_05_31.csv')
+write_csv(x = pHSlope, file = here("Data", "pH_Slope_05_31.csv"))
+
 
 pHSlope %>%
   group_by(Treatment, DateTime, Date) %>%
