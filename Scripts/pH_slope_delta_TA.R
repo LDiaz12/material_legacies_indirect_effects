@@ -110,7 +110,6 @@ avg_pH_treatment_time <- Data %>%
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
   geom_line()+
   annotate("text", x = ymd_hms("2024-06-03 08:00:00"), y = 0.1, label = "Overcast", size = 5)+
-  annotate("text", x = ymd_hms("2024-06-05 08:00:00"), y = 0.165, label = "Very Sunny", size = 5)+
   labs(x="",
        y = "Change in pH due to community")+
   theme_classic()+
