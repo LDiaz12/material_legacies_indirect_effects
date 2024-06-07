@@ -37,7 +37,7 @@ View(pHSlope)
 
 ## write the data
 # update daily
-write_csv(x = pHSlope, file = here("Data", "pH_Slope_05_31.csv"))
+write_csv(x = pHSlope, file = here("Data", "pH_Slope_06_05.csv"))
 
 
 pH_plot <- pHSlope %>%

@@ -53,7 +53,7 @@ SurfaceArea <- 22.5*22.5 # put in the surface area in cm2 for the bottom of the 
 Data<-pHSlope %>%
   ungroup()%>%
   filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data now
-  mutate(TankID = as.numeric(TankID))%>% # covert to numberics since the inflow data is now dropped
+  mutate(TankID = as.numeric(TankID))%>% # convert to numerics since the inflow data is now dropped
   left_join(TableID) %>%
   left_join(InflowData) %>%# join with the inflowdata for easier calculations of rates
   mutate(DateTime = mdy_hms(paste(Date,Time)),# make a datetime
@@ -105,11 +105,15 @@ avg_pH_treatment_time <- Data %>%
   geom_rect(aes(xmin = ymd_hms("2024-06-05 18:00:00"), xmax = ymd_hms("2024-06-06 06:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightgrey", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-06 06:00:00"), xmax = ymd_hms("2024-06-06 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+ 
   geom_hline(yintercept = 0, lty = 2)+ # show where values shifts from positive to negative
   geom_point(size = 1.5)+
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
   geom_line()+
   annotate("text", x = ymd_hms("2024-06-03 08:00:00"), y = 0.1, label = "Overcast", size = 5)+
+  annotate("text", x = ymd_hms("2024-06-06 13:00:00"), y = 0.1, label = "Overcast \n Rain", size = 5)+
   labs(x="",
        y = "Change in pH due to community")+
   theme_classic()+
@@ -126,3 +130,11 @@ delta_TA <- Data %>%
   geom_point()+
   facet_wrap(~Treatment)
 delta_TA
+
+# light vs diff pH plot
+light_pH <- Data %>%
+  ggplot(aes(x = Light_nm, y = pH, color = Treatment))+
+  geom_point()+
+  geom_line()
+light_pH
+
