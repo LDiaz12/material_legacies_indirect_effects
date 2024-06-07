@@ -53,9 +53,9 @@ SurfaceArea <- 22.5*22.5 # put in the surface area in cm2 for the bottom of the 
 Data<-pHSlope %>%
   ungroup()%>%
   filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data now
-  mutate(TankID = as.numeric(TankID))%>% # convert to numerics since the inflow data is now dropped
+  mutate(TankID = as.numeric(TankID))%>% # convert to numeric since the inflow data is now dropped
   left_join(TableID) %>%
-  left_join(InflowData) %>%# join with the inflowdata for easier calculations of rates
+  left_join(InflowData) %>%# join with the inflow data for easier calculations of rates
   mutate(DateTime = mdy_hms(paste(Date,Time)),# make a datetime
          pHDiff = pH - pH_inflow,# calculate the difference between the inflow and the pH in each tank 
          totalflow = Flow_Right_30s+Flow_Left_30s,
@@ -78,9 +78,12 @@ avg_pH_treatment_time <- Data %>%
   summarise(mean_diff = mean(pHDiff, na.rm = TRUE),
             se_diff = sd(pHDiff, na.rm = TRUE)/sqrt(n()))%>%
   ggplot(aes(x = DateTime, y = mean_diff, color = Treatment))+
-  geom_rect(aes(xmin = ymd_hms("2024-06-02 11:30:00"), xmax = ymd_hms("2024-06-02 18:00:00"), ymin = -Inf, ymax = Inf),
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 06:00:00"), xmax = ymd_hms("2024-06-02 18:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightyellow", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 18:00:00"), xmax = ymd_hms("2024-06-03 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
   geom_rect(aes(xmin = ymd_hms("2024-06-03 06:00:00"), xmax = ymd_hms("2024-06-03 12:30:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightyellow", color = NA)+ 
@@ -90,9 +93,6 @@ avg_pH_treatment_time <- Data %>%
   geom_rect(aes(xmin = ymd_hms("2024-06-03 18:00:00"), xmax = ymd_hms("2024-06-04 06:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightgrey", color = NA)+ 
-  geom_rect(aes(xmin = ymd_hms("2024-06-02 18:00:00"), xmax = ymd_hms("2024-06-03 06:00:00"), ymin = -Inf, ymax = Inf),
-            alpha = 1/5,
-            fill = "lightgrey", color = NA)+ ## add colors for light and dark times
   geom_rect(aes(xmin = ymd_hms("2024-06-04 06:00:00"), xmax = ymd_hms("2024-06-04 18:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightyellow", color = NA)+ 
@@ -108,6 +108,9 @@ avg_pH_treatment_time <- Data %>%
   geom_rect(aes(xmin = ymd_hms("2024-06-06 06:00:00"), xmax = ymd_hms("2024-06-06 18:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightyellow", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-06 18:00:00"), xmax = ymd_hms("2024-06-07 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+ 
   geom_hline(yintercept = 0, lty = 2)+ # show where values shifts from positive to negative
   geom_point(size = 1.5)+
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
@@ -122,18 +125,35 @@ avg_pH_treatment_time <- Data %>%
 avg_pH_treatment_time
 ggsave(plot = avg_pH_treatment_time, filename = here("Output", "avg_pH_treatment_time.png"), width = 11, height = 9)
 
-## deltaTA plots
-delta_TA <- Data %>%
-  ggplot(aes(x = factor(DateTime), y = NEC, color = Treatment))+
-  geom_hline(aes(yintercept = 0))+
-  geom_boxplot()+
-  geom_point()+
-  facet_wrap(~Treatment)
-delta_TA
+## calculating total flow and residence time. add pHdiff and deltaTA
+Data<-pHSlope %>%
+  ungroup()%>%
+  filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data now
+  mutate(TankID = as.numeric(TankID))%>% # convert to numeric since the inflow data is now dropped
+  left_join(TableID) %>%
+  left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
+  mutate(DateTime = mdy_hms(paste(Date,Time)), # make a datetime
+         pHDiff = pH - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
+         totalflow = Flow_Right_30s+Flow_Left_30s,
+         residence_time = (1/totalflow)*(11356.2/60), # convert ml/min to hours by multiplying by the volume of water in ml and divide by 60
+         deltaTA = TA_inflow - TA) # calculate the difference between in and outflow
+
+# pull out the delta TA from the controls and take average by inflow and normalize the NEC rates to it-- this accounts for changes in TA due to background water
+control_deltaTA<-Data %>%
+  filter(Treatment == "Control") %>%
+  select(DateTime, deltaTA,InflowTable ) %>%
+  group_by(DateTime, InflowTable)%>%
+  summarise(deltaTA_blank = mean(deltaTA, na.rm = TRUE))
+
+
+Data<-Data %>%
+  left_join(control_deltaTA) %>%
+  mutate(NEC = ((deltaTA-deltaTA_blank)/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
+  )
 
 # light vs diff pH plot
 light_pH <- Data %>%
-  ggplot(aes(x = Light_nm, y = pH, color = Treatment))+
+  ggplot(aes(x = Light_nm, y = pHDiff, color = Treatment))+
   geom_point()+
   geom_line()
 light_pH
