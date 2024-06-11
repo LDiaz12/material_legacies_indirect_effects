@@ -1,0 +1,17 @@
+TankID,InflowTable,Treatment
+1,1,Bleach
+2,2,COTS
+3,2,Control
+4,2,Bleach
+5,2,COTS
+6,2,Pre
+7,2,Pre
+8,1,Control
+9,1,Pre
+10,1,COTS
+11,1,Control
+12,1,COTS
+13,1,Bleach
+14,1,Bleach
+15,1,Control
+16,1,Pre
