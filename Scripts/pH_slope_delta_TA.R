@@ -3,7 +3,6 @@ library(seacarb)
 library(broom)
 library(here)
 library(lubridate)
-library(calecopal)
 library(ggridges)
 
 ## bring in pH calibration files and raw data files
@@ -36,7 +35,7 @@ pHSlope <-pHSlope%>%
 
 
 #don't forget to push to git!
-write_csv(x = pHSlope, file = here("Data", "pH_Slope_06_06.csv"))
+write_csv(x = pHSlope, file = here("Data", "pH_Slope_06_13.csv"))
 
 # remove the inflow data and join it with the tanks that had that specific inflow water
 InflowData <- pHSlope %>%
@@ -44,7 +43,7 @@ InflowData <- pHSlope %>%
   select(-c(Flow_Left_30s, Flow_Right_30s, Notes, DO_mg_L, DO_Percent, Salinity, TempInSitu))  %>% ### remove the values that I don't need -- You will eventually need to keep TA which is why I dropped these instead of coding for the ones that I need
   rename(pH_inflow = pH,
          TA_inflow = TA) %>%# rename the pH to show that it is inflow pH
-  mutate(InflowTable = ifelse(TankID == "Inflow1",1,2)) %>% # give them inflow numbers to pair easilty with the TankID 
+  mutate(InflowTable = ifelse(TankID == "Inflow1",1,2)) %>% # give them inflow numbers to pair easily with the TankID 
   ungroup()%>%
   select(Date,Time,InflowTable, pH_inflow, TA_inflow) # drop the Tank ID column to be able to join the data correctly by inflow #
 
@@ -111,6 +110,24 @@ avg_pH_treatment_time <- Data %>%
   geom_rect(aes(xmin = ymd_hms("2024-06-06 18:00:00"), xmax = ymd_hms("2024-06-07 06:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightgrey", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-07 06:00:00"), xmax = ymd_hms("2024-06-07 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-07 18:00:00"), xmax = ymd_hms("2024-06-08 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-08 06:00:00"), xmax = ymd_hms("2024-06-08 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-08 18:00:00"), xmax = ymd_hms("2024-06-09 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-09 06:00:00"), xmax = ymd_hms("2024-06-09 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-09 18:00:00"), xmax = ymd_hms("2024-06-10 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
   geom_hline(yintercept = 0, lty = 2)+ # show where values shifts from positive to negative
   geom_point(size = 1.5)+
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
