@@ -35,12 +35,12 @@ pHSlope <-pHSlope%>%
 
 
 #don't forget to push to git!
-write_csv(x = pHSlope, file = here("Data", "pH_Slope_06_13.csv"))
+write_csv(x = pHSlope, file = here("Data", "pH_Slope_06_20.csv"))
 
 # remove the inflow data and join it with the tanks that had that specific inflow water
 InflowData <- pHSlope %>%
   filter(TankID %in% c("Inflow1","Inflow2")) %>%
-  select(-c(Flow_Left_30s, Flow_Right_30s, Notes, DO_mg_L, DO_Percent, Salinity, TempInSitu))  %>% ### remove the values that I don't need -- You will eventually need to keep TA which is why I dropped these instead of coding for the ones that I need
+  select(-c(Flow_Left_30s, Flow_Right_30s, Notes, DO_mg_L, Salinity, TempInSitu))  %>% ### remove the values that I don't need -- You will eventually need to keep TA which is why I dropped these instead of coding for the ones that I need
   rename(pH_inflow = pH,
          TA_inflow = TA) %>%# rename the pH to show that it is inflow pH
   mutate(InflowTable = ifelse(TankID == "Inflow1",1,2)) %>% # give them inflow numbers to pair easily with the TankID 
@@ -54,14 +54,14 @@ Data<-pHSlope %>%
   filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data now
   mutate(TankID = as.numeric(TankID))%>% # convert to numeric since the inflow data is now dropped
   left_join(TableID) %>%
-  left_join(InflowData) %>%# join with the inflow data for easier calculations of rates
+  left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
   mutate(DateTime = mdy_hms(paste(Date,Time)),# make a datetime
          pHDiff = pH - pH_inflow,# calculate the difference between the inflow and the pH in each tank 
          totalflow = Flow_Right_30s+Flow_Left_30s,
          residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volumner of water in ml and divide by 60
          deltaTA = TA_inflow - TA, # calculate the difference between in and outflow
          NEC = (deltaTA/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
-         ) 
+         )
 
 ### Now Make a plot showing how the Tank pH differed from the inflow pH over time
 
