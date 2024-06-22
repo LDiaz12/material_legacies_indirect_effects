@@ -51,8 +51,8 @@ Data<-pHSlope %>%
   mutate(TankID = as.numeric(TankID))%>% # convert to numeric since the inflow data is now dropped
   left_join(TableID) %>%
   left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
-  mutate(DateTime = mdy_hms(paste(Date,Time)),# make a datetime
-         pHDiff = pH - pH_inflow,# calculate the difference between the inflow and the pH in each tank 
+  mutate(DateTime = ymd_hms(paste(Date,Time)), # make a datetime
+         pHDiff = pH - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
          totalflow = Flow_Right_30s+Flow_Left_30s,
          residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volumner of water in ml and divide by 60
          deltaTA = TA_inflow - TA, # calculate the difference between in and outflow
@@ -145,7 +145,7 @@ Data<-pHSlope %>%
   mutate(TankID = as.numeric(TankID))%>% # convert to numeric since the inflow data is now dropped
   left_join(TableID) %>%
   left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
-  mutate(DateTime = mdy_hms(paste(Date,Time)), # make a datetime
+  mutate(DateTime = ymd_hms(paste(Date,Time)), # make a datetime
          pHDiff = pH - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
          totalflow = Flow_Right_30s+Flow_Left_30s,
          residence_time = (1/totalflow)*(11356.2/60), # convert ml/min to hours by multiplying by the volume of water in ml and divide by 60
