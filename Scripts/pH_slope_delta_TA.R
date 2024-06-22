@@ -33,10 +33,6 @@ pHSlope <-pHSlope%>%
   ungroup() %>%
   select(-c(TempInLab, mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
 
-
-#don't forget to push to git!
-write_csv(x = pHSlope, file = here("Data", "pH_Slope_06_20.csv"))
-
 # remove the inflow data and join it with the tanks that had that specific inflow water
 InflowData <- pHSlope %>%
   filter(TankID %in% c("Inflow1","Inflow2")) %>%
