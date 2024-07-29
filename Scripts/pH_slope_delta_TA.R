@@ -269,7 +269,7 @@ delta_TAs <- Data %>%
   geom_line()
 delta_TAs +
   scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
-
+ggsave(plot = delta_TAs, filename = here("Output", "delta_TAs.png"), width = 15, height = 10)
 
 
 # light vs diff pH plot
@@ -279,4 +279,4 @@ light_pH <- Data %>%
   geom_line()
 light_pH +
   scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
-
+ggsave(plot = light_pH, filename = here("Output", "light_pH.png"), width = 15, height = 10)
