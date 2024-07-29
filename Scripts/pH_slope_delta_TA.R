@@ -54,7 +54,7 @@ Data<-pHSlope %>%
   mutate(DateTime = ymd_hms(paste(Date,Time)), # make a datetime
          pHDiff = pH - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
          totalflow = Flow_Right_30s+Flow_Left_30s,
-         residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volumner of water in ml and divide by 60
+         residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volumne of water in ml and divide by 60
          deltaTA = TA_inflow - TA, # calculate the difference between in and outflow
          NEC = (deltaTA/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
          )
@@ -66,6 +66,7 @@ tank_pH_diffs <- Data %>%
   geom_point()+
   geom_line()
 tank_pH_diffs
+
 
 # Now do the average
 avg_pH_treatment_time <- Data %>%
@@ -122,6 +123,102 @@ avg_pH_treatment_time <- Data %>%
             alpha = 1/5,
             fill = "lightyellow", color = NA)+ 
   geom_rect(aes(xmin = ymd_hms("2024-06-09 18:00:00"), xmax = ymd_hms("2024-06-10 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-10 06:00:00"), xmax = ymd_hms("2024-06-10 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-10 18:00:00"), xmax = ymd_hms("2024-06-11 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-11 06:00:00"), xmax = ymd_hms("2024-06-11 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-11 18:00:00"), xmax = ymd_hms("2024-06-12 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-12 06:00:00"), xmax = ymd_hms("2024-06-12 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-12 18:00:00"), xmax = ymd_hms("2024-06-13 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-13 06:00:00"), xmax = ymd_hms("2024-06-13 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-13 18:00:00"), xmax = ymd_hms("2024-06-14 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-14 06:00:00"), xmax = ymd_hms("2024-06-14 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-14 18:00:00"), xmax = ymd_hms("2024-06-15 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-15 06:00:00"), xmax = ymd_hms("2024-06-15 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-15 18:00:00"), xmax = ymd_hms("2024-06-16 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-16 06:00:00"), xmax = ymd_hms("2024-06-16 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-16 18:00:00"), xmax = ymd_hms("2024-06-17 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-17 06:00:00"), xmax = ymd_hms("2024-06-17 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-17 18:00:00"), xmax = ymd_hms("2024-06-18 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-18 06:00:00"), xmax = ymd_hms("2024-06-18 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-18 18:00:00"), xmax = ymd_hms("2024-06-19 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-19 06:00:00"), xmax = ymd_hms("2024-06-19 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-19 18:00:00"), xmax = ymd_hms("2024-06-20 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-20 06:00:00"), xmax = ymd_hms("2024-06-21 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-21 18:00:00"), xmax = ymd_hms("2024-06-22 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-22 06:00:00"), xmax = ymd_hms("2024-06-22 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-22 18:00:00"), xmax = ymd_hms("2024-06-23 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-23 06:00:00"), xmax = ymd_hms("2024-06-23 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-23 18:00:00"), xmax = ymd_hms("2024-06-24 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-24 06:00:00"), xmax = ymd_hms("2024-06-24 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-24 18:00:00"), xmax = ymd_hms("2024-06-25 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-25 06:00:00"), xmax = ymd_hms("2024-06-25 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-25 18:00:00"), xmax = ymd_hms("2024-06-26 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-26 06:00:00"), xmax = ymd_hms("2024-06-26 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-26 18:00:00"), xmax = ymd_hms("2024-06-27 06:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightgrey", color = NA)+
   geom_hline(yintercept = 0, lty = 2)+ # show where values shifts from positive to negative
