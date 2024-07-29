@@ -65,8 +65,9 @@ tank_pH_diffs <- Data %>%
   ggplot(aes(x = DateTime, y = pHDiff, color = Treatment, group = TankID))+
   geom_point()+
   geom_line()
-tank_pH_diffs
-
+tank_pH_diffs +
+  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
+#ggsave(plot = tank_pH_diffs, filename = here("Output", "tank_pH_diffs.png"), width = 11, height = 9)
 
 # Now do the average
 avg_pH_treatment_time <- Data %>%
@@ -232,8 +233,9 @@ avg_pH_treatment_time <- Data %>%
   theme_classic()+
   theme(axis.title = element_text(size = 16),
         axis.text = element_text(size = 14))
-avg_pH_treatment_time
-ggsave(plot = avg_pH_treatment_time, filename = here("Output", "avg_pH_treatment_time.png"), width = 11, height = 9)
+avg_pH_treatment_time +
+  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
+ggsave(plot = avg_pH_treatment_time, filename = here("Output", "avg_pH_treatment_time.png"), width = 15, height = 10)
 
 ## calculating total flow and residence time. add pHdiff and deltaTA
 Data<-pHSlope %>%
@@ -266,5 +268,6 @@ light_pH <- Data %>%
   ggplot(aes(x = Light_nm, y = pHDiff, color = Treatment))+
   geom_point()+
   geom_line()
-light_pH
+light_pH +
+  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
 
