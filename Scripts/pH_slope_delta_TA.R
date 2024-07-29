@@ -263,6 +263,15 @@ Data<-Data %>%
   mutate(NEC = ((deltaTA-deltaTA_blank)/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
   )
 
+delta_TAs <- Data %>%
+  ggplot(aes(x = DateTime, y = deltaTA, color = Treatment, na.rm = TRUE))+
+  geom_point()+
+  geom_line()
+delta_TAs +
+  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
+
+
+
 # light vs diff pH plot
 light_pH <- Data %>%
   ggplot(aes(x = Light_nm, y = pHDiff, color = Treatment))+
