@@ -16,13 +16,18 @@ coral_cover_br_plot
 backreef_mean_cover <- read_csv(here("Data", "backreef_benthic_comp_mean_perc.csv"))
 
 # create percent cover plot by benthic category over time
-br_benthic_cover_plot <- ggplot(data=backreef_mean_cover, aes(fill=benthic_group, x=year, y=mean_percent_cover)) +
+year_fact = cut(backreef_mean_cover$year, 3, labels = c("2006", "2010", "2019"))
+table(year_fact)
+is.factor(year_fact)
+
+br_benthic_cover_plot <- ggplot(data=backreef_mean_cover, aes(fill=benthic_group, x=year_fact, y=mean_percent_cover)) +
   geom_bar(position = "fill", stat = "identity") +
   labs(x = "Year", y = "Mean Percent Cover", title = "LTER 1 Backreef Benthic Percent Cover", fill = "Benthic Category") +
   scale_color_fermenter()+
   theme_bw()
-br_benthic_cover_plot
-  
+br_benthic_cover_plot + 
+  scale_fill_discrete(labels = c("Coral", "CTB (CCA, Turf Algae, \n Bare Space)", "Macroalgae", "Sand"))
+
 
 #br_benthic_percent_plot <- backreef_cover %>%
   #group_by(benthic_category, year) %>%

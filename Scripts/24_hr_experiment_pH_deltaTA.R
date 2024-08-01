@@ -5,11 +5,15 @@ library(here)
 library(lubridate)
 library(ggridges)
 library(ggplot2)
+library(moments)
+library(emmeans)
+library(agricolae)
 
 pHcalib<-read_csv(here("Data","TrisCalSummer2024.csv"))
 pHData<-read_csv(here("Data", "24_hr_carb_chem.csv"))
 TableID<-read_csv(here("Data", "TableID.csv"))
 
+## calculate pH slope using mV ##
 pHSlope<-pHcalib %>%
   nest_by(TrisCalDate)%>%
   mutate(fitpH = list(lm(mVTris~TTris, data = data))) %>% # linear regression of mV and temp of the tris
@@ -22,6 +26,7 @@ pHSlope<-pHcalib %>%
   drop_na(mV) %>%
   mutate(pH = pH(Ex=mV,Etris=mVTris,S=Salinity,T=TempInLab))  # calculate pH of the samples using the pH seacarb function
 
+## calculate pH insitu ## 
 pHSlope <-pHSlope%>%
   mutate(pH_insitu = pHinsi(pH = pH, ALK = 2200, Tinsi = TempInSitu, Tlab = TempInLab, 
                             S = Salinity,Pt = 0.1, k1k2 = "m10", kf = "dg")) %>%
@@ -30,6 +35,7 @@ pHSlope <-pHSlope%>%
   ungroup() %>%
   select(-c(TempInLab, mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
 
+## calculate inflow data using pH slope and flow by each inflow table ##
 InflowData <- pHSlope %>%
   filter(TankID %in% c("Inflow1","Inflow2")) %>%
   select(-c(Flow_Left_30s, Flow_Right_30s, Notes, DO_mg_L, Salinity, TempInSitu))  %>% ### remove the values that I don't need -- You will eventually need to keep TA which is why I dropped these instead of coding for the ones that I need
@@ -41,6 +47,7 @@ InflowData <- pHSlope %>%
 
 SurfaceArea <- 22.5*22.5 # put in the surface area in cm2 for the bottom of the tank here
 
+## join inflow data, table ID. calculate residence time, delta TA, and NEC ##
 Data<-pHSlope %>%
   ungroup()%>%
   filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data now
@@ -55,12 +62,45 @@ Data<-pHSlope %>%
          NEC = (deltaTA/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
   )
 
+## pH diffs for EACH tank in 24 hr experiment ##
 tank_pH_diffs <- Data %>%
   ggplot(aes(x = DateTime, y = pHDiff, color = Treatment, group = TankID))+
   geom_point()+
-  geom_line()
-tank_pH_diffs
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 12:00:00"), xmax = ymd_hms("2024-06-02 15:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 15:00:00"), xmax = ymd_hms("2024-06-02 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 18:00:00"), xmax = ymd_hms("2024-06-02 21:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 21:00:00"), xmax = ymd_hms("2024-06-03 00:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-03 00:00:00"), xmax = ymd_hms("2024-06-03 03:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-03 03:00:00"), xmax = ymd_hms("2024-06-03 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-03 06:00:00"), xmax = ymd_hms("2024-06-03 09:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_hline(yintercept = 0, lty = 2) +
+  theme_classic()+
+  geom_line() +
+  annotate("text", x = ymd_hms("2024-06-03 08:00:00"), y = 0.15, label = "Overcast \n Day", size = 4) +
+  annotate("text", x = ymd_hms("2024-06-02 13:00:00"), y = 0.2, label = "Sunny", size = 4) +
+  labs(x= "Date & Time",
+       y = "Change in pH due to Community", 
+       title = "Changes in pH Over 24-hr Period \n Due to Dominant Community Type") +
+  theme(axis.title = element_text(size = 10),
+        axis.text = element_text(size = 8))
+tank_pH_diffs +
+  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
 
+## AVERAGE pH diffs per treatment in 24 hr experiment ##
 avg_pH_treatment_time <- Data %>%
   group_by(Treatment, DateTime)%>%
   summarise(mean_diff = mean(pHDiff, na.rm = TRUE),
@@ -82,12 +122,106 @@ avg_pH_treatment_time <- Data %>%
   geom_point(size = 1.5)+
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
   geom_line()+
-  annotate("text", x = ymd_hms("2024-06-03 08:00:00"), y = 0.1, label = "Overcast", size = 5)+
-  labs(x="",
-       y = "Change in pH due to community")+
+  annotate("text", x = ymd_hms("2024-06-03 09:00:00"), y = 0.1, label = "Overcast", size = 4)+
+  annotate("text", x = ymd_hms("2024-06-02 09:00:00"), y = 0.1, label = "Sunny", size = 4) +
+  labs(x="Date & Time",
+       y = "Change in Average pH Due to Community")+
   theme_classic()+
-  theme(axis.title = element_text(size = 16),
-        axis.text = element_text(size = 14))
+  theme(axis.title = element_text(size = 12),
+        axis.text = element_text(size = 10))
 avg_pH_treatment_time + 
   scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
+
+## stats for pH ##
+# create table for mean pH grouped by treatment and datetime #
+
+#pH_model <- Data %>%
+  #group_by(Treatment, DateTime) %>%
+  #summarise(avgpH = mean(pH)) %>%
+  #arrange(avgpH)
+mean_pH
+skewness(mean_pH$avgpH) 
+kurtosis(mean_pH$avgpH)
+hist(mean_pH$avgpH)
+
+
+# two-way ANOVA for average pH determined by date time, treatment, and their interaction #
+# use raw data for statistics!! # 
+pH_community <- lm(pH ~ DateTime*Treatment, data=Data)
+anova(pH_community)
+plot(pH_community)
+HSD.test(pH_community, "DateTime", console=TRUE)
+
+# variance in average pH is significantly determined by date and time # 
+# treatment and datetime:treatment interaction is not signficant in explaining the variance in average pH # 
+
+## TA ##
+
+Data<-pHSlope %>%
+  ungroup()%>%
+  filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data now
+  mutate(TankID = as.numeric(TankID))%>% # convert to numeric since the inflow data is now dropped
+  left_join(TableID) %>%
+  left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
+  mutate(DateTime = ymd_hms(paste(Date,Time)), # make a datetime
+         pHDiff = pH - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
+         totalflow = Flow_Right_30s+Flow_Left_30s,
+         residence_time = (1/totalflow)*(11356.2/60), # convert ml/min to hours by multiplying by the volume of water in ml and divide by 60
+         deltaTA = TA_inflow - TA)
+
+control_deltaTA<-Data %>%
+  filter(Treatment == "Control") %>%
+  select(DateTime, deltaTA,InflowTable ) %>%
+  group_by(DateTime, InflowTable)%>%
+  summarise(deltaTA_blank = mean(deltaTA, na.rm = TRUE)) 
+
+
+Data<-Data %>%
+  left_join(control_deltaTA) %>%
+  mutate(NEC = ((deltaTA-deltaTA_blank)/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
+  )
+
+NEC_plot <- Data %>%
+  group_by(Treatment, DateTime)%>%
+  summarise(mean_NEC = mean(NEC, na.rm = TRUE),
+            se_NEC = sd(NEC, na.rm = TRUE)/sqrt(n()))%>%
+  ggplot(aes(x = DateTime, y = mean_NEC, color = Treatment, na.rm = TRUE))+
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 12:00:00"), xmax = ymd_hms("2024-06-02 15:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 15:00:00"), xmax = ymd_hms("2024-06-02 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 18:00:00"), xmax = ymd_hms("2024-06-02 21:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-02 21:00:00"), xmax = ymd_hms("2024-06-03 00:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+ 
+  geom_rect(aes(xmin = ymd_hms("2024-06-03 00:00:00"), xmax = ymd_hms("2024-06-03 03:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-03 03:00:00"), xmax = ymd_hms("2024-06-03 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-03 06:00:00"), xmax = ymd_hms("2024-06-03 09:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA) + 
+  geom_point() +
+  geom_errorbar(aes(ymin = mean_NEC - se_NEC, ymax = mean_NEC+se_NEC), width = 0.1)+
+  geom_hline(yintercept = 0, lty = 2)+
+  theme_classic() +
+  labs(x="Date & Time",
+       y = "Net Ecosystem Calcification (NEC) (mmol/m2h)") +
+  geom_line()
+NEC_plot +
+  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
+
+
+NEC_community <- lm(NEC ~ DateTime*Treatment, data=Data)
+anova(NEC_community)
+plot(NEC_community)
+
+HSD.test(NEC_community, "Treatment", console=TRUE)
+
 

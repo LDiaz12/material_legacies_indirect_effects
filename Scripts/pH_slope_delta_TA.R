@@ -62,7 +62,7 @@ Data<-pHSlope %>%
 ### Now Make a plot showing how the Tank pH differed from the inflow pH over time
 
 tank_pH_diffs <- Data %>%
-  ggplot(aes(x = DateTime, y = pHDiff, color = Treatment, group = TankID))+
+  ggplot(aes(x = DateTime, y = pHDiff, color = Treatment, group = TankID, na.rm = TRUE))+
   geom_point()+
   geom_line()
 tank_pH_diffs +
@@ -186,7 +186,13 @@ avg_pH_treatment_time <- Data %>%
   geom_rect(aes(xmin = ymd_hms("2024-06-19 18:00:00"), xmax = ymd_hms("2024-06-20 06:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightgrey", color = NA)+
-  geom_rect(aes(xmin = ymd_hms("2024-06-20 06:00:00"), xmax = ymd_hms("2024-06-21 18:00:00"), ymin = -Inf, ymax = Inf),
+  geom_rect(aes(xmin = ymd_hms("2024-06-20 06:00:00"), xmax = ymd_hms("2024-06-20 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-20 18:00:00"), xmax = ymd_hms("2024-06-21 06:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-21 06:00:00"), xmax = ymd_hms("2024-06-21 18:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightyellow", color = NA)+
   geom_rect(aes(xmin = ymd_hms("2024-06-21 18:00:00"), xmax = ymd_hms("2024-06-22 06:00:00"), ymin = -Inf, ymax = Inf),
@@ -222,6 +228,9 @@ avg_pH_treatment_time <- Data %>%
   geom_rect(aes(xmin = ymd_hms("2024-06-26 18:00:00"), xmax = ymd_hms("2024-06-27 06:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightgrey", color = NA)+
+  geom_rect(aes(xmin = ymd_hms("2024-06-27 06:00:00"), xmax = ymd_hms("2024-06-27 18:00:00"), ymin = -Inf, ymax = Inf),
+            alpha = 1/5,
+            fill = "lightyellow", color = NA)+
   geom_hline(yintercept = 0, lty = 2)+ # show where values shifts from positive to negative
   geom_point(size = 1.5)+
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
@@ -255,7 +264,7 @@ control_deltaTA<-Data %>%
   filter(Treatment == "Control") %>%
   select(DateTime, deltaTA,InflowTable ) %>%
   group_by(DateTime, InflowTable)%>%
-  summarise(deltaTA_blank = mean(deltaTA, na.rm = TRUE))
+  summarise(deltaTA_blank = mean(deltaTA, na.rm = TRUE)) 
 
 
 Data<-Data %>%
@@ -266,7 +275,8 @@ Data<-Data %>%
 delta_TAs <- Data %>%
   ggplot(aes(x = DateTime, y = deltaTA, color = Treatment, na.rm = TRUE))+
   geom_point()+
-  geom_line()
+  geom_line() + 
+  facet_wrap(~Date)
 delta_TAs +
   scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
 ggsave(plot = delta_TAs, filename = here("Output", "delta_TAs.png"), width = 10, height = 9)
@@ -276,7 +286,8 @@ ggsave(plot = delta_TAs, filename = here("Output", "delta_TAs.png"), width = 10,
 light_pH <- Data %>%
   ggplot(aes(x = Light_nm, y = pHDiff, color = Treatment))+
   geom_point()+
-  geom_line()
+  geom_line() 
+  #facet_wrap(~Date)
 light_pH +
   scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
 ggsave(plot = light_pH, filename = here("Output", "light_pH.png"), width = 15, height = 9)
