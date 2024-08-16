@@ -8,6 +8,7 @@ library(ggplot2)
 library(moments)
 library(emmeans)
 library(agricolae)
+library(tidyr)
 
 pHcalib<-read_csv(here("Data","TrisCalSummer2024.csv"))
 pHData<-read_csv(here("Data", "24_hr_carb_chem.csv"))
@@ -119,18 +120,23 @@ avg_pH_treatment_time <- Data %>%
             alpha = 1/5,
             fill = "lightyellow", color = NA)+ 
   geom_hline(yintercept = 0, lty = 2)+ # show where values shifts from positive to negative
-  geom_point(size = 1.5)+
+  geom_point(size = 2.5)+
   geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1)+
   geom_line()+
-  annotate("text", x = ymd_hms("2024-06-03 09:00:00"), y = 0.1, label = "Overcast", size = 4)+
-  annotate("text", x = ymd_hms("2024-06-02 09:00:00"), y = 0.1, label = "Sunny", size = 4) +
+  annotate("text", x = ymd_hms("2024-06-03 09:00:00"), y = 0.1, label = "Overcast", size = 5)+
+  annotate("text", x = ymd_hms("2024-06-02 09:00:00"), y = 0.1, label = "Sunny", size = 5) +
   labs(x="Date & Time",
-       y = "Change in Average pH Due to Community")+
+       y = "Change in Average pH Due to Community",
+       title = "Change in Average pH by Dominant Benthic Community Over 24-hr Period")+
   theme_classic()+
-  theme(axis.title = element_text(size = 12),
-        axis.text = element_text(size = 10))
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 10)) +
+  theme(plot.title = element_text(size = 14))
 avg_pH_treatment_time + 
-  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
+  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated")) +
+  theme(legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
+
 
 ## stats for pH ##
 # create table for mean pH grouped by treatment and datetime #
@@ -181,7 +187,14 @@ Data<-Data %>%
   mutate(NEC = ((deltaTA-deltaTA_blank)/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
   )
 
-NEC_plot <- Data %>%
+NEC_data <- Data %>%
+  select(DateTime, NEC, Treatment) %>%
+  group_by(DateTime, Treatment) 
+
+NEC_data_nona <- NEC_data %>% 
+  drop_na()
+
+NEC_plot <- NEC_data_nona %>%
   group_by(Treatment, DateTime)%>%
   summarise(mean_NEC = mean(NEC, na.rm = TRUE),
             se_NEC = sd(NEC, na.rm = TRUE)/sqrt(n()))%>%
@@ -207,16 +220,22 @@ NEC_plot <- Data %>%
   geom_rect(aes(xmin = ymd_hms("2024-06-03 06:00:00"), xmax = ymd_hms("2024-06-03 09:00:00"), ymin = -Inf, ymax = Inf),
             alpha = 1/5,
             fill = "lightyellow", color = NA) + 
-  geom_point() +
+  geom_point(size = 2.5) +
   geom_errorbar(aes(ymin = mean_NEC - se_NEC, ymax = mean_NEC+se_NEC), width = 0.1)+
   geom_hline(yintercept = 0, lty = 2)+
   theme_classic() +
   labs(x="Date & Time",
-       y = "Net Ecosystem Calcification (NEC) (mmol/m2h)") +
-  geom_line()
+       y = "Net Ecosystem Calcification (NEC) (mmol/m2h)", 
+       title = "Net Ecosystem Calcification (NEC) by Dominant Benthic Community Over 24-hr Period") +
+  geom_line() +
+  theme(plot.title = element_text(size = 14))+
+  theme(axis.title = element_text(size = 14),
+        axis.text = element_text(size = 11)) +
+  theme(plot.title = element_text(size = 14)) 
 NEC_plot +
-  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
-
+  scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated")) + 
+  theme(legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14))
 
 NEC_community <- lm(NEC ~ DateTime*Treatment, data=Data)
 anova(NEC_community)
