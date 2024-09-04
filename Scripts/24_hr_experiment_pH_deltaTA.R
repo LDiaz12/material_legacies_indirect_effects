@@ -10,8 +10,8 @@ library(emmeans)
 library(agricolae)
 library(tidyr)
 
-pHcalib<-read_csv(here("Data","TrisCalSummer2024.csv"))
-pHData<-read_csv(here("Data", "24_hr_carb_chem.csv"))
+pHcalib<-read_csv(here("Data","Chemistry", "TrisCalSummer2024.csv"))
+pHData<-read_csv(here("Data", "Chemistry", "24_hr_carb_chem.csv"))
 TableID<-read_csv(here("Data", "TableID.csv"))
 
 ## calculate pH slope using mV ##
@@ -154,8 +154,8 @@ hist(mean_pH$avgpH)
 # two-way ANOVA for average pH determined by date time, treatment, and their interaction #
 # use raw data for statistics!! # 
 pH_community <- lm(pH ~ DateTime*Treatment, data=Data)
-anova(pH_community)
 plot(pH_community)
+anova(pH_community)
 HSD.test(pH_community, "DateTime", console=TRUE)
 
 # variance in average pH is significantly determined by date and time # 
@@ -238,9 +238,8 @@ NEC_plot +
         legend.text = element_text(size = 14))
 
 NEC_community <- lm(NEC ~ DateTime*Treatment, data=Data)
-anova(NEC_community)
 plot(NEC_community)
-
+anova(NEC_community)
 HSD.test(NEC_community, "Treatment", console=TRUE)
 
 

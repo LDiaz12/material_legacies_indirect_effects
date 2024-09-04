@@ -9,10 +9,10 @@ library(lubridate)
 library(here)
 here()
 ## bring in pH calibration files and raw data files
-pHcalib<-read_csv(here("Data","TrisCalSummer2024.csv"))
+pHcalib<-read_csv(here("Data","Chemistry", "TrisCalSummer2024.csv"))
 
 #pHcalib<-read_csv('~/Desktop/Repositories/material_legacies_indirect_effects/Data/TrisCal05_28.csv')
-pHData<-read_csv(here("Data", "CarbonateChemistry.csv"))
+pHData<-read_csv(here("Data", "Chemistry", "CarbonateChemistry.csv"))
 #pHData<-read_csv('~/Desktop/Repositories/material_legacies_indirect_effects/Data/Community_Test_Measurements.csv')
 
 ## take the mV calibration files by each date and use them to calculate pH
@@ -28,7 +28,7 @@ pHSlope<-pHcalib %>%
   mutate(pH = pH(Ex=mV,Etris=mVTris,S=Salinity,T=TempInLab)) %>% # calculate pH of the samples using the pH seacarb function
   #mutate(pH_insitu = pHinsi(pH = pH, ALK = TA_Raw, Tinsi = TempInSitu, Tlab = Temp, S = Salinity_lab_Silbiger)) %>%
   mutate(pH_insi = pHinsi(pH = pH, Tinsi = TempInSitu, Tlab = TempInLab, S = Salinity, pHscale = "TRUE" )) %>%
-  select(Date, Rep, Treatment, TankID, Salinity,pH = pH_insi, TempInSitu, DO, DO_mg_L, Time) %>% ## need to calculate pH insi
+  select(Date, Treatment, TankID, Salinity,pH = pH_insi, TempInSitu, DO, DO_mg_L, Time) %>% ## need to calculate pH insi
   mutate(DateTime = paste(Date, Time),
          DateTime = ymd_hms(DateTime))
   
@@ -54,6 +54,7 @@ pH_plot <- pHSlope %>%
   geom_line() +
   facet_wrap(~Date, scale = "free")
 
+pH_plot
 ggsave(plot = pH_plot, filename = here("Output", "pH_plot.png"), width = 9, height = 6)
 
 
