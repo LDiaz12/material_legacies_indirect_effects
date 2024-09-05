@@ -76,6 +76,8 @@ bw_gen_plot <- ggplot(growth_data, aes(x=Treatment, y=Growth_Rate, fill=Treatmen
   geom_point(position = position_dodge(width=0.4))
 bw_gen_plot
 
+ggsave(plot = bw_gen_plot, filename = here("Output", "bw_gen_plot.png"), width = 9, height = 6)
+
 #le_plot <- ggplot(growth_data, aes(x=Treatment, y=LE_Normalized, fill=Treatment)) +
   #geom_boxplot()
 #le_plot
@@ -87,3 +89,5 @@ le_gen_plot <- ggplot(growth_data, aes(x=Treatment, y=Total_LE, fill=Treatment))
   theme_bw(base_size=14) +
   geom_point(position = position_dodge(width=0.4))
 le_gen_plot
+
+ggsave(plot = le_gen_plot, filename = here("Output", "le_gen_plot.png"), width = 9, height = 6)
