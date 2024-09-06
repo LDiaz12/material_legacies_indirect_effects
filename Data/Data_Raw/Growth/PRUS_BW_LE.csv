@@ -1,0 +1,122 @@
+﻿CoralID,CoralNum,Genotype,Color,Treatment,Initial_weight_g,Final_weight_g,Initial_LE_mm,Final_LE_mm,Notes
+A_111,111,A,Yellow,Rubble-Dom,22.274,23.943,64,65,
+A_40,40,A,Yellow,Coral-Dom,20.036,21.65,62,63,
+A_56,56,A,Yellow,Algae-Dom,12.998,14.621,53,53,
+A_58,58,A,Yellow,Control,19.621,22.081,62,63,
+A_82,82,A,Yellow,NA,21.431,NA,NA,NA,Initial respo frag; no final BW
+B_14,14,B,Pink,Control,20.646,23.782,56,56,
+B_16,16,B,Pink,Algae-Dom,19.468,19.972,51,52,
+B_41,41,B,Pink,Coral-Dom,33.313,34.375,65,67,
+B_73,73,B,Pink,Rubble-Dom,18.631,21.267,54,54,
+B_94,94,B,Pink,NA,24.999,NA,NA,NA,Initial respo frag; no final BW
+C_113,113,C,Blue,Rubble-Dom,20.047,22.094,63,63,
+C_29,29,C,Blue,NA,17.446,NA,NA,NA,Initial respo frag; no final BW
+C_37,37,C,Blue,Coral-Dom,28.683,29.654,64,68,
+C_46,46,C,Blue,Algae-Dom,18.958,16.139,47,47,
+D_106,106,D,Green,Control,11.154,10.666,57,55,
+D_145,145,D,Green,Rubble-Dom,17.862,18.436,62,57,
+D_152,152,D,Green,NA,22.351,NA,NA,NA,Initial respo frag; no final BW
+D_153,153,D,Green,Control,14.548,15.42,49,50,Whole colony was replaced
+D_154,154,D,Green,Algae-Dom,15.693,15.755,50,50,
+D_160,160,D,Green,Coral-Dom,15.338,16.984,51,52,
+E_34,34,E,Pink/Green,NA,16.682,NA,NA,NA,Initial respo frag; no final BW
+E_63,63,E,Pink/Green,Coral-Dom,14.365,16.77,49,49,
+E_74,74,E,Pink/Green,Rubble-Dom,20.012,22.129,50,52,
+E_85,85,E,Pink/Green,Control,19.577,20.009,45,46,
+E_86,86,E,Pink/Green,Algae-Dom,13.435,15.531,40,43,
+F_108,108,F,Blue/Green,Rubble-Dom,13.178,14.078,57,61,
+F_31,31,F,Blue/Green,NA,10.526,NA,NA,NA,Initial respo frag; no final BW
+F_33,33,F,Blue/Green,Algae-Dom,16.813,17.954,47,48,
+F_51,51,F,Blue/Green,Coral-Dom,17.141,18.787,66,65,
+F_68,68,F,Blue/Green,Control,15.299,17.546,70,72,
+G_104,10,G,Pink/Yellow,Coral-Dom,13.843,16.425,54,55,
+G_104,104,G,Pink/Yellow,Control,19.49,21.013,63,65,
+G_90,90,G,Pink/Yellow,Rubble-Dom,9.462,12.064,40,48,
+G_91,91,G,Pink/Yellow,NA,16.42,NA,NA,NA,Initial respo frag; no final BW
+G_92,92,G,Pink/Yellow,Algae-Dom,13.627,15.644,56,57,
+H_147,147,H,Blue/Purple,Coral-Dom,18.085,18.995,60,62,
+H_150,150,H,Blue/Purple,NA,22.611,NA,NA,NA,Initial respo frag; no final BW
+H_156,156,H,Blue/Purple,Algae-Dom,16.04,16.437,57,58,Replaced all from original H colony
+H_159,159,H,Blue/Purple,Rubble-Dom,10.885,10.923,50,50,
+H_161,161,H,Blue/Purple,Control,19.071,19.776,75,76,
+I_102,102,I,Blue/Yellow,Control,23.686,25.395,62,64,
+I_27,27,I,Blue/Yellow,Coral-Dom,18.201,21.343,49,50,
+I_38,38,I,Blue/Yellow,Algae-Dom,16.407,18.441,51,52,
+I_4,4,I,Blue/Yellow,NA,20.456,NA,NA,NA,Initial respo frag; no final BW
+I_50,50,I,Blue/Yellow,Rubble-Dom,30.946,33.254,61,62,
+J_105,105,J,Red/Green,NA,20.197,NA,NA,NA,Initial respo frag; no final BW
+J_117,117,J,Red/Green,Rubble-Dom,11.414,13.986,53,54,
+J_60,6,J,Red/Green,Algae-Dom,18.445,20.444,65,68,
+J_60,60,J,Red/Green,Control,14.812,16.254,58,60,
+J_8,8,J,Red/Green,Coral-Dom,20.453,22.227,60,61,
+K_110,110,K,Pink/Blue,Rubble-Dom,32.146,34.711,82,83,
+K_59,59,K,Pink/Blue,Algae-Dom,28.441,31.505,66,67,
+K_64,64,K,Pink/Blue,Control,25.691,29.071,65,67,
+K_76,76,K,Pink/Blue,Coral-Dom,16.296,17.876,70,68,
+K_99,99,K,Pink/Blue,NA,15.441,NA,NA,NA,Initial respo frag; no final BW
+L_19,19,L,Blue/Red,Rubble-Dom,9.714,11.911,56,57,
+L_23,23,L,Blue/Red,NA,15.226,NA,NA,NA,Initial respo frag; no final BW
+L_53,53,L,Blue/Red,Algae-Dom,18.874,21.716,57,60,
+L_78,78,L,Blue/Red,Algae-Dom,10.867,11.879,50,54,
+L_95,95,L,Blue/Red,Coral-Dom,18.771,21.204,60,61,
+M_11,11,M,Pink/Yellow/Blue,Control,19.746,20.262,57,58,
+M_2,2,M,Pink/Yellow/Blue,Algae-Dom,13.121,13.57,59,59,
+M_25,25,M,Pink/Yellow/Blue,Rubble-Dom,15.771,16.616,59,60,
+M_49,49,M,Pink/Yellow/Blue,NA,29.164,NA,NA,NA,Initial respo frag; no final BW
+M_71,71,M,Pink/Yellow/Blue,Control,11.082,11.09,58,58,
+N_118,118,N,Green/Yellow,Algae-Dom,17.065,18.487,52,53,
+N_21,21,N,Green/Yellow,Control,17.763,17.826,62,62,
+N_22,22,N,Green/Yellow,NA,13.422,NA,NA,NA,Initial respo frag; no final BW; Kiran accidentally ran 2 for genotype N
+N_43,43,N,Green/Yellow,Coral-Dom,17.718,18.284,66,68,
+N_70,70,N,Green/Yellow,NA,11.478,NA,NA,NA,Initial respo frag; no final BW
+N_96,96,N,Green/Yellow,Rubble-Dom,21.025,22.974,62,63,
+O_146,146,O,Pink/Yellow/Pink,Control,23.443,23.441,59,59,
+O_148,148,O,Pink/Yellow/Pink,Coral-Dom,13.615,14.317,54,57,
+O_149,149,O,Pink/Yellow/Pink,Rubble-Dom,15.572,16.289,54,55,
+O_162,162,O,Pink/Yellow/Pink,Algae-Dom,13.355,13.608,55,57,
+O_163,163,O,Pink/Yellow/Pink,NA,18.927,NA,NA,NA,Replaced all from original O colony; initial respo frag
+P_121,121,P,Purple/Yellow,NA,11.365,NA,NA,NA,Initial respo frag; no final BW
+P_127,127,P,Purple/Yellow,Rubble-Dom,11.703,12.12,50,51,
+P_135,135,P,Purple/Yellow,Algae-Dom,8.473,8.669,40,42,
+P_137,137,P,Purple/Yellow,Coral-Dom,12.404,14.88,48,50,
+P_28,28,P,Purple/Yellow,Control,15.295,15.591,50,51,
+Q_143,143,Q,Purple/Blue/Purple,NA,19.162,NA,NA,NA,Initial respo frag; no final BW
+Q_204,204,Q,Red/Purple/Red,Algae-Dom,8.437,9.304,49,50,
+Q_206,206,Q,Red/Purple/Red,Rubble-Dom,9.783,10.334,56,57,
+Q_210,210,Q,Purple/Blue/Purple,Control,13.571,14.323,48,49,
+Q_57,57,Q,Purple/Blue/Purple,Coral-Dom,21.788,23.562,52,54,
+R_128,128,R,Yellow/Red,Algae-Dom,20.796,23.322,64,65,
+R_138,138,R,Yellow/Red,Coral-Dom,12.714,14.286,65,65,
+R_35,35,R,Yellow/Red,NA,13.921,NA,NA,NA,Initial respo frag; no final BW
+R_62,62,R,Yellow/Red,Rubble-Dom,14.313,14.875,55,56,
+R_66,66,R,Yellow/Red,Control,16.146,18.461,56,58,
+S_114,114,S,Green/Yellow/Green,Algae-Dom,17.175,16.488,50,50,
+S_123,123,S,Green/Yellow/Green,Algae-Dom,8.67,10.21,32,33,
+S_136,136,S,Green/Yellow/Green,Coral-Dom,7.024,9.452,40,40,
+S_80,80,S,Green/Yellow/Green,Rubble-Dom,3.931,5.976,31,32,
+S_83,83,S,Green/Yellow/Green,NA,8.5,NA,NA,NA,Initial respo frag; no final BW
+T_1,1,T,Blue/Red/Green,Coral-Dom,16.576,18.674,65,68,
+T_12,12,T,Blue/Red/Green,NA,9.598,NA,NA,NA,Initial respo frag; no final BW
+T_125,125,T,Blue/Red/Green,Control,12.814,14.536,46,48,
+T_139,139,T,Blue/Red/Green,Rubble-Dom,11.71,13.35,50,52,
+T_141,141,T,Blue/Red/Green,Algae-Dom,17.191,19.637,57,58,
+U_100,100,U,Blue/Yellow/Red,Rubble-Dom,11.167,13.87,45,47,
+U_101,101,U,Blue/Yellow/Red,Coral-Dom,16.798,19.104,57,57,
+U_134,13,U,Blue/Yellow/Red,Rubble-Dom,15.886,17.629,46,45,
+U_134,134,U,Blue/Yellow/Red,Control,10.821,13.497,40,42,
+U_67,67,U,Blue/Yellow/Red,NA,14.153,NA,NA,NA,Initial respo frag; no final BW
+V_140,140,V,Pink/Purple,Control,8.918,8.923,42,42,
+V_144,144,V,Pink/Purple,NA,10.424,NA,NA,NA,Initial respo frag; no final BW
+V_15,15,V,Pink/Purple,Control,12.073,13.627,63,64,
+V_18,18,V,Pink/Purple,Rubble-Dom,14,16.138,59,60,
+V_97,97,V,Pink/Purple,Algae-Dom,15.347,17.581,55,57,
+W_115,115,W,Blue/Yellow/Green,Control,15.566,10.535,47,48,
+W_151,151,W,Blue/Yellow/Green,Control,10.792,13.117,50,51,
+W_155,155,W,Blue/Yellow/Green,Algae-Dom,9.208,11.479,51,51,
+W_157,157,W,Blue/Yellow/Green,NA,6.03,NA,NA,NA,Initial respo frag; no final BW
+W_36,36,W,Blue/Yellow/Green,Rubble-Dom,13.936,16.266,60,62,
+X_202,202,X,Red/Purple/Red,Control,11.085,11.75,45,45,
+X_203,203,X,Red/Purple/Red,Algae-Dom,9.674,9.846,51,51,
+X_205,205,X,Red/Purple/Red,NA,10.162,NA,NA,NA,Initial respo frag; no final BW
+X_207,207,X,Red/Purple/Red,Rubble-Dom,14.816,14.896,59,60,
+X_208,208,X,Red/Purple/Red,Coral-Dom,15.288,15.44,61,62,

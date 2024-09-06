@@ -6,19 +6,16 @@ library(lubridate)
 library(ggridges)
 library(lme4)
 library(lmerTest)
-library(dplyr)
-library(ggplot2)
 library(moments)
 library(emmeans)
 library(agricolae)
-library(tidyr)
 library(car)
 
 
 # bring in all growth files 
-diaz_std_curve<-read_csv(here("Data_Raw","Growth", "SA", "Laurel_Standard_Curve.csv"))
-surface_area<-read_csv(here("Data_Raw","Growth", "SA", "MO24BEAST_SA.csv"))
-bw_le<-read_csv(here("Data_Raw","Growth", "PRUS_BW_LE.csv"))
+diaz_std_curve<-read_csv(here("Data", "Data_Raw","Growth", "SA", "Laurel_Standard_Curve.csv"))
+surface_area<-read_csv(here("Data", "Data_Raw","Growth", "SA", "MO24BEAST_SA.csv"))
+bw_le<-read_csv(here("Data", "Data_Raw","Growth", "PRUS_BW_LE.csv"))
 
 # clean up growth data and join into one dataframe
 bw_le_clean <- bw_le %>%
