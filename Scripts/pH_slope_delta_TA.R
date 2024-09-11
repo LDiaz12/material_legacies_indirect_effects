@@ -6,14 +6,14 @@ library(lubridate)
 library(ggridges)
 
 ## bring in pH calibration files and raw data files
-pHcalib<-read_csv(here("Data","TrisCalSummer2024.csv"))
-pHData<-read_csv(here("Data", "CarbonateChemistry.csv"))
+pHcalib<-read_csv(here("Data","Chemistry", "TrisCalSummer2024.csv"))
+pHData<-read_csv(here("Data", "Chemistry", "CarbonateChemistry.csv"))
 TableID<-read_csv(here("Data", "TableID.csv"))
 
 ## update daily!
 pHSlope<-pHcalib %>%
   nest_by(TrisCalDate)%>%
-  mutate(fitpH = list(lm(mVTris~TTris, data = data))) %>% # linear regression of mV and temp of the tris
+  mutate(fitpH = list(lm(mVTris~TTris, data = pHcalib))) %>% # linear regression of mV and temp of the tris
   summarise(broom::tidy(fitpH)) %>% # make the output tidy
   select(TrisCalDate, term, estimate) %>%
   pivot_wider(names_from = term, values_from = estimate) %>%# put slope and intercept in their own column
@@ -37,7 +37,7 @@ pHSlope <-pHSlope%>%
 InflowData <- pHSlope %>%
   filter(TankID %in% c("Inflow1","Inflow2")) %>%
   select(-c(Flow_Left_30s, Flow_Right_30s, Notes, DO_mg_L, Salinity, TempInSitu))  %>% ### remove the values that I don't need -- You will eventually need to keep TA which is why I dropped these instead of coding for the ones that I need
-  rename(pH_inflow = pH,
+  rename(pH_inflow = pH_insitu,
          TA_inflow = TA) %>%# rename the pH to show that it is inflow pH
   mutate(InflowTable = ifelse(TankID == "Inflow1",1,2)) %>% # give them inflow numbers to pair easily with the TankID 
   ungroup()%>%
@@ -52,7 +52,7 @@ Data<-pHSlope %>%
   left_join(TableID) %>%
   left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
   mutate(DateTime = ymd_hms(paste(Date,Time)), # make a datetime
-         pHDiff = pH - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
+         pHDiff = pH_insitu - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
          totalflow = Flow_Right_30s+Flow_Left_30s,
          residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volumne of water in ml and divide by 60
          deltaTA = TA_inflow - TA, # calculate the difference between in and outflow
