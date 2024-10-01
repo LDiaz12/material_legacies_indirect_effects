@@ -1,4 +1,4 @@
-﻿CoralID,Genotype,CoralNum,weight1_g,weight2_g,weight_of_wax_g,SA_cm_2,date
+﻿CORALID,GENOTYPE,CORAL_NUM,weight1_g,weight2_g,weight_of_wax_g,SA_cm_2,date
 A_111,A,111,38.69,40.789,2.099,3.557762712,7/3/24
 A_40,A,40,36.211,38.47,2.259,3.828949153,7/3/24
 A_56,A,56,23.454,25.32,1.866,3.162847458,7/3/24
