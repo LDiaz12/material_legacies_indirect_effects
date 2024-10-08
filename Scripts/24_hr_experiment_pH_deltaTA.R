@@ -159,7 +159,7 @@ anova(pH_community)
 HSD.test(pH_community, "DateTime", console=TRUE)
 
 # variance in average pH is significantly determined by date and time # 
-# treatment and datetime:treatment interaction is not signficant in explaining the variance in average pH # 
+# treatment and datetime:treatment interaction is not significant in explaining the variance in average pH # 
 
 ## TA ##
 
