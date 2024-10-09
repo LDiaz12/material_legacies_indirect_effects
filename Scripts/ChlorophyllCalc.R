@@ -8,6 +8,13 @@ library(tidyverse)
 library(lubridate)
 library(here)
 library(janitor)
+library(lme4)
+library(lmerTest)
+library(ggridges)
+library(moments)
+library(emmeans)
+library(agricolae)
+library(car)
 
 ### read in plate data ###
 PlateData1<-read_csv(here("Data","Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_Chl_Run1_Plate1.csv"), skip = 39) #skips first 39 lines
@@ -91,7 +98,26 @@ chl_a_plot <- chl_full %>%
 chl_a_plot # a couple outliers here
 ggsave(plot = chl_a_plot, filename = here("Output", "chl_a_plot.png"), width = 9, height = 6)
 
-# chl c plot for plate 1 #
+# ANOVA for Chl a content and treatment type #
+chla_gen_trtmt_model <- lmer(Chla_norm~TREATMENT + (1|GENOTYPE) + (1|GENOTYPE:TREATMENT), data=chl_full)
+plot(chla_gen_trtmt_model)
+# Bonferroni test to identify outliers with undue influence
+# p < 0.05 and is a potential outlier
+# Also check with Cook's D
+influencePlot(chla_gen_trtmt_model)
+# 4 points are greater than 0.1 and are potential outliers
+outlierTest(chla_gen_trtmt_model)
+qqp(residuals(chla_trtmt_model), "norm")
+summary(chla_gen_trtmt_model)
+anova(chla_gen_trtmt_model)
+# without genotype as random effect
+chla_trtmt_model <- lm(Chla_norm ~ TREATMENT, data=chl_full)
+plot(chla_trtmt_model)
+qqp(residuals(chla_trtmt_model), "norm")
+summary(chla_trtmt_model)
+anova(chla_trtmt_model)
+
+# chl c plot  #
 chl_c_plot <- chl_full %>%
   ggplot(aes(x = TREATMENT, y = chlc2.ug.cm2, color = TREATMENT)) +
   labs(x = "Treatment", y = "chlorophyll c2 (µg/cm2)") +
@@ -101,3 +127,14 @@ chl_c_plot <- chl_full %>%
   stat_summary(fun.y = mean, geom = "point", color = "black")   
 chl_c_plot # what's up with this outlier? 
 ggsave(plot = chl_c_plot, filename = here("Output", "chl_c_plot.png"), width = 9, height = 6)
+
+# ANOVA for Chl c content and treatment type #
+chlc_gen_trtmt_model <- lmer(Chlc_norm~TREATMENT + (1|GENOTYPE) + (1|GENOTYPE:TREATMENT), data=chl_full)
+qqp(residuals(chlc_gen_trtmt_model), "norm")
+summary(chlc_gen_trtmt_model)
+anova(chlc_gen_trtmt_model)
+# without genotype as random effect
+chlc_trtmt_model <- lm(Chlc_norm ~ TREATMENT, data=chl_full)
+qqp(residuals(chlc_trtmt_model), "norm")
+summary(chlc_trtmt_model)
+anova(chlc_trtmt_model)
