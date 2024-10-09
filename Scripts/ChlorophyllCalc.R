@@ -65,14 +65,14 @@ Data_norm <- full_data %>%
           Chlc_norm = Chlc - Chlc[CORAL_NUM == "BLANK"],
           Chl_total = Chla_norm + Chlc_norm)
 Data_norm2 <- cbind(full_data, Data_norm)
-Data_norm2 <- Data_norm2[-c(10)]
+Data_norm2 <- Data_norm2[-c(11)]
 
 ## Then normalize to SA ##
 sa <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA.csv"))
 sa$CORAL_NUM <- as.character(sa$CORAL_NUM) # for some reason CORAL_NUM was reading in as double so change to character
 chl_full <- full_join(Data_norm2, sa) #full join normalized chl data and surface area data
 chl_full <- chl_full %>%                
-  mutate(chla.ug.cm2 = Chla * 1 / SA_cm_2, #need to fix homogenate volume
+  mutate(chla.ug.cm2 = Chla * 1 / SA_cm_2, 
          chlc2.ug.cm2 = Chlc * 1 / SA_cm_2) %>% #add in two new columns - chl a normalized to SA and chl b normalized to SA
   drop_na() # drop nas for now but not sure why I'm missing some from the chl?
 
@@ -99,14 +99,13 @@ chl_a_plot # a couple outliers here
 ggsave(plot = chl_a_plot, filename = here("Output", "chl_a_plot.png"), width = 9, height = 6)
 
 # ANOVA for Chl a content and treatment type #
-chla_gen_trtmt_model <- lmer(Chla_norm~TREATMENT + (1|GENOTYPE) + (1|GENOTYPE:TREATMENT), data=chl_full)
+chla_gen_trtmt_model <- lmer(Chla_norm~TREATMENT + (1|GENOTYPE) +(1|TANKID) + (1|GENOTYPE:TREATMENT) + (1|TANKID:TREATMENT), data=chl_full)
 plot(chla_gen_trtmt_model)
 # Bonferroni test to identify outliers with undue influence
-# p < 0.05 and is a potential outlier
 # Also check with Cook's D
 influencePlot(chla_gen_trtmt_model)
 # 4 points are greater than 0.1 and are potential outliers
-outlierTest(chla_gen_trtmt_model)
+outlierTest(chla_gen_trtmt_model) #Bonferroni p > 0.05
 qqp(residuals(chla_trtmt_model), "norm")
 summary(chla_gen_trtmt_model)
 anova(chla_gen_trtmt_model)
@@ -129,7 +128,10 @@ chl_c_plot # what's up with this outlier?
 ggsave(plot = chl_c_plot, filename = here("Output", "chl_c_plot.png"), width = 9, height = 6)
 
 # ANOVA for Chl c content and treatment type #
-chlc_gen_trtmt_model <- lmer(Chlc_norm~TREATMENT + (1|GENOTYPE) + (1|GENOTYPE:TREATMENT), data=chl_full)
+chlc_gen_trtmt_model <- lmer(Chlc_norm~TREATMENT + (1|GENOTYPE) + (1|TANKID) + (1|GENOTYPE:TREATMENT) + (1|TANKID:TREATMENT), data=chl_full)
+plot(chlc_gen_trtmt_model) #yikes
+influencePlot(chlc_gen_trtmt_model) # 4 potential outliers with undue influence
+outlierTest(chlc_gen_trtmt_model) #Bonferroni p < 0.05
 qqp(residuals(chlc_gen_trtmt_model), "norm")
 summary(chlc_gen_trtmt_model)
 anova(chlc_gen_trtmt_model)
