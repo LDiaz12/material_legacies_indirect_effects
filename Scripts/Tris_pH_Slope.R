@@ -10,13 +10,10 @@ library(here)
 here()
 ## bring in pH calibration files and raw data files
 pHcalib<-read_csv(here("Data","Chemistry", "TrisCalSummer2024.csv"))
-
-#pHcalib<-read_csv('~/Desktop/Repositories/material_legacies_indirect_effects/Data/TrisCal05_28.csv')
 pHData<-read_csv(here("Data", "Chemistry", "CarbonateChemistry.csv"))
-#pHData<-read_csv('~/Desktop/Repositories/material_legacies_indirect_effects/Data/Community_Test_Measurements.csv')
+
 
 ## take the mV calibration files by each date and use them to calculate pH
-
 pHSlope<-pHcalib %>%
   nest_by(TrisCalDate)%>%
   mutate(fitpH = list(lm(mVTris~TTris, data = pHcalib))) %>% # linear regression of mV and temp of the tris

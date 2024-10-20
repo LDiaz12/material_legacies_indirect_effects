@@ -14,7 +14,7 @@ TableID<-read_csv(here("Data", "TableID.csv"))
 pHSlope<-pHcalib %>%
   nest_by(TrisCalDate)%>%
   mutate(fitpH = list(lm(mVTris~TTris, data = pHcalib))) %>% # linear regression of mV and temp of the tris
-  summarise(broom::tidy(fitpH)) %>% # make the output tidy
+  reframe(broom::tidy(fitpH)) %>% 
   select(TrisCalDate, term, estimate) %>%
   pivot_wider(names_from = term, values_from = estimate) %>%# put slope and intercept in their own column
   right_join(.,pHData) %>% # join with the pH sample data
@@ -23,15 +23,18 @@ pHSlope<-pHcalib %>%
   drop_na(mV) %>%
   mutate(pH = pH(Ex=mV,Etris=mVTris,S=Salinity,T=TempInLab))  # calculate pH of the samples using the pH seacarb function
 
+invalid_rows <- pHSlope %>%
+  filter(Salinity < 10 | Salinity > 50 | TempInLab < 2 | TempInLab > 35)
+invalid_rows #no values that are outside the ranges for salinty and temp so what's going on with the warnings below?
 
 #Now calculate pH
 pHSlope <-pHSlope%>%
-  mutate(pH_insitu = pHinsi(pH = pH, ALK = 2200, Tinsi = TempInSitu, Tlab = TempInLab, 
+  mutate(pH_insitu = pHinsi(pH = pH, ALK = 2200, Tinsi = TempInSitu, Tlab = TempInLab, # I keep getting tons of warnings here and it won't calculate pHinsitu now
                             S = Salinity,Pt = 0.1, k1k2 = "m10", kf = "dg")) %>%
   select(!pH)%>%
-  rename(pH = pH_insitu) %>% # rename it 
-  ungroup() %>%
-  select(-c(TempInLab, mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
+  rename(pH = pH_insitu) %>% 
+  #ungroup() %>%
+  select(-c(mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
 
 # remove the inflow data and join it with the tanks that had that specific inflow water
 InflowData <- pHSlope %>%
@@ -43,11 +46,11 @@ InflowData <- pHSlope %>%
   ungroup()%>%
   select(Date,Time,InflowTable, pH_inflow, TA_inflow) # drop the Tank ID column to be able to join the data correctly by inflow #
 
-SurfaceArea <- 22.5*22.5 # put in the surface area in cm2 for the bottom of the tank here
+SurfaceArea <- 22.5*22.5
 
 Data<-pHSlope %>%
   ungroup()%>%
-  filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data now
+  filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data
   mutate(TankID = as.numeric(TankID))%>% # convert to numeric since the inflow data is now dropped
   left_join(TableID) %>%
   left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
