@@ -1,0 +1,312 @@
+---
+title: "Lab Meeting 10/16"
+author: "Laurel Diaz"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    theme: journal
+    toc: yes
+    toc_float:
+      collapsed: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(repos = c(CRAN = "https://cloud.r-project.org/"))
+install.packages('rmdformats')
+```
+
+# Laurel's Thesis Updates 10/16
+
+#### Material legacies as a result of disturbance events may indirectly alter the physiology of the tropical reef coral, *Porites rus*
+
+## Questions
+
+1.  How do simulated shifting community compositions as a result of disturbances change biogeochemistry?
+
+2.  How does altered biogeochemistry indirectly impact physiological rates of photosynthesis, respiration, and calcification of *Porites rus*?
+
+## Hypotheses
+
+1.  Different dominant benthic communities will alter pH, total alkalinity, dissolved oxygen (DO), and dissolved organic carbon (DOC), with the most significant changes at a peak daytime and peak nighttime.
+
+![Table 1 - Effect of Dominant Benthic Community on Biogeochemistry](/Users/laureldiaz/Desktop/Masters_Thesis/Thesis_Proposal/Proposal_Presentation/H1.png)
+
+2.  Changes in biogeochemistry will impact coral physiology by altering growth and metabolic rates of gross photosynthesis, respiration, and calcification in *Porites rus*.
+
+![Table 2 - Effect of Changes in Biogeochemistry on Coral Physiology](/Users/laureldiaz/Desktop/Masters_Thesis/Thesis_Proposal/Proposal_Presentation/H2.png)
+
+## Experimental Design
+
+-   4 treatments (n = 4 replicates)
+    -   "Pre" Disturbances: Coral-Dominated
+    -   "Post-COTS Outbreak": Rubble-Dominated
+    -   "Post-Bleaching Event": Algae-Dominated
+    -   Seawater-Only Control
+-   2 response tanks per treatment tank (n = 32 total)
+    -   3 nubbins of *Porites rus* per response tank
+-   25-day experimental period
+-   Twice daily: pH, salinity, temperature, DO
+-   Every 5 days (bottle samples): total alkalinity, DOC
+
+## 24-hour Experiment: Determining Peak Day/Night Periods
+
+From June 2nd - June 3rd, we gathered data every: 3 hours for pH (calculated using mV), temperature, salinity, and DO. Every 6 hours, we measured the aforementioned variables in addition to: flow rate (to calculate residence time, delta TA, and NEC), TA, and took samples for DOC.
+
+### Load Libraries
+
+```{r 24-hr libraries, message=FALSE}
+library(tidyverse)
+library(seacarb)
+library(broom)
+library(here)
+library(lubridate)
+library(ggridges)
+library(ggplot2)
+library(moments)
+library(emmeans)
+library(agricolae)
+library(tidyr)
+library(lmerTest)
+```
+
+### Load 24-hr Data
+
+```{r 24-hr data, warning=FALSE, message=FALSE}
+here()
+pHcalib<-read_csv(here("Data","Chemistry", "TrisCalSummer2024.csv"))
+pHData<-read_csv(here("Data", "Chemistry", "24_hr_carb_chem.csv"))
+TableID<-read_csv(here("Data", "TableID.csv"))
+```
+
+```{r calculate pH slope, echo=FALSE, message=FALSE, warning=FALSE}
+pHSlope<-pHcalib %>%
+  nest_by(TrisCalDate)%>%
+  mutate(fitpH = list(lm(mVTris~TTris, data = data))) %>% # linear regression of mV and temp of the tris
+  summarise(broom::tidy(fitpH)) %>% # make the output tidy
+  select(TrisCalDate, term, estimate) %>%
+  pivot_wider(names_from = term, values_from = estimate) %>%# put slope and intercept in their own column
+  right_join(.,pHData) %>% # join with the pH sample data
+  mutate(mVTris = TempInLab*TTris + `(Intercept)`) %>% # calculate the mV of the tris at temperature in which the pH of samples were measured
+  drop_na(TempInSitu)%>%
+  drop_na(mV) %>%
+  mutate(pH = pH(Ex=mV,Etris=mVTris,S=Salinity,T=TempInLab)) 
+
+pHSlope <-pHSlope%>%
+  mutate(pH_insitu = pHinsi(pH = pH, ALK = 2200, Tinsi = TempInSitu, Tlab = TempInLab, 
+                            S = Salinity,Pt = 0.1, k1k2 = "m10", kf = "dg")) %>%
+  select(!pH)%>%
+  rename(pH = pH_insitu) %>% # rename it 
+  ungroup() %>%
+  select(-c(TempInLab, mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
+
+InflowData <- pHSlope %>%
+  filter(TankID %in% c("Inflow1","Inflow2")) %>%
+  select(-c(Flow_Left_30s, Flow_Right_30s, Notes, DO_mg_L, Salinity, TempInSitu))  %>% ### remove the values that I don't need -- You will eventually need to keep TA which is why I dropped these instead of coding for the ones that I need
+  rename(pH_inflow = pH,
+         TA_inflow = TA) %>%# rename the pH to show that it is inflow pH
+  mutate(InflowTable = ifelse(TankID == "Inflow1",1,2)) %>% # give them inflow numbers to pair easily with the TankID 
+  ungroup()%>%
+  select(Date,Time,InflowTable, pH_inflow, TA_inflow) 
+
+SurfaceArea <- 22.5*22.5
+Data<-pHSlope %>%
+  ungroup()%>%
+  filter(!TankID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data now
+  mutate(TankID = as.numeric(TankID))%>% # convert to numeric since the inflow data is now dropped
+  left_join(TableID) %>%
+  left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
+  mutate(DateTime = ymd_hms(paste(Date,Time)), # make a datetime
+         pHDiff = pH - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
+         totalflow = Flow_Right_30s+Flow_Left_30s,
+         residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volumne of water in ml and divide by 60
+         deltaTA = TA_inflow - TA, # calculate the difference between in and outflow
+         NEC = (deltaTA/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
+  )
+```
+
+#### pH
+![Figure 1 - 24-hr Avg pH plot](/Users/laureldiaz/Desktop/Repositories/material_legacies_indirect_effects/Output/24hr_pH_plot.png)
+```{r pH stats}
+pH_community <- lm(pH ~ DateTime*Treatment, data=Data)
+#plot(pH_community)
+anova(pH_community)
+HSD.test(pH_community, "DateTime", console=TRUE)
+```
+
+#### NEC 
+
+![Figure 2 - 24-hr NEC plot](/Users/laureldiaz/Desktop/Repositories/material_legacies_indirect_effects/Output/24hr_NEC_plot.png)
+
+```{r NEC stats}
+NEC_community <- lm(NEC ~ DateTime*Treatment, data=Data)
+#plot(NEC_community)
+anova(NEC_community)
+HSD.test(NEC_community, "Treatment", console=TRUE)
+```
+
+## Chlorophyll Content
+
+Chl density (chl a + chl c2 per unit SA) can tell us how "well" the corals are doing in each of the treatments, and can act as a proxy for symbiont and holobiont health. Joyce and Phinn 2003 showed that macroalgae had much greater mean chlorophyll a content compared to *Montipora* spp, *Porites* spp, and sediment + microalgae by more than double. 
+
+### Load Chl Plates
+```{r Chl data, warning=FALSE, message=FALSE}
+PlateData1<-read_csv(here("Data","Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_Chl_Run1_Plate1.csv"), skip = 39) #skips first 39 lines
+PlateData2<-read_csv(here("Data","Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_Chl_Run1_Plate2.csv"), skip = 39)
+PlateData2 <- PlateData2[-(24:96),] #this removes empty wells (e.g. not blanks or samples)
+```
+
+```{r Chl data combine plates, warning=FALSE, message=FALSE, echo=FALSE}
+plates_comb <- rbind(PlateData1, PlateData2)
+plates_comb <- plates_comb[-c(1)]
+```
+
+### Load Chl Metadata
+```{r Metadata, warning = FALSE, message = FALSE}
+MetaData1<-read_csv(here("Data","Data_Raw","Chl_Content", "Chl_Files", "Metadata1.csv")) 
+MetaData2<-read_csv(here("Data","Data_Raw","Chl_Content", "Chl_Files", "Metadata2.csv"))
+MetaData2 <- MetaData2 %>% 
+  filter(!CORAL_NUM == "EMPTY") # filters out empty wells
+```
+
+```{r combine metadata, warning = FALSE, message = FALSE, echo = FALSE}
+metadata_comb <- rbind(MetaData1, MetaData2)
+```
+### Combine Plates and Metadata - Calculate Chlorophyll
+
+Chl a
+-   11.43 is the extinction coefficient of chla at wavelength 663
+-   0.64 is the extinction coefficient of chla at wavelength 630
+
+Chl c2
+-   27.09 is the extinction coefficient of chl c2 at wavelength 630
+-   3.63 is the extinction coefficient of chl c2 at wavelength 663
+
+When calculating chlorophyll, we subtract from wavelength of 750 because this is a correction for the turbidity of the sample.
+
+``` {r create full data sheet and mutate chl calculation columns, warning = FALSE, message = FALSE}
+full_data <- cbind(metadata_comb,plates_comb)
+full_data <- full_data %>% 
+  # Calculate chl from Jeffrey and Humphrey (1975)
+  # units in µg/ml
+  mutate(Chla = (11.43*(`663`-`750`) - 0.64*(`630` - `750`))*1/0.6,
+         Chlc = (27.09*(`630` - `750`) - 3.63*(`663` - `750`)*1/0.6))
+```
+
+### Normalize Data to Blank
+```{r normalize to blanks, warning = FALSE, message = FALSE}
+Data_norm <- full_data %>% 
+  group_by(CORAL_NUM)%>%
+  ungroup()%>% # ungroup data so I can just look at coral num and chlorophylls
+  reframe(CORAL_NUM = CORAL_NUM,
+          Chla_norm = Chla - Chla[CORAL_NUM == "BLANK"], # subtract chla value from blank normalize
+          Chlc_norm = Chlc - Chlc[CORAL_NUM == "BLANK"],
+          Chl_total = Chla_norm + Chlc_norm)
+Data_norm2 <- cbind(full_data, Data_norm)
+Data_norm2 <- Data_norm2[-c(11)]
+```
+
+### Normalize Chlorophyll Content to Surface Area of Corals
+```{r normalize to SA, warning = FALSE, message = FALSE}
+sa <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA.csv"))
+sa$CORAL_NUM <- as.character(sa$CORAL_NUM) # for some reason CORAL_NUM was reading in as double so change to character
+chl_full <- full_join(Data_norm2, sa) #full join normalized chl data and surface area data
+chl_full <- chl_full %>%                
+  mutate(chla.ug.cm2 = Chla * 1 / SA_cm_2, 
+         chlc2.ug.cm2 = Chlc * 1 / SA_cm_2) %>% #add in two new columns - chl a normalized to SA and chl b normalized to SA
+  drop_na() 
+```
+
+### Plot for Chl a 
+```{r chl a plots and stats, warning = FALSE, message = FALSE}
+chl_a_plot <- chl_full %>%
+  ggplot(aes(x = TREATMENT, y = chla.ug.cm2, color = TREATMENT)) +
+  labs(x = "Treatment", y = "chlorophyll a (µg/cm2)") +
+  geom_jitter(width = 0.1) +                                            # Plot all points
+  stat_summary(fun.data = mean_cl_normal, fun.args = list(mult = 1),    # Plot standard error
+               geom = "errorbar", color = "black", width = 0.5) +
+  stat_summary(fun.y = mean, geom = "point", color = "black")   
+chl_a_plot
+```
+### Stats for Chl a
+```{r chl a stats, warning = FALSE, message = FALSE}
+chla_gen_trtmt_model <- lmer(Chla_norm~TREATMENT + (1|GENOTYPE) +(1|TANKID) + (1|GENOTYPE:TREATMENT) + (1|TANKID:TREATMENT), data=chl_full)
+#plot(chla_gen_trtmt_model)
+#qqp(residuals(chla_trtmt_model), "norm")
+anova(chla_gen_trtmt_model)
+```
+```{r chl a stats wo randoms, warning = FALSE, message = FALSE}
+chla_trtmt_model <- lm(Chla_norm ~ TREATMENT, data=chl_full)
+#plot(chla_trtmt_model)
+#qqp(residuals(chla_trtmt_model), "norm")
+anova(chla_trtmt_model)
+```
+```{r chl a stats model compare, warning = FALSE, message = FALSE}
+anova(chla_gen_trtmt_model, chla_trtmt_model)
+```
+
+### Plot for Chl c
+```{r chl c plot}
+chl_c_plot <- chl_full %>%
+  ggplot(aes(x = TREATMENT, y = chlc2.ug.cm2, color = TREATMENT)) +
+  labs(x = "Treatment", y = "chlorophyll c2 (µg/cm2)") +
+  geom_jitter(width = 0.1) +                                            
+  stat_summary(fun.data = mean_cl_normal, fun.args = list(mult = 1),    
+               geom = "errorbar", color = "black", width = 0.5) +
+  stat_summary(fun.y = mean, geom = "point", color = "black")   
+chl_c_plot
+```
+### Chl C Stats
+```{r chl c stats, warning = FALSE, message = FALSE}
+chlc_gen_trtmt_model <- lmer(Chlc_norm~TREATMENT + (1|GENOTYPE) + (1|TANKID) + (1|GENOTYPE:TREATMENT) + (1|TANKID:TREATMENT), data=chl_full)
+#plot(chlc_gen_trtmt_model) #yikes
+#qqp(residuals(chlc_gen_trtmt_model), "norm")
+anova(chlc_gen_trtmt_model)
+``` 
+```{r chl c stats w/o random effects, warning = FALSE, message = FALSE}
+chlc_trtmt_model <- lm(Chlc_norm ~ TREATMENT, data=chl_full)
+#qqp(residuals(chlc_trtmt_model), "norm")
+anova(chlc_trtmt_model)
+```
+The outliers seen in both Chl a and Chl c2 are most likely caused by an incorrect reading from the spec - these will be rerun here at CSUN, stay tuned! :) 
+
+### Changes in Chl a and c
+
+I wanted to see the change in Chl a and c content from the initial value ("Pre" experiment) and the final values (after exposure to each Treatment). Here, I'm taking the initial chlorophyll value and subtracting it from the final chlorophyll values for each Genotype in each Treatment.
+```{r percent change chl a and c, warning = FALSE, message = FALSE}
+chl_initial <- Data_norm2 %>%
+  filter(TREATMENT == "Pre") %>% 
+  select(TREATMENT, CORAL_NUM, GENOTYPE, Chla_norm, Chlc_norm)
+
+full_data2 <- Data_norm2 %>%
+  left_join(chl_initial, by = "GENOTYPE") %>%
+  rename(Chla_norm_initial = Chla_norm.y,
+         Chlc_norm_initial = Chlc_norm.y,
+         CORAL_NUM = CORAL_NUM.x,
+         TREATMENT = TREATMENT.x, 
+         Chla_norm = Chla_norm.x,
+         Chlc_norm = Chlc_norm.x, 
+         )
+full_data2 <- full_data2[-c(14:15)]
+
+full_data2 <- full_data2 %>%
+  mutate(Chla_diff = (Chla_norm - Chla_norm_initial),
+         Chlc_diff = (Chlc_norm - Chlc_norm_initial)) %>%
+  filter(!TREATMENT == "NA")
+
+chla_change_plot <- full_data2 %>%
+  ggplot(aes(x = TREATMENT, y = Chla_diff, color = TREATMENT)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 0) +
+  labs(x = "Treatment", y = "Change in Chl a Content") +
+  geom_jitter(width = 0.1)
+chla_change_plot
+
+chlc_change_plot <- full_data2 %>%
+  ggplot(aes(x = TREATMENT, y = Chlc_diff, color = TREATMENT)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 0) +
+  labs(x = "Treatment", y = "Change in Chl c2 Content") +
+  geom_jitter(width = 0.1)
+chlc_change_plot
+```
