@@ -225,24 +225,27 @@ chlc_change_plot
 ggsave(plot = chlc_change_plot, filename = here("Output", "chlc_change_plot.png"), width = 9, height = 6)
 
 ### Combine chlorophyll data and tissue biomass data ###
-full_data2$CORAL_NUM <- as.numeric(full_data2$CORAL_NUM)
+chl_full$CORAL_NUM <- as.numeric(chl_full$CORAL_NUM)
 
-chl_biomass_data <- full_data2 %>%
+chl_biomass_data <- chl_full %>%
   right_join(afdw_nopre, by = "CORAL_NUM", relationship = "many-to-many") %>%
   rename(GENOTYPE = GENOTYPE.x,
          TREAMENT = TREATMENT.x)
-chl_biomass_data <- chl_biomass_data[-c(18:19)]
+chl_biomass_data <- chl_biomass_data[-c(23:24)]
+chl_biomass_data <- chl_biomass_data[-c(21),]
 
 ### regression of chl a and mean tissue biomass ###
 chl_biomass_model <- lm(Chla_norm ~ mean_tissue_biomass, data = chl_biomass_data) ## does the amount of chla depend on coral tissue biomass?
 plot(chl_biomass_model)
 summary(chl_biomass_model)
 
-chl_biomass_model2 <- lm(mean_tissue_biomass ~ Chla_norm, data = chl_biomass_data) 
-plot(chl_biomass_model2)
-summary(chl_biomass_model2)
-
-# both models found to be non significant  
+chl_biomass_reg <- chl_biomass_data %>%
+  ggplot(aes(x=mean_tissue_biomass, y=Chla_norm)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y~x) + 
+  labs(y = "Chla Content (µg/cm2)", x= expression(bold("Mean Coral Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2)))) +
+  theme_minimal()
+chl_biomass_reg
 
 ### Combine chl data and carb chem data ### 
 chl_chem_data <- chl_full %>%
