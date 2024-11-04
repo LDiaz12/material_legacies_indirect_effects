@@ -448,6 +448,39 @@ qqp(residuals(mean_pH_model), "norm")
 summary(mean_pH_model)
 anova(mean_pH_model)
 
+### Combine biomass data and carb chem data ### 
+chem_biomass_data <- afdw_nopre %>%
+  right_join(Data, by = "TANKID", "TREATMENT") %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, TANKID, mean_AFDW, mean_tissue_biomass, DATE, TIME, pH)
+
+chem_biomass_data_clean <- chem_biomass_data %>%
+  filter(TIME %in% c("12:00:00","21:00:00")) %>% 
+  group_by(TREATMENT, DATE, TIME, TANKID) 
+
+chem_biomass_plotdata <- chem_biomass_data_clean %>%
+  group_by(TANKID, TREATMENT, mean_tissue_biomass, CORAL_NUM, GENOTYPE) %>%
+  summarize(pH_mean = mean(pH, na.rm = TRUE),
+            pH_se = sd(pH, na.rm = TRUE)/sqrt(n()))
+chem_biomass_plotdata <- chem_biomass_plotdata[-c(54),]
+
+pH_biomass_model <- lm(mean_tissue_biomass ~ pH_mean, chem_biomass_plotdata)
+plot(pH_biomass_model)
+summary(pH_biomass_model)
+
+pH_biomass_reg <- chem_biomass_plotdata %>%
+  ggplot(aes(x=pH_mean, y=mean_tissue_biomass, color = TREATMENT)) +
+  geom_point() +
+  facet_wrap(~ TREATMENT) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  geom_smooth(method = "lm", formula = y~x) + 
+  labs(y = expression(bold("Mean Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))), x="Mean pH")
+pH_biomass_reg
+ggsave(plot = pH_biomass_reg, filename = here("Output", "pH_biomass_reg.png"), width = 9, height = 7)
+
 # light vs diff pH plot
 light_pH <- Data %>%
   ggplot(aes(x = Light_nm, y = pHDiff, color = Treatment))+

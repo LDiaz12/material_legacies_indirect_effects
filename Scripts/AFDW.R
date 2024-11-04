@@ -27,8 +27,8 @@ afdw_sa2 <- afdw_sa %>%
   mutate(tissue_biomass = AFDW / SA_cm_2) # normalize AFDW to surface area of the coral (g/ml/cm2 ) #
   
 afdw_sa2 <- afdw_sa2 %>%
-  group_by(CORAL_NUM, GENOTYPE, TREATMENT) %>%
-  select(CORAL_NUM, GENOTYPE, TREATMENT, AFDW, tissue_biomass) %>%
+  group_by(CORAL_NUM, GENOTYPE, TREATMENT, TANKID) %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, TANKID, AFDW, tissue_biomass) %>%
   summarise(mean_AFDW = mean(AFDW),
             mean_tissue_biomass = mean(tissue_biomass)) %>% # mean AFDW and tissue biomass PER coral 
   drop_na()

@@ -16,6 +16,7 @@ library(emmeans)
 library(agricolae)
 library(car)
 library(pals)
+library(ggplot2)
 
 ### read in plate data ###
 PlateData1<-read_csv(here("Data","Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_Chl_Run1_Plate1.csv"), skip = 39) #skips first 39 lines
@@ -230,9 +231,10 @@ chl_full$CORAL_NUM <- as.numeric(chl_full$CORAL_NUM)
 chl_biomass_data <- chl_full %>%
   right_join(afdw_nopre, by = "CORAL_NUM", relationship = "many-to-many") %>%
   rename(GENOTYPE = GENOTYPE.x,
-         TREAMENT = TREATMENT.x)
+         TREATMENT = TREATMENT.x)
 chl_biomass_data <- chl_biomass_data[-c(23:24)]
-chl_biomass_data <- chl_biomass_data[-c(21),]
+chl_biomass_data <- chl_biomass_data[-c(21),] %>%
+  drop_na()
 
 ### regression of chl a and mean tissue biomass ###
 chl_biomass_model <- lm(Chla_norm ~ mean_tissue_biomass, data = chl_biomass_data) ## does the amount of chla depend on coral tissue biomass?
@@ -240,12 +242,19 @@ plot(chl_biomass_model)
 summary(chl_biomass_model)
 
 chl_biomass_reg <- chl_biomass_data %>%
-  ggplot(aes(x=mean_tissue_biomass, y=Chla_norm)) +
+  ggplot(aes(x=mean_tissue_biomass, y=Chla_norm, color = TREATMENT)) +
   geom_point() +
+  facet_wrap(~ TREATMENT) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
   geom_smooth(method = "lm", formula = y~x) + 
-  labs(y = "Chla Content (µg/cm2)", x= expression(bold("Mean Coral Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2)))) +
-  theme_minimal()
+  labs(y = expression(bold("Chla Content" ~ (µg ~ cm^-2))), x= expression(bold("Mean Coral Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))))
 chl_biomass_reg
+ggsave(plot = chl_biomass_reg, filename = here("Output", "chl_biomass_reg.png"), width = 9, height = 7)
+
 
 ### Combine chl data and carb chem data ### 
 chl_chem_data <- chl_full %>%
@@ -266,13 +275,19 @@ plot(chl_pH_model)
 summary(chl_pH_model)
 
 chl_pH_reg <- chl_chem_plotdata %>%
-  ggplot(aes(x=pH_mean, y=Chla_norm)) +
+  ggplot(aes(x=pH_mean, y=Chla_norm, color = TREATMENT)) +
   geom_point() +
+  facet_wrap(~ TREATMENT) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
   geom_smooth(method = "lm", formula = y~x) + 
-  labs(y = "Chla Content (µg/cm2)", x="Mean pH") +
-  theme_minimal()
+  labs(y = expression(bold("Chla Content" ~ (µg ~ cm^-2))), x="Mean pH")
 chl_pH_reg
-  
+ggsave(plot = chl_pH_reg, filename = here("Output", "chl_pH_reg.png"), width = 9, height = 7)
+
 ###########################
 ## Change chl c stats ## 
 delta_chlc_model_r <- lmer(Chlc_diff~TREATMENT + (1|GENOTYPE) + (1|TANKID), data=full_data2)
