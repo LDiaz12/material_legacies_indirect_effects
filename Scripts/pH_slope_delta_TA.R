@@ -184,6 +184,7 @@ TA_plotdata <- TA_data2 %>%
 TA_plotdata
 
 ## plot daily TA range ## 
+TA_plotdata$TREATMENT <- factor(TA_plotdata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 TA_range_plot <- TA_plotdata %>%
   ggplot(aes(x = TREATMENT, y = TA_rangemean, color = TREATMENT)) +
   labs(x = "Treatment", y = expression(bold("Daily Mean Total Alkalinity Range" ~ (µmol ~ kg^-1)))) +
@@ -199,7 +200,9 @@ TA_range_plot <- TA_plotdata %>%
   geom_point() +
   geom_errorbar(aes(ymin = TA_rangemean - TA_rangese,
                     ymax = TA_rangemean + TA_rangese), color = "black", width = 0.1) + 
-  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black")
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
 TA_range_plot
 ggsave(plot = TA_range_plot, filename = here("Output", "TA_range_plot.png"), width = 9, height = 7)
 
@@ -233,7 +236,7 @@ TA_mean_plot <- TA_plotdata %>%
 TA_mean_plot
 ggsave(plot = TA_mean_plot, filename = here("Output", "TA_mean_plot.png"), width = 9, height = 6)
 
-## NEC daily mean stats ##
+## TA daily mean stats ##
 TA_mean_model <- lmer(TA_dailymean ~ TREATMENT + (1|TANKID), data=TA_data2)
 plot(TA_mean_model)
 qqp(residuals(TA_mean_model), "norm") ## dropped 42, 56 as major outliers and rerun stats
@@ -392,6 +395,8 @@ pH_plotdata<- pH_clean %>%
             pH_se = sd(pH_dailymean, na.rm = TRUE)/sqrt(n()))
 
 ## plot pH range from 12:00 and 21:00 sampling throughout experiment ## 
+pH_plotdata$TREATMENT <- factor(pH_plotdata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
 pH_range_plot <- pH_plotdata %>%
   ggplot(aes(x = TREATMENT, y = pH_rangemean, color = TREATMENT)) +
   labs(x = "Treatment", y = "Daily Mean pH Range") +
@@ -407,7 +412,9 @@ pH_range_plot <- pH_plotdata %>%
   geom_point() +
   geom_errorbar(aes(ymin = pH_rangemean - pH_rangese,
                     ymax = pH_rangemean + pH_rangese), color = "black", width = 0.1) + 
-  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black")
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
 pH_range_plot
 ggsave(plot = pH_range_plot, filename = here("Output", "pH_range_plot.png"), width = 9, height = 6)
 
@@ -467,19 +474,50 @@ pH_biomass_model <- lm(mean_tissue_biomass ~ pH_mean, chem_biomass_plotdata)
 plot(pH_biomass_model)
 summary(pH_biomass_model)
 
-pH_biomass_reg <- chem_biomass_plotdata %>%
-  ggplot(aes(x=pH_mean, y=mean_tissue_biomass, color = TREATMENT)) +
-  geom_point() +
-  facet_wrap(~ TREATMENT) +
+biomass_meanpH_plot <- chem_biomass_plotdata %>%
+  ggplot(aes(x = pH_mean, y = mean_tissue_biomass)) + 
+  geom_point(aes(color = TREATMENT)) +
+  labs(y = expression(bold("Mean Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))), x= "Mean pH") +
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(y = expression(bold("Mean Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))), x="Mean pH")
-pH_biomass_reg
-ggsave(plot = pH_biomass_reg, filename = here("Output", "pH_biomass_reg.png"), width = 9, height = 7)
+  geom_smooth(method = "lm", formula = y~x)
+biomass_meanpH_plot
+ggsave(plot = biomass_meanpH_plot, filename = here("Output", "biomass_meanpH_plot.png"), width = 9, height = 7)
+
+biomass_meanpH_model <- lmer(mean_tissue_biomass~ pH_mean + (1|TANKID), data = chem_biomass_plotdata)
+anova(biomass_meanpH_model)
+summary(biomass_meanpH_model)
+
+TA_biomass_data$TREATMENT <- factor(TA_biomass_data$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
+
+TA_biomass_data <- afdw_nopre %>%
+  select(TANKID, TREATMENT, mean_tissue_biomass, GENOTYPE) %>%
+  full_join(TA_plotdata) 
+
+biomass_TA_plot <- TA_biomass_data %>%
+  ggplot(aes(x = TA_mean, y = mean_tissue_biomass)) + 
+  geom_point(aes(color = TREATMENT)) +
+  labs(y = expression(bold("Mean Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))), x= expression(bold("Daily Mean TA" ~ (µmol ~ kg^-1)))) +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  geom_smooth(method = "lm", formula = y~x) +
+  scale_color_manual(values = c("Algae_Dom" = "#E31A1C", "Control" = "green4", "Coral_Dom" = "dodgerblue2",
+                                "Rubble_Dom" = "#6A3D9A"))
+biomass_TA_plot
+ggsave(plot = biomass_TA_plot, filename = here("Output", "biomass_TA_plot.png"), width = 9, height = 7)
+
+TA_biomass_model <- lmer(mean_tissue_biomass ~ TA_mean + (1|TANKID), data = TA_biomass_data)
+anova(TA_biomass_model)
+summary(TA_biomass_model)
+
+
 
 # light vs diff pH plot
 light_pH <- Data %>%

@@ -112,19 +112,19 @@ chl_a_plot <- chl_full %>%
   labs(x = "Treatment", y = expression(bold("Chlorophyll a" ~ (µg ~ cm^-2)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
                             "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble-Dominated")) +
-  geom_jitter(width = 0.1) +
-  theme(axis.title = element_text(size = 18, face = "bold"),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray"),
-        panel.grid.minor = element_line(color = "gray")) +
+  geom_jitter(width = 0.1, alpha = 0.7) +
   theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 15)) +
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "none",
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
   theme(legend.position = "none") +
   stat_summary(fun.data = mean_cl_normal, fun.args = list(mult = 1), 
                geom = "errorbar", color = "black", width = 0.1) +
-  stat_summary(fun.y = mean, geom = "point", size = 3.5, color = "black") +
-  scale_color_manual(values = c("Algae_Dom" = "#E31A1C", "Control" = "green4", "Coral_Dom" = "dodgerblue2",
-                     "Rubble_Dom" = "#6A3D9A"))
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                     "Rubble_Dom" = "tan"))
 chl_a_plot
 ggsave(plot = chl_a_plot, filename = here("Output", "chl_a_plot.png"), width = 9, height = 6)
 
@@ -134,8 +134,8 @@ plot(chla_gen_trtmt_model)
 qqp(residuals(chla_gen_trtmt_model), "norm")
 summary(chla_gen_trtmt_model)
 anova(chla_gen_trtmt_model)
-
-# chl c plot  #
+##############
+# chl c plot  # not using Chl c for presentations
 chl_c_plot <- chl_full %>%
   ggplot(aes(x = TREATMENT, y = chlc2.ug.cm2, color = TREATMENT)) + 
   labs(x = "Treatment", y = "chlorophyll c (µg/cm2)", title = "Chlorophyll c Content by Treatment") +
@@ -153,6 +153,7 @@ chl_c_plot <- chl_full %>%
 chl_c_plot
 ggsave(plot = chl_c_plot, filename = here("Output", "chl_c_plot.png"), width = 9, height = 6)
 
+
 # ANOVA for Chl c content and treatment type #
 chlc_gen_trtmt_model <- lmer(Chlc_norm~TREATMENT + (1|GENOTYPE) + (1|TANKID), data=chl_full)
 plot(chlc_gen_trtmt_model) #yikes
@@ -164,6 +165,7 @@ outlierTest(chlc_gen_trtmt_model) #Bonferroni p is just barely > 0.05...
 qqp(residuals(chlc_gen_trtmt_model), "norm")
 summary(chlc_gen_trtmt_model)
 anova(chlc_gen_trtmt_model)
+#################
 
 # Calculate change in chl a and c content from initial starting corals 
 chl_initial <- Data_norm3 %>%
@@ -179,33 +181,57 @@ full_data2 <- Data_norm3 %>%
          Chla_norm = Chla_norm.x,
          Chlc_norm = Chlc_norm.x, 
   )
-full_data2 <- full_data2[-c(14:15)]
+full_data2 <- full_data2[-c(15:16)]
 
 full_data2 <- full_data2 %>%
-  mutate(Chla_diff = (Chla_norm - Chla_norm_initial),
-         Chlc_diff = (Chlc_norm - Chlc_norm_initial)) %>%
+  mutate(Chla_percent_change = ((Chla_norm - Chla_norm_initial)/Chla_norm_initial) * 100,
+         Chlc_percent_change = ((Chlc_norm - Chlc_norm_initial)/Chlc_norm_initial) * 100) %>%
   filter(!TREATMENT == "NA") %>%
   drop_na()
+full_data2 <- full_data2[-c(7,14,43,45,47,74),]
 
 ## Change chl a plot ##
+full_data2$TREATMENT <- factor(full_data2$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+# calculate means of the differences in chl a per treatment
+chla_summary <- full_data2 %>%
+  group_by(TREATMENT) %>%
+  summarise(
+    mean_Chla_percent_change = mean(Chla_percent_change, na.rm = TRUE),
+    se_Chla_percent_change = sd(Chla_percent_change, na.rm = TRUE) / sqrt(n())
+  )
+## plot change in chl a content from final minus initial corals per treatment with errors 
 chla_change_plot <- full_data2 %>%
-  ggplot(aes(x = TREATMENT, y = Chla_diff, color = TREATMENT)) +
+  ggplot(aes(x = TREATMENT, y = Chla_percent_change, color = TREATMENT)) +
   geom_hline(yintercept = 0) +
-  labs(x = "Treatment", y = "Change in Chl a Content", title = "Change in Chlorophyll a Content by Treatment") +
-  geom_jitter(width = 0.1) +
-  theme(axis.title = element_text(size = 12),
-        plot.title = element_text(size = 16, face = "bold"),
+  labs(x = "Treatment", y = "% Change in Chl a Content") +
+  geom_jitter(width = 0.1, alpha = 0.7) +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "none",
         panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray"),
-        panel.grid.minor = element_line(color = "gray")) +
+        panel.grid.major = element_line(color = "gray")) +
+  theme(legend.position = "none") +
   stat_summary(fun.data = mean_cl_normal, fun.args = list(mult = 1),    
                geom = "errorbar", color = "black", width = 0.1) +
-  stat_summary(fun.y = mean, geom = "point", size = 3.5, color = "black") + 
-  scale_color_manual(values = c("Algae_Dom" = "#E31A1C", "Control" = "green4", "Coral_Dom" = "dodgerblue2",
-                                "Rubble_Dom" = "#6A3D9A"))
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+  #geom_text(data = chla_summary, 
+            #aes(x = TREATMENT, y = mean_Chla_percent_change, 
+                #label = paste0("", round(mean_Chla_percent_change, 2), "±", round(se_Chla_percent_change, 2))),
+           # vjust = -1, hjust = 1.5, color = "black", size = 4)
+
 chla_change_plot
 ggsave(plot = chla_change_plot, filename = here("Output", "chla_change_plot.png"), width = 9, height = 6)
 
+delta_chla_model <- lmer(Chla_percent_change~TREATMENT + (1|GENOTYPE) +(1|TANKID), data=full_data2)
+plot(delta_chla_model)
+qqp(residuals(delta_chla_model), "norm")
+summary(delta_chla_model)
+anova(delta_chla_model)
+
+#########################
 ## Change Chl c2 plot ##
 chlc_change_plot <- full_data2 %>%
   ggplot(aes(x = TREATMENT, y = Chlc_diff, color = TREATMENT)) +
@@ -224,17 +250,19 @@ chlc_change_plot <- full_data2 %>%
                                 "Rubble_Dom" = "#6A3D9A"))
 chlc_change_plot
 ggsave(plot = chlc_change_plot, filename = here("Output", "chlc_change_plot.png"), width = 9, height = 6)
+########################
+
 
 ### Combine chlorophyll data and tissue biomass data ###
-chl_full$CORAL_NUM <- as.numeric(chl_full$CORAL_NUM)
+#chl_full$CORAL_NUM <- as.numeric(chl_full$CORAL_NUM)
+full_data2$CORAL_NUM <- as.numeric(full_data2$CORAL_NUM)
+afdw_nopre$CORAL_NUM <- as.numeric(afdw_nopre$CORAL_NUM)
 
-chl_biomass_data <- chl_full %>%
-  right_join(afdw_nopre, by = "CORAL_NUM", relationship = "many-to-many") %>%
-  rename(GENOTYPE = GENOTYPE.x,
-         TREATMENT = TREATMENT.x)
-chl_biomass_data <- chl_biomass_data[-c(23:24)]
-chl_biomass_data <- chl_biomass_data[-c(21),] %>%
+chl_biomass_data <- full_data2 %>%
+  select(TANKID, TREATMENT, GENOTYPE, CORAL_NUM, Chla_norm, Chla_norm_initial, Chla_diff) %>%
+  full_join(afdw_nopre) %>%
   drop_na()
+
 
 ### regression of chl a and mean tissue biomass ###
 chl_biomass_model <- lm(Chla_norm ~ mean_tissue_biomass, data = chl_biomass_data) ## does the amount of chla depend on coral tissue biomass?
@@ -257,13 +285,64 @@ ggsave(plot = chl_biomass_reg, filename = here("Output", "chl_biomass_reg.png"),
 
 
 ### Combine chl data and carb chem data ### 
-chl_chem_data <- chl_full %>%
-  right_join(Data, by = "TANKID") %>%
-  rename(TREATMENT = TREATMENT.x)
+##### THIS WONT WORK IF I CLOSE R #####
+pH_plotdata<- pH_clean %>%
+  group_by(TREATMENT, TANKID) %>%
+  summarize(pH_rangemean = mean(pH_range, na.rm = TRUE),
+            pH_rangese = sd(pH_range, na.rm = TRUE)/sqrt(n()),
+            pH_mean = mean(pH_dailymean, na.rm = TRUE),
+            pH_se = sd(pH_dailymean, na.rm = TRUE)/sqrt(n()))
 
-chl_chem_data_clean <- chl_chem_data %>%
-  filter(TIME %in% c("12:00:00","21:00:00")) %>% 
-  group_by(TREATMENT, DATE, TANKID) 
+
+chl_chem_data <- full_data2 %>%
+  select(TANKID, TREATMENT, Chla_norm, Chla_diff, GENOTYPE) %>%
+  #group_by(TANKID, TREATMENT) %>%
+  #summarize(Chla_diff_mean = mean(Chla_diff, na.rm = TRUE),
+            #Chla_norm_mean = mean(Chla_norm, na.rm = TRUE)) %>%
+  filter(Chla_norm < 6) %>%
+  full_join(pH_plotdata)
+
+## plot chla normalized and mean pH in each treatment ##
+chla_meanpH_plot <- chl_chem_data %>%
+  ggplot(aes(x = pH_mean, y = Chla_norm)) + 
+  geom_point(aes(color = TREATMENT)) +
+  labs(y = expression(bold("Chla Content" ~ (µg ~ cm^-2))), x= "Mean pH") +
+  theme(axis.text.x = element_text(size = 15),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  geom_smooth(method = "lm", formula = y~x)
+chla_meanpH_plot
+ggsave(plot = chla_meanpH_plot, filename = here("Output", "chla_meanpH_plot.png"), width = 9, height = 7)
+
+chl_meanpH_model <- lmer(Chla_norm ~ pH_mean + (1|TANKID), data = chl_chem_data)
+anova(chl_pH_model)
+summary(chl_pH_model)
+
+
+## we see a significant relationship between increasing mean pH and increasing chla content 
+## for the most part, the control and coral dominated treatments have a mean pH between 8.03 - 8.045
+##   and varying chl a content 
+## the rubble and almost all of the algae-dominated corals have a mean pH between 8.05 and 8.06
+##   the highest chla content in the response corals is only seen in the algae-dominated treatments 
+
+
+chl_chem_data %>%
+  ggplot(aes(x = pH_rangemean, y = Chla_norm)) + 
+  geom_point(aes(color = TREATMENT)) +
+  geom_smooth(method = "lm")
+
+chl_chem_data %>%
+  ggplot(aes(x = pH_mean, y = Chla_diff)) + 
+  geom_point(aes(color = TREATMENT)) +
+  geom_smooth(method = "lm")
+
+chl_pH_model <- lmer(Chla_norm ~ pH_mean + (1|TANKID), data = chl_chem_data)
+anova(chl_pH_model)
+summary(chl_pH_model)
+
+
 
 chl_chem_plotdata <- chl_chem_data_clean %>%
   group_by(TANKID, TREATMENT, Chla_norm) %>%

@@ -56,13 +56,23 @@ c24 <- c(
 ### total AFDW plot without PRE corals ###
 afdw_nopre <- afdw_sa2 %>%
   filter(!TREATMENT == "Pre")
+afdw_nopre <- afdw_nopre[-c(39),]
+
+afdw_plotdata <- afdw_nopre %>%
+  group_by(TREATMENT) %>%
+  summarize(tissuebiomass_mean = mean(mean_tissue_biomass, na.rm = TRUE),
+            tissuebiomass_se = sd(mean_tissue_biomass, na.rm = TRUE)/sqrt(n()))
+afdw_plotdata
+
+afdw_nopre$TREATMENT <- factor(afdw_nopre$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
 
 afdw_plot <- afdw_nopre %>%
   ggplot(aes(x = TREATMENT, y = mean_tissue_biomass, color = TREATMENT)) +
   labs(x = "Treatment", y = expression(bold("Mean Coral Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
                             "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble-Dominated")) +
-  geom_jitter(width = 0.1) +   
+  geom_jitter(data = afdw_nopre, aes(x = TREATMENT, y = mean_tissue_biomass), alpha = 0.7) +   
   theme(axis.title = element_text(size = 12, face = "bold"),
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray"),
@@ -71,17 +81,21 @@ afdw_plot <- afdw_nopre %>%
   theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 15)) + 
   stat_summary(fun.data = mean_cl_normal, fun.args = list(mult = 1), 
-               geom = "errorbar", color = "black", width = 0.3) +
+               geom = "errorbar", color = "black", width = 0.1) +
   stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
-  scale_color_manual(values = c("Algae_Dom" = "#E31A1C", "Control" = "green4", "Coral_Dom" = "dodgerblue2",
-                                "Rubble_Dom" = "#6A3D9A"))
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan")) +
+  geom_text(data = afdw_plotdata, 
+            aes(x = TREATMENT, y = tissuebiomass_mean, 
+                label = paste0("", round(tissuebiomass_mean, 4))),
+            vjust = -1, hjust = 1.8, color = "black", size = 4)
 afdw_plot
 ggsave(plot = afdw_plot, filename = here("Output", "afdw_plot.png"), width = 9, height = 6)
 
 ## AFDW stats ## 
 afdw_model <- lmer(mean_tissue_biomass ~ TREATMENT + (1|GENOTYPE), data=afdw_nopre)
 plot(afdw_model)
-qqp(residuals(afdw_model), "norm") # two pretty bad outliers
+qqp(residuals(afdw_model), "norm") 
 summary(afdw_model)
 anova(afdw_model)
 
