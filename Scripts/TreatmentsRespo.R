@@ -43,7 +43,8 @@ library(ggrepel)
 #############################
 
 #set the path to all of the raw oxygen datasheets from presens software
-path.p<-here("Data","RespoFiles","CleanO2") #the location of all your respirometry files
+here()
+path.p<-here("Data","RespoFiles") #the location of all your respirometry files
 
 # bring in all of the individual files
 file.names<-basename(list.files(path = path.p, pattern = "csv$", recursive = TRUE)) #list all csv file names in the folder and subfolders
@@ -52,39 +53,36 @@ file.names<-basename(list.files(path = path.p, pattern = "csv$", recursive = TRU
 file.names.full<-list.files(path = path.p, pattern = "csv$", recursive = TRUE) 
 
 #empty chamber volume
-ch.vol <- 6000 #mL
+ch.vol <- 450 #mL 
 
-#Load your respiration data file, with all the times, water volumes(mL), algal biomass weight (dry weight) (g)
-RespoMeta <- read_csv(here("Data","RespoFiles","RespoMetadata.csv"))
-BioMeta <- read_csv(here("Data","RespoFiles","AssemblageMetadata_calc.csv"))
+#Load your respiration data file, with all the times, water volumes(mL), surface area
+# starting with initial respo files to start since there's less
+InitialRespoMeta <- read_csv(here("Data","RespoFiles","Initial", "InitialRespoMetaData.csv"))
+
+Metadata <- read_csv(here("Data","MO24BEAST_Metadata.csv"))
 
 # join the data together
-Sample.Info <- left_join(RespoMeta, BioMeta)
-
-#View(Sample.Info)
+Metadata$CORAL_NUN <- as.numeric(Metadata$CORAL_NUM)
+InitialRespoMeta$CORAL_NUM <- as.numeric(InitialRespoMeta$CORAL_NUM)
+Sample.Info <- left_join(InitialRespoMeta, Metadata) %>%
+  select(DATE, CORAL_NUM, GENOTYPE, LIGHT_DARK, RUN_NUM, CHAMBER, VOLUME, BLANK, START, END,
+         TIME_IN, TIME_OUT, SURFACE_AREA)
 
 ##### Make sure times are consistent ####
 
 # make start and stop times real times, so that we can join the data frames
-Sample.Info <- Sample.Info %>% 
-  filter(run_block != "RUN1") %>%  # had to completely redo run later
-  unite(Date,start_time,col="start_time",remove=F, sep=" ") %>% 
-  unite(Date,stop_time,col="stop_time",remove=F, sep=" ") %>% 
-  mutate(start_time = mdy_hms(start_time)) %>% 
-  mutate(stop_time = mdy_hms(stop_time)) %>% 
-  mutate(Date = mdy(Date)) %>% 
-  drop_na(SampleID)
+Sample.Info <- Sample.Info %>%
+  unite(DATE,START,col="START_DATE_TIME",remove=F, sep=" ") %>% 
+  unite(DATE,END,col="END_DATE_TIME",remove=F, sep=" ") %>% 
+  mutate(START_TIME = mdy_hms(START_DATE_TIME)) %>% 
+  mutate(END_TIME = mdy_hms(END_DATE_TIME)) %>% 
+  mutate(DATE = mdy(DATE))
 
-
-#view(Sample.Info)
-## There are some extra files from repeats so I added this line to only select the ones in the actual metadata sheet
-# filenames_final<-strsplit(file.names, '.csv') %>% # extract the filename
-#   unlist() %>% # make it a vector
-#   tibble() %>% # now a tibble so I can filter easily in the pipe
-#   filter(. %in% Sample.Info$FileName) %>% # only keep the file names that are on the metadatasheet
-#   pull(.) # make it a vector again
-
-filenames_final <- file.names
+Sample.Info <- Sample.Info %>%
+  mutate(
+    START_DATE_TIME = mdy_hms(START_DATE_TIME),
+    END_DATE_TIME = mdy_hms(END_DATE_TIME)
+  )
 
 
 #############################
@@ -93,23 +91,24 @@ filenames_final <- file.names
 
 #generate a 4 column dataframe with specific column names
 # data is in umol.L.sec
-RespoR <- data.frame(matrix(NA, nrow=length(filenames_final), ncol=4)) # use instead of tidyverse tibble
+RespoR <- data.frame(matrix(NA, nrow=length(file.names.full), ncol=4)) # use instead of tidyverse tibble
 colnames(RespoR) <- c("FileID","Intercept", "umol.L.sec","Temp.C")
 
 ###forloop##### 
-for(i in 1:length(filenames_final)) {
-  FRow <- as.numeric(which(Sample.Info$FileID==filenames_final[i])) # stringsplit this renames our file
-  Respo.Data1 <- read_csv(file.path(path.p, paste0(file.names.full[i]))) %>% # reads in each file in list
+for(i in 1:length(file.names.full)) {
+  FRow <- as.numeric(which(Sample.Info$FileID==file.names.full[i])) # stringsplit this renames our file
+  Respo.Data1 <- read_csv(file.path(path.p, paste0(file.names.full[i])), # reads in each file in list
+    skip = 1) %>%
     dplyr::select(Date, Time, Value, Temp) %>% # keep only what we need: Time stamp per 1sec, Raw O2 value per 1sec, in situ temp per 1sec
     unite(Date,Time,col="Time",remove=T, sep = " ") %>% 
-    mutate(Time = mdy_hms(Time)) %>% # covert time
-    drop_na() # drop NAs
+    mutate(Time = mdy_hms(Time)) %>% 
+    drop_na()
   
   Respo.Data1 <- Respo.Data1 %>%
-    filter(between(Time, Sample.Info$start_time[FRow], Sample.Info$stop_time[FRow])) # select only data between start and stop time
+    filter(between(Time, Sample.Info$START_DATE_TIME[FRow], Sample.Info$END_DATE_TIME[FRow])) # select only data between start and stop time
   
   
-  Respo.Data1 <-  Respo.Data1[-c(1:180),] %>% #we want to start at minute 3 to avoid any noise from the start of the trial
+  Respo.Data1 <-  Respo.Data1[-c(1:60),] %>% 
     mutate(sec = 1:n())  # create a new column for every second for the regression
   
   # Get the filename without the .csv
@@ -180,7 +179,7 @@ for(i in 1:length(filenames_final)) {
 #export raw data and read back in as a failsafe 
 #this allows me to not have to run the for loop again 
 
-#write_csv(RespoR, here("Data","RespoFiles","Respo_R.csv"))  
+write_csv(RespoR, here("Data","RespoFiles","Respo_R.csv"))  
 
 
 
@@ -191,15 +190,7 @@ RespoR <- read_csv(here("Data","RespoFiles","Respo_R.csv"))
 
 # adjust temporarily labeled sample ID's
 Sample.Info <- Sample.Info %>% # needed to rename for above file processing due to duplicate runs with same names
-  mutate(SampleID = if_else(SampleID == "A11_H", "A1_H",
-                            if_else(SampleID == "A11_L", "A1_L",
-                                    if_else(SampleID == "A12_H", "A2_H",
-                                            if_else(SampleID == "A12_L", "A2_L",
-                                                    if_else(SampleID == "B11_H", "B1_H",
-                                                            if_else(SampleID == "B11_L", "B1_L",
-                                                                    if_else(SampleID == "B12_H", "B2_H",
-                                                                            if_else(SampleID == "B12_L", "B2_L", SampleID))))))))) %>% 
-  select(-c(Volume.ml,AFDW.g)) %>% 
+  select() %>% ##NEED SURFACE AREA, VOLUME
   full_join(BioMeta) # need to rejoin biometadata because of issues with run 6 dark run joining volume and afdw
 
 # Calculate Respiration rate
@@ -208,9 +199,6 @@ RespoR2 <- RespoR %>%
   left_join(Sample.Info) %>% # Join the raw respo calculations with the metadata
   left_join(BioMeta) %>% 
   arrange(FileID) %>% 
-  filter(run_block != "RUN1") %>%  # remove first run where temperatures were all off
-  #mutate(SampleID = if_else(SampleID == "A21_L", "B8_L", SampleID)) %>% # temporarily rename file until rerun respoR for loop above
-  mutate(Ch.Volume.ml = ifelse(is.na(Volume.ml),ch.vol,ch.vol-Volume.ml)) %>% # add 6 L for volume of all blanks and subtract org volume from chamber vol for all else
   mutate(Ch.Volume.L = Ch.Volume.ml * 0.001) %>% # mL to L conversion
   mutate(umol.sec = umol.L.sec*Ch.Volume.L) %>% #Account for chamber volume to convert from umol L-1 s-1 to umol s-1. This standardizes across water volumes (different because of coral size) and removes per Liter
   mutate_if(sapply(., is.character), as.factor) %>% #convert character columns to factors
@@ -260,7 +248,7 @@ RespoR_Normalized <- RespoR2 %>%
 # make the respiration values positive (pull out data for dark treatments)
 RespoR_Normalized_dark <- RespoR_Normalized %>% 
   filter(light_dark == "DARK") %>% 
-  mutate(mmol.gram.hr = mmol.gram.hr*-1,
+  mutate(mmol.gram.hr = mmol.gram.hr*-1, ##mmol cm2 hr
          mmol.gram.hr_uncorr = mmol.gram.hr_uncorr*-1) %>% 
   mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
          mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 

@@ -23,10 +23,6 @@ pHSlope<-pHcalib %>%
   drop_na(mV) %>%
   mutate(pH = pH(Ex=mV,Etris=mVTris,S=SALINITY,T=TEMPINLAB))  # calculate pH of the samples using the pH seacarb function
 
-#invalid_rows <- pHSlope %>%
-  #filter(Salinity < 10 | Salinity > 50 | TempInLab < 2 | TempInLab > 35)
-#invalid_rows #no values that are outside the ranges for salinty and temp so what's going on with the warnings below?
-
 #Now calculate pH
 pHSlope <-pHSlope%>%
   drop_na(TEMPINSITU, TEMPINLAB, SALINITY, pH) %>%

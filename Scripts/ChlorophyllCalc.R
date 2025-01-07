@@ -170,28 +170,20 @@ anova(chlc_gen_trtmt_model)
 # Calculate change in chl a and c content from initial starting corals 
 chl_initial <- Data_norm3 %>%
   filter(TREATMENT == "Pre") %>% 
-  select(TREATMENT, CORAL_NUM, GENOTYPE, Chla_norm, Chlc_norm)
+  select(GENOTYPE, Chla_norm_initial = Chla_norm, Chlc_norm_initial = Chlc_norm)
 
 full_data2 <- Data_norm3 %>%
-  left_join(chl_initial, by = "GENOTYPE") %>%
-  rename(Chla_norm_initial = Chla_norm.y,
-         Chlc_norm_initial = Chlc_norm.y,
-         CORAL_NUM = CORAL_NUM.x,
-         TREATMENT = TREATMENT.x, 
-         Chla_norm = Chla_norm.x,
-         Chlc_norm = Chlc_norm.x, 
-  )
-full_data2 <- full_data2[-c(15:16)]
-
-full_data2 <- full_data2 %>%
+  left_join(chl_initial) %>%
+  filter(GENOTYPE !="BLANK", 
+         TREATMENT !="Pre") %>%
   mutate(Chla_percent_change = ((Chla_norm - Chla_norm_initial)/Chla_norm_initial) * 100,
          Chlc_percent_change = ((Chlc_norm - Chlc_norm_initial)/Chlc_norm_initial) * 100) %>%
-  filter(!TREATMENT == "NA") %>%
-  drop_na()
-full_data2 <- full_data2[-c(7,14,43,45,47,74),]
+  mutate(TREATMENT = factor(TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))) %>%
+  filter(Chla_percent_change < 400)
+
+#full_data2 <- full_data2[-c(7,14,43,45,47,74),]
 
 ## Change chl a plot ##
-full_data2$TREATMENT <- factor(full_data2$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 # calculate means of the differences in chl a per treatment
 chla_summary <- full_data2 %>%
   group_by(TREATMENT) %>%
@@ -199,11 +191,18 @@ chla_summary <- full_data2 %>%
     mean_Chla_percent_change = mean(Chla_percent_change, na.rm = TRUE),
     se_Chla_percent_change = sd(Chla_percent_change, na.rm = TRUE) / sqrt(n())
   )
+chla_norm_summary <- full_data2 %>%
+  group_by(TREATMENT) %>%
+  summarise(
+    mean_Chla_norm = mean(Chla_norm, na.rm = TRUE),
+    se_Chla_norm = sd(Chla_norm, na.rm = TRUE) / sqrt(n())
+  )
+
 ## plot change in chl a content from final minus initial corals per treatment with errors 
 chla_change_plot <- full_data2 %>%
-  ggplot(aes(x = TREATMENT, y = Chla_percent_change, color = TREATMENT)) +
+  ggplot(aes(x = TREATMENT, y = Chla_norm, color = TREATMENT)) +
   geom_hline(yintercept = 0) +
-  labs(x = "Treatment", y = "% Change in Chl a Content") +
+  labs(x = "Treatment", y = "Chl a Content") +
   geom_jitter(width = 0.1, alpha = 0.7) +
   theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 15),
@@ -225,7 +224,7 @@ chla_change_plot <- full_data2 %>%
 chla_change_plot
 ggsave(plot = chla_change_plot, filename = here("Output", "chla_change_plot.png"), width = 9, height = 6)
 
-delta_chla_model <- lmer(Chla_percent_change~TREATMENT + (1|GENOTYPE) +(1|TANKID), data=full_data2)
+delta_chla_model <- lmer(Chla_percent_change~TREATMENT + (1|GENOTYPE), data=full_data2)
 plot(delta_chla_model)
 qqp(residuals(delta_chla_model), "norm")
 summary(delta_chla_model)
@@ -369,7 +368,7 @@ ggsave(plot = chl_pH_reg, filename = here("Output", "chl_pH_reg.png"), width = 9
 
 ###########################
 ## Change chl c stats ## 
-delta_chlc_model_r <- lmer(Chlc_diff~TREATMENT + (1|GENOTYPE) + (1|TANKID), data=full_data2)
+delta_chlc_model_r <- lmer(Chlc_diff~TREATMENT + (1|GENOTYPE), data=full_data2)
 plot(delta_chlc_model_r) 
 qqp(residuals(delta_chlc_model_r), "norm")
 summary(delta_chlc_model_r)
