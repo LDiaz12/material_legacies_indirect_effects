@@ -13,54 +13,53 @@ DOC_2 <- read_csv(here("Data", "DOC", "DOC_JUN6_JUN26.csv"))
 
 ## DOC1 plot NPOC mg/l ##
 DOC_plot1 <- DOC_1 %>%
-  ggplot(aes(x = DATE, y = NPOC_mg_L, color = TREATMENT)) + 
-  facet_wrap(~TIME) +
+  ggplot(aes(x = TIME, y = NPOC_mg_L, color = DATE)) + 
+  facet_wrap(~TREATMENT) +
   geom_point()
 DOC_plot1
-
 ## DOC1 plot TN mg/l ## 
 DOC_plot1a <- DOC_1 %>%
-  ggplot(aes(x = DATE, y = TN_mg_L, color = TREATMENT)) + 
-  facet_wrap(~TIME) +
+  ggplot(aes(x = TIME, y = TN_mg_L, color = DATE)) + 
+  facet_wrap(~TREATMENT) +
   geom_point()
 DOC_plot1a
 ## DOC1 plot NPOC_uM ##
 DOC_plot1b <- DOC_1 %>%
-  ggplot(aes(x = DATE, y = NPOC_uM, color = TREATMENT)) + 
-  facet_wrap(~TIME) +
+  ggplot(aes(x = TIME, y = TN_mg_L, color = DATE)) + 
+  facet_wrap(~TREATMENT) +
   geom_point()
 DOC_plot1b
 ## DOC1 plot TN_uM ## 
 DOC_plot1c <- DOC_1 %>%
-  ggplot(aes(x = DATE, y = TN_uM, color = TREATMENT)) + 
-  facet_wrap(~TIME) +
+  ggplot(aes(x = TIME, y = TN_mg_L, color = DATE)) + 
+  facet_wrap(~TREATMENT) +
   geom_point()
 DOC_plot1c
 
 
 ## DOC2 plot NPOC mg/L ##
 DOC_plot2 <- DOC_2 %>%
-  ggplot(aes(x = DATE, y = NPOC_mg_L, color = TREATMENT)) + 
-  facet_wrap(~TIME) +
+  ggplot(aes(x = TIME, y = NPOC_mg_L, color = DATE)) + 
+  facet_wrap(~TREATMENT) +
   geom_point() 
 DOC_plot2
 ## DOC2 plot TN mg/l ## 
 DOC_plot2a <- DOC_2 %>%
-  ggplot(aes(x = DATE, y = TN_mg_L, color = TREATMENT)) + 
-  facet_wrap(~TIME) +
-  geom_point()
+  ggplot(aes(x = TIME, y = NPOC_mg_L, color = DATE)) + 
+  facet_wrap(~TREATMENT) +
+  geom_point() 
 DOC_plot2a
 ## DOC2 plot NPOC_uM ##
 DOC_plot2b <- DOC_2 %>%
-  ggplot(aes(x = DATE, y = NPOC_uM, color = TREATMENT)) + 
-  facet_wrap(~TIME) +
+  ggplot(aes(x = TIME, y = NPOC_mg_L, color = DATE)) + 
+  facet_wrap(~TREATMENT) +
   geom_point() 
 DOC_plot2b
 ## DOC2 plot TN_uM ## 
 DOC_plot2c <- DOC_2 %>%
-  ggplot(aes(x = DATE, y = TN_uM, color = TREATMENT)) + 
-  facet_wrap(~TIME) +
-  geom_point()
+  ggplot(aes(x = TIME, y = NPOC_mg_L, color = DATE)) + 
+  facet_wrap(~TREATMENT) +
+  geom_point() 
 DOC_plot2c
 
 ## save all plots 
@@ -74,11 +73,6 @@ ggsave(filename = file.path(output_folder, "DOC_plot2_NPOC_mg_L.png"), plot = DO
 ggsave(filename = file.path(output_folder, "DOC_plot2a_TN_mg_L.png"), plot = DOC_plot2a, width = 10, height = 6)
 ggsave(filename = file.path(output_folder, "DOC_plot2b_NPOC_uM.png"), plot = DOC_plot2b, width = 10, height = 6)
 ggsave(filename = file.path(output_folder, "DOC_plot2c_TN_uM.png"), plot = DOC_plot2c, width = 10, height = 6)
-
-
-
-
-
 
 
 
