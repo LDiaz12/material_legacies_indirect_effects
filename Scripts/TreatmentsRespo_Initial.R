@@ -60,6 +60,15 @@ colnames(RespoR) <- c("FileName", "Intercept", "umol.L.sec","Temp.C")
 #Load your respiration data file, with all the times, water volumes(mL), surface area
 # starting with initial respo files to start since there's less
 Sample.Info <- read_csv(here("Data","RespoFiles","Initial", "InitialRespoMetaData.csv"))
+surface_area <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
+
+surface_area <- surface_area %>%
+  select(CORAL_NUM, GENOTYPE, SURFACE_AREA = SA_cm_2) %>%
+  mutate(CORAL_NUM = as.character(CORAL_NUM))
+
+
+Sample.Info <- Sample.Info %>%
+  left_join(surface_area)
 
 #Sample.Info$START <- as.POSIXct(Sample.Info$START,format="%H:%M:%S", tz = "") #convert time from character to time
 #Sample.Info$END <- as.POSIXct(Sample.Info$END,format="%H:%M:%S", tz = "") #convert time from character to time
@@ -99,10 +108,10 @@ for(i in 1:length(file.names.full)) {
   
   # thin the data by every 20 seconds to speed it up
   Respo.Data.orig<-Respo.Data1 # save original unthinned data
-  Respo.Data1 <- thinData(Respo.Data1 ,by=20)$newData1 #thin data by every 20 points for all the O2 values
+  Respo.Data1 <- thinData(Respo.Data1 ,by=5)$newData1 #thin data by every 5
   Respo.Data1$sec <- as.numeric(rownames(Respo.Data1)) #maintain numeric values for time
   Respo.Data1$Temp<-NA # add a new column to fill with the thinned data
-  Temp_thinned <- thinData(Respo.Data.orig, xy = c(1, 3), by = 20)$newData1[, 2] 
+  Temp_thinned <- thinData(Respo.Data.orig, xy = c(1, 3), by = 5)$newData1[, 2] #5
   Respo.Data1$Temp <-  Temp_thinned #thin data by every 20 points for the temp values
   
   p2 <- ggplot(Respo.Data1, aes(x = sec, y = Value))+
@@ -152,7 +161,7 @@ RespoR2 <- RespoR %>%
   mutate_if(sapply(., is.character), as.factor) %>% #convert character columns to factors
   mutate(BLANK = as.factor(BLANK)) #make blank column a factor
 
-RespoR2$SURFACE_AREA <- as.numeric(RespoR2$SURFACE_AREA)
+#RespoR2$SURFACE_AREA <- as.numeric(RespoR2$SURFACE_AREA)
 
 RespoR_Normalized <- RespoR2 %>%
   group_by(LIGHT_DARK, BLANK, RUN_NUM) %>% #  add run num here if one blank per run
@@ -161,10 +170,10 @@ RespoR_Normalized <- RespoR2 %>%
   select(LIGHT_DARK, RUN_NUM, BLANK, blank.rate = umol.sec) %>%
   right_join(RespoR2, RespoR, by = c("LIGHT_DARK", "RUN_NUM")) %>% 
   mutate(umol.sec.corr = umol.sec - blank.rate, # subtract the blank rates from the raw rates
-         mmol.gram.hr = 0.001*(umol.sec.corr*3600)/SURFACE_AREA,
-         mmol.gram.hr_uncorr = 0.001*(umol.sec*3600)/SURFACE_AREA) %>% 
-  select(DATE, CORAL_NUM, GENOTYPE, LIGHT_DARK, RUN_NUM, mmol.gram.hr, CHAMBER, 
-                Temp.C, mmol.gram.hr_uncorr) %>%
+         umol.cm2.hr = (umol.sec.corr*3600)/SURFACE_AREA,
+         umol.cm2.hr_uncorr = (umol.sec*3600)/SURFACE_AREA) %>% 
+  select(DATE, CORAL_NUM, GENOTYPE, LIGHT_DARK, RUN_NUM, umol.cm2.hr, CHAMBER, 
+                Temp.C, umol.cm2.hr_uncorr) %>%
   drop_na()
 
 #View(RespoR_Normalized)
@@ -181,48 +190,34 @@ RespoR_Normalized <- RespoR2 %>%
 
 # make the respiration values positive (pull out data for dark treatments)
 RespoR_Normalized_DARK <- RespoR_Normalized %>% 
+  ungroup() %>%
   filter(LIGHT_DARK == "DARK") %>% 
-  mutate(mmol.gram.hr = mmol.gram.hr*-1, ##mmol cm2 hr
-         mmol.gram.hr_uncorr = mmol.gram.hr_uncorr*-1) %>% 
-  mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
-         mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 
-  mutate(P_R = "R") # all dark run rates get R for respiration
+  mutate(R = umol.cm2.hr*-1, ##mmol cm2 hr
+         R_uncorr = umol.cm2.hr_uncorr*-1) %>% 
+  mutate(R = ifelse(R < 0, 0, R), # for any values below 0, make 0
+         R_uncorr = ifelse(R_uncorr < 0, 0, R_uncorr)) %>% 
+  select(-c(umol.cm2.hr, umol.cm2.hr_uncorr, LIGHT_DARK)) # all dark run rates get R for respiration
 
 # all light run rates get NP for net photosynthesis
 RespoR_Normalized_LIGHT <- RespoR_Normalized %>% 
+  ungroup() %>%
   filter(LIGHT_DARK == "LIGHT") %>% 
-  mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
-         mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 
-  mutate(P_R = "NP")
+  #mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
+         #mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 
+  select(DATE, CORAL_NUM, GENOTYPE, NP = umol.cm2.hr, NP_uncorr = umol.cm2.hr_uncorr)
 
 # rejoin data into single df
-RespoR_Normalized2 <- full_join(RespoR_Normalized_LIGHT, RespoR_Normalized_DARK) 
-  #drop_na(mmol.gram.hr) #do I actually need this?
+RespoR_Normalized2 <- full_join(RespoR_Normalized_DARK, RespoR_Normalized_LIGHT) %>%
+  mutate(GP = NP + R, 
+         GP_uncorr = NP_uncorr + R_uncorr)
 
 
-#make column for GP and group by coral num to keep R and NP together
-RespoR_NormalizedGP <- RespoR_Normalized2 %>% 
-  group_by(CORAL_NUM, Temp.C) %>% 
-  summarize(mmol.gram.hr = sum(mmol.gram.hr),
-            mmol.gram.hr_uncorr = sum(mmol.gram.hr_uncorr), # NP + R = GP
-            Temp.C = mean(Temp.C)) %>% # get mean temperature of light and dark runs
-  mutate(P_R="GP") %>% # Label for Gross Photosynthesis
-  mutate(light_dark = "LIGHT") %>% 
-  mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
-         mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr))
-
-# rejoin for full df with NP, R, and GP rates
-RespoR_Normalized_Full <- RespoR_Normalized2 %>% 
-  pivot_wider(names_from = LIGHT_DARK, values_from = mmol.gram.hr) %>%
-  rename(Respiration = DARK, NetPhoto = LIGHT) %>%
-  mutate(Respiration = - Respiration,
-         GrossPhoto = Respiration + NetPhoto)
 
 #############################
 # save file
 #############################
 
-write_csv(RespoR_Normalized_Full, here("Data","RespoFiles","Initial", "Respo_RNormalized_InitialRates.csv"))  
+write_csv(RespoR_Normalized2, here("Data","RespoFiles","Initial", "Respo_RNormalized_InitialRates.csv"))  
 
 
 

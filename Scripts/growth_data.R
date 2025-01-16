@@ -14,14 +14,14 @@ library(car)
 
 # bring in all growth files 
 diaz_std_curve<-read_csv(here("Data", "Data_Raw","Growth", "SA", "Laurel_Standard_Curve.csv"))
-surface_area<-read_csv(here("Data", "Data_Raw","Growth", "SA", "MO24BEAST_SA.csv"))
+surface_area<-read_csv(here("Data", "Data_Raw","Growth", "SA", "MO24BEAST_SA_calculated.csv"))
 bw_le<-read_csv(here("Data", "Data_Raw","Growth", "PRUS_BW_LE.csv"))
 
 # clean up growth data and join into one dataframe
 bw_le_clean <- bw_le %>%
   select(CoralID, Genotype, Treatment, Initial_weight_g, Final_weight_g, Initial_LE_mm, Final_LE_mm)
 sa_clean <- surface_area %>%
-  select(CoralID, weight1_g, weight2_g, weight_of_wax_g, SA_cm_2)
+  select(CoralID = CORALID, weight1_g, weight2_g, weight_of_wax_g, SA_cm_2)
 
 growth_data <- right_join(bw_le_clean, sa_clean, by='CoralID', relationship = "many-to-many") %>%
   drop_na(Final_weight_g, Initial_weight_g, Final_LE_mm, Initial_LE_mm)
@@ -88,3 +88,5 @@ le_gen_plot <- ggplot(growth_data, aes(x=Treatment, y=Total_LE, fill=Treatment))
 le_gen_plot
 
 ggsave(plot = le_gen_plot, filename = here("Output", "le_gen_plot.png"), width = 9, height = 6)
+
+
