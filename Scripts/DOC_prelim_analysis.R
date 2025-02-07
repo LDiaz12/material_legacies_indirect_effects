@@ -32,6 +32,7 @@ DOC_plot2
 DOC_plot3 <- DOC_full %>%
   ggplot(aes(x = TREATMENT, y = NPOC_uM, color = as.factor(TIME))) + 
   geom_point() +
+  scale_y_continuous(trans = 'log10') +
   geom_text_repel(aes(label = TANK_ID)) +
   facet_wrap(~DATE) 
 DOC_plot3
@@ -39,6 +40,7 @@ DOC_plot3
 DOC_plot4 <- DOC_full %>%
   ggplot(aes(x = TREATMENT, y = TN_uM, color = as.factor(TIME))) + 
   geom_point() +
+  scale_y_continuous(trans = 'log10') +
   geom_text_repel(aes(label = TANK_ID)) +
   facet_wrap(~DATE) 
 DOC_plot4
@@ -49,6 +51,5 @@ ggsave(filename = file.path(output_folder, "DOC_NPOC_mg_L.png"), plot = DOC_plot
 ggsave(filename = file.path(output_folder, "DOC_TN_mg_L.png"), plot = DOC_plot2, width = 12, height = 10)
 ggsave(filename = file.path(output_folder, "DOC_NPOC_uM.png"), plot = DOC_plot3, width = 12, height = 10)
 ggsave(filename = file.path(output_folder, "DOC_TN_uM.png"), plot = DOC_plot4, width = 12, height = 10)
-
 
 

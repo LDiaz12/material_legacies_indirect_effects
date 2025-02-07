@@ -1,23 +1,30 @@
 library(tidyverse)
 library(here)
-library(ggplot2)
 library(moments)
 library(emmeans)
 library(agricolae)
-library(tidyr)
-library(dplyr)
 
 here()
 endos <- read_csv(here("Data", "Endosymbionts", "MOBEAST_FCM_dataframe.csv"))
+surface_area <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
+afdw_data <- read_csv(here("Data", "Data_Raw", "Growth", "MO24BEAST_AFDW.csv"))
+
+## Endosymbiont counts are measured as event/uL
 
 ## Calculate mean endo counts per treatment ## 
 endo_data <- endos %>%
-  select(SampleName, Genotype, Treatment, `Include vol(uL)`, EndosymbiontCount) %>%
-  group_by(Treatment) %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, INCLUDE_VOL_UL, ENDO_COUNT) %>%
+  group_by(TREATMENT) %>%
   #mutate(mean_endos = mean(EndosymbiontCount, na.rm = TRUE)) %>% ## mean endo counts per treatment
+  mutate()
   drop_na()
-endo_data$Treatment <- factor(endo_data$Treatment, levels = c("BLANK", "Control", "Pre", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
+## Calculate endo count per cm2 using blastate volume from "AFDW" data set ##
+
+
+
+  
+endo_data$Treatment <- factor(endo_data$Treatment, levels = c("BLANK", "Control", "Pre", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 endo_plot <- endo_data %>%
   group_by(Treatment) %>%
   summarise(mean_endos = mean(EndosymbiontCount, na.rm = TRUE),

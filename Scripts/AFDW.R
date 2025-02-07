@@ -18,7 +18,7 @@ library(car)
 ### read in plate data ###
 afdw_data <- read_csv(here("Data", "Data_Raw", "Growth", "MO24BEAST_AFDW.csv"))
 ### read in surface area data ###
-sa <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA.csv"))
+sa <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
 ### combine afdw and sa data sheets ### 
 afdw_sa <- right_join(afdw_data, sa)
 

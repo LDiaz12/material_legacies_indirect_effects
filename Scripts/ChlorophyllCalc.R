@@ -16,7 +16,6 @@ library(emmeans)
 library(agricolae)
 library(car)
 library(pals)
-library(ggplot2)
 
 ### read in plate data ###
 PlateData1<-read_csv(here("Data","Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_Chl_Run1_Plate1.csv"), skip = 39) #skips first 39 lines
@@ -67,18 +66,38 @@ Data_norm <- full_data %>%
           Chlc_norm = Chlc - Chlc[CORAL_NUM == "BLANK"],
           Chl_total = Chla_norm + Chlc_norm)
 Data_norm2 <- cbind(full_data, Data_norm)
-Data_norm2 <- Data_norm2[-c(12)]
-Data_norm3 <- Data_norm2[-c(2,24,29,37,62,85,94,97,119),] #removing these for now but make sure to remove this once samples are rerun
+#Data_norm2 <- Data_norm2[-c(12)]
+#Data_norm3 <- Data_norm2[-c(2,24,29,37,62,85,94,97,119),] #removing these for now but make sure to remove this once samples are rerun
+
 ## Then normalize to SA ##
-sa <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA.csv"))
-sa$CORAL_NUM <- as.character(sa$CORAL_NUM) # for some reason CORAL_NUM was reading in as double so change to character
-chl_full <- full_join(Data_norm3, sa) #full join normalized chl data and surface area data
+sa <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
+
+Data_norm2$CORAL_NUM <- as.character(Data_norm2$CORAL_NUM) 
+Data_norm2_b <- Data_norm2 %>%
+  drop_na()
+
+Data_norm2_b <- Data_norm2_b %>%
+  select(-c(1,12))
+
+
+## BELOW ONLY FOR METADATA FILE WRITING ##
+
+chl_full <- Data_norm2_b %>%
+  right_join(sa, by = join_by(CORAL_NUM, GENOTYPE))
+
 chl_full <- chl_full %>%                
   mutate(chla.ug.cm2 = Chla * 1 / SA_cm_2, 
          chlc2.ug.cm2 = Chlc * 1 / SA_cm_2) %>% #add in two new columns - chl a normalized to SA and chl c normalized to SA
   drop_na() 
 
+chl_data_clean <- chl_full %>%
+  select(-c(CORALID, weight1_g, weight2_g, weight_of_wax_g, date))
+  
+write_csv(chl_data_clean, here("Data", "Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_chl_data.csv"))
+
 ## PLOTS ## 
+chl_full$TREATMENT <- factor(chl_full$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
 chl_total_plot <- ggplot(chl_full, aes(x=TREATMENT, y=Chl_total, fill=TREATMENT)) + 
   geom_boxplot() + 
   labs(x="Treatment", y="Total Chl (µg/cm2)") + 
@@ -160,8 +179,8 @@ plot(chlc_gen_trtmt_model) #yikes
 # the clustering here could suggest that there's other grouping or categorical effects not in the model - but what?
 # could also violate assumption of homoscedasticity - diff groups have diff variance
 
-influencePlot(chlc_gen_trtmt_model) # 5 potential outliers with undue influence
-outlierTest(chlc_gen_trtmt_model) #Bonferroni p is just barely > 0.05... 
+influencePlot(chlc_gen_trtmt_model) # 4 potential outliers with undue influence
+outlierTest(chlc_gen_trtmt_model) #Bonferroni p is not > 0.05... 
 qqp(residuals(chlc_gen_trtmt_model), "norm")
 summary(chlc_gen_trtmt_model)
 anova(chlc_gen_trtmt_model)
@@ -254,11 +273,14 @@ ggsave(plot = chlc_change_plot, filename = here("Output", "chlc_change_plot.png"
 
 ### Combine chlorophyll data and tissue biomass data ###
 #chl_full$CORAL_NUM <- as.numeric(chl_full$CORAL_NUM)
-full_data2$CORAL_NUM <- as.numeric(full_data2$CORAL_NUM)
-afdw_nopre$CORAL_NUM <- as.numeric(afdw_nopre$CORAL_NUM)
+afdw_data <- read_csv(here("Data", "Data_Raw", "Growth", "MO24BEAST_AFDW.csv"))
+afdw_data$CORAL_NUM <- as.numeric(afdw_data$CORAL_NUM)
+sa$CORAL_NUM <- as.numeric(sa$CORAL_NUM)
+afdw_sa <- right_join(afdw_data, sa)
+
 
 chl_biomass_data <- full_data2 %>%
-  select(TANKID, TREATMENT, GENOTYPE, CORAL_NUM, Chla_norm, Chla_norm_initial, Chla_diff) %>%
+  select(TANKID, TREATMENT, GENOTYPE, CORAL_NUM, Chla_norm, Chla_norm_initial, Chla_percent_change) %>%
   full_join(afdw_nopre) %>%
   drop_na()
 

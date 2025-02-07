@@ -60,6 +60,15 @@ colnames(RespoR) <- c("FileName", "Intercept", "umol.L.sec","Temp.C")
 #Load your respiration data file, with all the times, water volumes(mL), surface area
 
 Sample.Info <- read_csv(here("Data","RespoFiles","Final", "FinalRespoMetaData.csv"))
+surface_area <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
+
+surface_area <- surface_area %>%
+  select(CORAL_NUM, GENOTYPE, SURFACE_AREA = SA_cm_2) %>%
+  mutate(CORAL_NUM = as.character(CORAL_NUM))
+
+
+Sample.Info <- Sample.Info %>%
+  left_join(surface_area)
 
 #Sample.Info$START <- as.POSIXct(Sample.Info$START,format="%H:%M:%S", tz = "") #convert time from character to time
 #Sample.Info$END <- as.POSIXct(Sample.Info$END,format="%H:%M:%S", tz = "") #convert time from character to time
@@ -97,12 +106,12 @@ for(i in 1:length(file.names.full)) {
       title = "original"
     )
   
-  # thin the data by every 20 seconds to speed it up
+  # thin the data by every 5 seconds to speed it up
   Respo.Data.orig<-Respo.Data1 # save original unthinned data
-  Respo.Data1 <- thinData(Respo.Data1 ,by=20)$newData1 #thin data by every 20 points for all the O2 values
+  Respo.Data1 <- thinData(Respo.Data1 ,by=5)$newData1 #thin data by every 5 points for all the O2 values
   Respo.Data1$sec <- as.numeric(rownames(Respo.Data1)) #maintain numeric values for time
   Respo.Data1$Temp<-NA # add a new column to fill with the thinned data
-  Temp_thinned <- thinData(Respo.Data.orig, xy = c(1, 3), by = 20)$newData1[, 2] 
+  Temp_thinned <- thinData(Respo.Data.orig, xy = c(1, 3), by = 5)$newData1[, 2] 
   Respo.Data1$Temp <-  Temp_thinned #thin data by every 20 points for the temp values
   
   p2 <- ggplot(Respo.Data1, aes(x = sec, y = Value))+
@@ -118,7 +127,7 @@ for(i in 1:length(file.names.full)) {
   Regs  <-  rankLocReg(xall=Respo.Data1$sec, yall=Respo.Data1$Value, alpha=0.5, method="pc", verbose=TRUE)  
   
   # Print across two pages so use baseplot to create the pdf
-  pdf(paste0(here("Output","RespoOutput"),"/", rename,"thinning.pdf"))
+  pdf(paste0(here("Output","RespoOutput", "Final"),"/", rename,"thinning.pdf"))
   
   p1+p2
   plot(Regs) # plot the results of Regs
@@ -146,14 +155,31 @@ write_csv(RespoR, here("Data","RespoFiles","Final", "Final_Respo_R.csv"))
 #############################
 RespoR <- read_csv(here("Data","RespoFiles","Final", "Final_Respo_R.csv"))
 
+RespoR <- RespoR %>% ## the below code will split the FileName strings by "_"
+  mutate(FileName_BLANK = if_else(str_detect(FileName, "BLANK"), FileName, NA_character_),
+         FileName = if_else(str_detect(FileName, "BLANK"), NA_character_, FileName)) %>%
+  separate_wider_delim(FileName, delim = "_", names = c("GENOTYPE", "CORAL_NUM", "LIGHT_DARK", 
+                                                        "RUN_NUM", "O2")) %>%
+  separate_wider_delim(FileName_BLANK, delim = "_", names = c("BLANK_CORAL_NUM", "BLANK_LIGHT_DARK", "BLANK_RUN_NUM", "BLANK_O2")) %>% # had to do a separate one for BLANK because there are different # of values
+  mutate(CORAL_NUM = coalesce(CORAL_NUM, BLANK_CORAL_NUM),   #this mutate takes any values from the "BLANK" columns and 
+         LIGHT_DARK = coalesce(LIGHT_DARK, BLANK_LIGHT_DARK),   #coalesces it with the "regular" column names
+         RUN_NUM = coalesce(RUN_NUM, BLANK_RUN_NUM),
+         O2 = coalesce(O2, BLANK_O2),
+         RUN_NUM = str_remove(RUN_NUM, "RUN")) %>%  # get rid of the word "RUN" but keep the number value
+  select(-c(BLANK_CORAL_NUM, BLANK_LIGHT_DARK, BLANK_RUN_NUM, BLANK_O2, O2))
+
+
+RespoR <- RespoR %>%
+  mutate(GENOTYPE = if_else(is.na(GENOTYPE), "BLANK", GENOTYPE))
+
+RespoR$RUN_NUM <- as.numeric(RespoR$RUN_NUM)
+
 RespoR2 <- RespoR %>%
   right_join(Sample.Info, by = c("GENOTYPE", "CORAL_NUM", "LIGHT_DARK", "RUN_NUM", "DATE")) %>% # Join the raw respo calculations with the metadata
   mutate(umol.sec = umol.L.sec*ch.vol/1000) %>% #Account for chamber volume to convert from umol L-1 s-1 to umol s-1. This standardizes across water volumes (different because of coral size) and removes per Liter
   mutate_if(sapply(., is.character), as.factor) %>% #convert character columns to factors
   mutate(BLANK = as.factor(BLANK)) #make blank column a factor
-## when I joined these two, I'm getting 3 rows with NAs... why.
 
-RespoR2$SURFACE_AREA <- as.numeric(RespoR2$SURFACE_AREA) # surface area reading in as factor - change to numeric
 
 RespoR_Normalized <- RespoR2 %>%
   group_by(LIGHT_DARK, BLANK, RUN_NUM) %>% #  add run num here if one blank per run
@@ -162,10 +188,10 @@ RespoR_Normalized <- RespoR2 %>%
   select(LIGHT_DARK, RUN_NUM, BLANK, blank.rate = umol.sec) %>%
   right_join(RespoR2, RespoR, by = c("LIGHT_DARK", "RUN_NUM")) %>% 
   mutate(umol.sec.corr = umol.sec - blank.rate, # subtract the blank rates from the raw rates
-         mmol.gram.hr = 0.001*(umol.sec.corr*3600)/SURFACE_AREA,
-         mmol.gram.hr_uncorr = 0.001*(umol.sec*3600)/SURFACE_AREA) %>% 
-  select(DATE, CORAL_NUM, GENOTYPE, LIGHT_DARK, RUN_NUM, mmol.gram.hr, CHAMBER, 
-         Temp.C, mmol.gram.hr_uncorr) %>%
+         umol.cm2.hr = (umol.sec.corr*3600)/SURFACE_AREA,
+         umol.cm2.hr_uncorr = (umol.sec*3600)/SURFACE_AREA) %>% 
+  select(DATE, CORAL_NUM, GENOTYPE, LIGHT_DARK, RUN_NUM, umol.cm2.hr, CHAMBER, 
+         Temp.C, umol.cm2.hr_uncorr) %>%
   drop_na()
 
 
@@ -177,48 +203,35 @@ RespoR_Normalized <- RespoR2 %>%
 
 # make the respiration values positive (pull out data for dark treatments)
 RespoR_Normalized_DARK <- RespoR_Normalized %>% 
+  ungroup() %>%
   filter(LIGHT_DARK == "DARK") %>% 
-  mutate(mmol.gram.hr = mmol.gram.hr*-1, ##mmol cm2 hr
-         mmol.gram.hr_uncorr = mmol.gram.hr_uncorr*-1) %>% 
-  mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
-         mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 
-  mutate(P_R = "R") # all dark run rates get R for respiration
+  mutate(R = umol.cm2.hr*-1, 
+         R_uncorr = umol.cm2.hr_uncorr*-1) %>% ## un_corr means uncorrected value 
+  mutate(R = ifelse(R < 0, 0, R), # for any values below 0, make 0
+         R_uncorr = ifelse(R_uncorr < 0, 0, R_uncorr)) %>% 
+  select(-c(umol.cm2.hr, umol.cm2.hr_uncorr, LIGHT_DARK)) # all dark run rates get R for respiration
+view(RespoR_Normalized_DARK)
 
 # all light run rates get NP for net photosynthesis
 RespoR_Normalized_LIGHT <- RespoR_Normalized %>% 
+  ungroup() %>%
   filter(LIGHT_DARK == "LIGHT") %>% 
-  mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
-         mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 
-  mutate(P_R = "NP")
+  #mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
+  #mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 
+  select(DATE, CORAL_NUM, GENOTYPE, NP = umol.cm2.hr, NP_uncorr = umol.cm2.hr_uncorr)
+view(RespoR_Normalized_LIGHT)
 
 # rejoin data into single df
-RespoR_Normalized2 <- full_join(RespoR_Normalized_LIGHT, RespoR_Normalized_DARK) 
-#drop_na(mmol.gram.hr) #do I actually need this?
-
-
-#make column for GP and group by coral num to keep R and NP together
-RespoR_NormalizedGP <- RespoR_Normalized2 %>% 
-  group_by(CORAL_NUM, Temp.C) %>% 
-  summarize(mmol.gram.hr = sum(mmol.gram.hr),
-            mmol.gram.hr_uncorr = sum(mmol.gram.hr_uncorr), # NP + R = GP
-            Temp.C = mean(Temp.C)) %>% # get mean temperature of light and dark runs
-  mutate(P_R="GP") %>% # Label for Gross Photosynthesis
-  mutate(light_dark = "LIGHT") %>% 
-  mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
-         mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr))
-
-# rejoin for full df with NP, R, and GP rates
-RespoR_Normalized_Full <- RespoR_Normalized2 %>% 
-  pivot_wider(names_from = LIGHT_DARK, values_from = mmol.gram.hr) %>%
-  rename(Respiration = DARK, NetPhoto = LIGHT) %>%
-  mutate(Respiration = - Respiration,
-         GrossPhoto = Respiration + NetPhoto)
+RespoR_Normalized_Final <- full_join(RespoR_Normalized_DARK, RespoR_Normalized_LIGHT) %>%
+  mutate(GP = NP + R, 
+         GP_uncorr = NP_uncorr + R_uncorr) %>%
+  drop_na()
 
 #############################
 # save file
 #############################
 
-write_csv(RespoR_Normalized_Full, here("Data","RespoFiles","Final", "Respo_RNormalized_FinalRates.csv"))  
+write_csv(RespoR_Normalized_Final, here("Data","RespoFiles","Final", "RespoR_Normalized_FinalRates.csv"))  
 
 
 

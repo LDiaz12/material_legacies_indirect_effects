@@ -1,4 +1,4 @@
-TubeName,SampleName,Genotype,Treatment,Volume(μL):,Include vol(uL),All Events,P1 Events,include Events,All Events  Events/μL(V),P1 Events/μL(V),include Events/μL(V),cells/uL from total events / include volume,calc vs fcm program diff,EndosymbiontCount
+TUBENAME,CORAL_NUM,GENOTYPE,TREATMENT,Volume(μL):,INCLUDE_VOL_UL,All Events,P1 Events,include Events,All Events  Events/μL(V),P1 Events/μL(V),include Events/μL(V),cells/uL from total events / include volume,calc vs fcm program diff,ENDO_COUNT
 01-Well-A6,10,G,Coral_Dom,90,75,24174,5890,21855,268.54,65.43,279.23,78.53333333,13.10333333,261.72
 01-Well-C6,71,M,Coral_Dom,90.1,75.1,18120,5194,16255,201.19,57.67,207.56,69.16111851,11.49111851,230.68
 01-Well-E6,134,U,Control,90,75,14079,3541,12927,156.42,39.34,165.19,47.21333333,7.873333333,157.36

@@ -54,7 +54,7 @@ file.names.full<-list.files(path = path.p, pattern = "csv$", recursive = TRUE)
 
 #generate a 4 column dataframe with specific column names
 # data is in umol.L.sec
-RespoR <- data.frame(matrix(NA, nrow=length(file.names.full), ncol=4)) # use instead of tidyverse tibble
+RespoR <- data.frame(matrix(NA, nrow=length(file.names.full), ncol=4))
 colnames(RespoR) <- c("FileName", "Intercept", "umol.L.sec","Temp.C")
 
 #Load your respiration data file, with all the times, water volumes(mL), surface area
@@ -87,6 +87,7 @@ for(i in 1:length(file.names.full)) {
   FRow <- which(Sample.Info$FileName==strsplit(file.names[i], '.csv')) # stringsplit renames our file
   Respo.Data1 <- read_csv(file.path(path.p, file.names.full[i]), skip = 1) %>%
     select(Date, Time, Value, Temp) %>% # keep only what we need: Time stamp per 1sec, Raw O2 value per 1sec, in situ temp per 1sec
+    mutate(Date_copy = Date) %>%
     unite(Date,Time,col="Time",remove=T, sep = " ") %>%
     drop_na()
 
@@ -111,7 +112,7 @@ for(i in 1:length(file.names.full)) {
   Respo.Data1 <- thinData(Respo.Data1 ,by=5)$newData1 #thin data by every 5
   Respo.Data1$sec <- as.numeric(rownames(Respo.Data1)) #maintain numeric values for time
   Respo.Data1$Temp<-NA # add a new column to fill with the thinned data
-  Temp_thinned <- thinData(Respo.Data.orig, xy = c(1, 3), by = 5)$newData1[, 2] #5
+  Temp_thinned <- thinData(Respo.Data.orig, xy = c(1, 3), by = 5)$newData1[, 2] 
   Respo.Data1$Temp <-  Temp_thinned #thin data by every 20 points for the temp values
   
   p2 <- ggplot(Respo.Data1, aes(x = sec, y = Value))+
@@ -127,7 +128,7 @@ for(i in 1:length(file.names.full)) {
   Regs  <-  rankLocReg(xall=Respo.Data1$sec, yall=Respo.Data1$Value, alpha=0.5, method="pc", verbose=TRUE)  
   
   # Print across two pages so use baseplot to create the pdf
-  pdf(paste0(here("Output","RespoOutput"),"/", rename,"thinning.pdf"))
+  pdf(paste0(here("Output","RespoOutput", "Initial"),"/", rename,"thinning.pdf"))
   
   p1+p2
   plot(Regs) # plot the results of Regs
@@ -154,6 +155,24 @@ write_csv(RespoR, here("Data","RespoFiles", "Initial", "Initial_Respo_R.csv"))
 # post-processing: normalize rates
 #############################
 RespoR <- read_csv(here("Data","RespoFiles","Initial", "Initial_Respo_R.csv"))
+
+RespoR <- RespoR %>% ## the below code will split the FileName strings by "_"
+  mutate(FileName_BLANK = if_else(str_detect(FileName, "BLANK"), FileName, NA_character_),
+         FileName = if_else(str_detect(FileName, "BLANK"), NA_character_, FileName)) %>%
+  separate_wider_delim(FileName, delim = "_", names = c("GENOTYPE", "CORAL_NUM", "LIGHT_DARK", 
+                                                        "RUN_NUM", "O2")) %>%
+  separate_wider_delim(FileName_BLANK, delim = "_", names = c("BLANK_CORAL_NUM", "BLANK_LIGHT_DARK", "BLANK_RUN_NUM", "BLANK_O2")) %>% # had to do a separate one for BLANK because there are different # of values
+  mutate(CORAL_NUM = coalesce(CORAL_NUM, BLANK_CORAL_NUM),   #this mutate takes any values from the "BLANK" columns and 
+         LIGHT_DARK = coalesce(LIGHT_DARK, BLANK_LIGHT_DARK),   #coalesces it with the "regular" column names
+         RUN_NUM = coalesce(RUN_NUM, BLANK_RUN_NUM),
+         O2 = coalesce(O2, BLANK_O2),
+         RUN_NUM = str_remove(RUN_NUM, "RUN")) %>%  # get rid of the word "RUN" but keep the number value
+  select(-c(BLANK_CORAL_NUM, BLANK_LIGHT_DARK, BLANK_RUN_NUM, BLANK_O2, O2)) # get rid of "BLANK" and "O2" columns
+
+RespoR <- RespoR %>%
+  mutate(GENOTYPE = if_else(is.na(GENOTYPE), "BLANK", GENOTYPE)) # fill in 'BLANK' wherever there's an NA 
+
+RespoR$RUN_NUM <- as.numeric(RespoR$RUN_NUM)
 
 RespoR2 <- RespoR %>%
   right_join(Sample.Info, by = c("GENOTYPE", "CORAL_NUM", "LIGHT_DARK", "RUN_NUM", "DATE")) %>% # Join the raw respo calculations with the metadata
@@ -192,11 +211,12 @@ RespoR_Normalized <- RespoR2 %>%
 RespoR_Normalized_DARK <- RespoR_Normalized %>% 
   ungroup() %>%
   filter(LIGHT_DARK == "DARK") %>% 
-  mutate(R = umol.cm2.hr*-1, ##mmol cm2 hr
-         R_uncorr = umol.cm2.hr_uncorr*-1) %>% 
+  mutate(R = umol.cm2.hr*-1, 
+         R_uncorr = umol.cm2.hr_uncorr*-1) %>% ## un_corr means uncorrected value 
   mutate(R = ifelse(R < 0, 0, R), # for any values below 0, make 0
          R_uncorr = ifelse(R_uncorr < 0, 0, R_uncorr)) %>% 
   select(-c(umol.cm2.hr, umol.cm2.hr_uncorr, LIGHT_DARK)) # all dark run rates get R for respiration
+view(RespoR_Normalized_DARK)
 
 # all light run rates get NP for net photosynthesis
 RespoR_Normalized_LIGHT <- RespoR_Normalized %>% 
@@ -205,19 +225,20 @@ RespoR_Normalized_LIGHT <- RespoR_Normalized %>%
   #mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
          #mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 
   select(DATE, CORAL_NUM, GENOTYPE, NP = umol.cm2.hr, NP_uncorr = umol.cm2.hr_uncorr)
+view(RespoR_Normalized_LIGHT)
 
 # rejoin data into single df
-RespoR_Normalized2 <- full_join(RespoR_Normalized_DARK, RespoR_Normalized_LIGHT) %>%
+RespoR_Normalized_Final <- full_join(RespoR_Normalized_DARK, RespoR_Normalized_LIGHT) %>%
   mutate(GP = NP + R, 
-         GP_uncorr = NP_uncorr + R_uncorr)
-
+         GP_uncorr = NP_uncorr + R_uncorr) %>%
+  drop_na() # idk why H_150 is not reading in... 
 
 
 #############################
 # save file
 #############################
 
-write_csv(RespoR_Normalized2, here("Data","RespoFiles","Initial", "Respo_RNormalized_InitialRates.csv"))  
+write_csv(RespoR_Normalized_Final, here("Data","RespoFiles","Initial", "RespoR_Normalized_InitialRates.csv"))  
 
 
 

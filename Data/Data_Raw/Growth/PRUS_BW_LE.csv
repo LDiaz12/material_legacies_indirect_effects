@@ -1,4 +1,4 @@
-﻿CoralID,CoralNum,Genotype,Color,Treatment,Initial_weight_g,Final_weight_g,Initial_LE_mm,Final_LE_mm,Notes
+﻿CORALID,CORAL_NUM,GENOTYPE,COLOR,TREATMENT,INITIAL_WEIGHT_G,FINAL_WEIGHT_G,INITIAL_LE_MM,FINAL_LE_MM,NOTES
 A_111,111,A,Yellow,Rubble-Dom,22.274,23.943,64,65,
 A_40,40,A,Yellow,Coral-Dom,20.036,21.65,62,63,
 A_56,56,A,Yellow,Algae-Dom,12.998,14.621,53,53,
