@@ -10,7 +10,7 @@ pHcalib<-read_csv(here("Data","Chemistry", "TrisCalSummer2024.csv"))
 pHData<-read_csv(here("Data", "Chemistry", "CarbonateChemistry.csv"))
 TableID<-read_csv(here("Data", "TableID.csv"))
 
-## update daily!
+
 pHSlope<-pHcalib %>%
   nest_by(TrisCalDate)%>%
   mutate(fitpH = list(lm(mVTris~TTris, data = pHcalib))) %>% # linear regression of mV and temp of the tris
@@ -35,11 +35,11 @@ pHSlope <-pHSlope%>%
 
 # remove the inflow data and join it with the tanks that had that specific inflow water
 InflowData <- pHSlope %>%
-  filter(TANKID %in% c("Inflow1","Inflow2")) %>%
+  filter(TANK_NUM %in% c("Inflow1","Inflow2")) %>%
   select(-c(FLOW_LEFT, FLOW_RIGHT, Notes, DO_MG_L, SALINITY, TEMPINSITU))  %>% ### remove the values that I don't need -- You will eventually need to keep TA which is why I dropped these instead of coding for the ones that I need
   rename(pH_inflow = pH,
          TA_inflow = TA) %>%# rename the pH to show that it is inflow pH
-  mutate(INFLOW_TABLE = ifelse(TANKID == "Inflow1",1,2)) %>% # give them inflow numbers to pair easily with the TankID 
+  mutate(INFLOW_TABLE = ifelse(TANK_NUM == "Inflow1",1,2)) %>% # give them inflow numbers to pair easily with the TankID 
   ungroup()%>%
   select(DATE,TIME, INFLOW_TABLE, pH_inflow, TA_inflow) # drop the Tank ID column to be able to join the data correctly by inflow #
 
@@ -47,8 +47,8 @@ SurfaceArea <- 22.5*22.5
 
 Data<-pHSlope %>%
   ungroup()%>%
-  filter(!TANKID %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data
-  mutate(TANKID = as.numeric(TANKID))%>% # convert to numeric since the inflow data is now dropped
+  filter(!TANK_NUM %in% c("Inflow1","Inflow2"))%>% # filter out the inflow data
+  mutate(TANK_NUM = as.numeric(TANK_NUM))%>% # convert to numeric since the inflow data is now dropped
   left_join(TableID) %>%
   left_join(InflowData) %>% # join with the inflow data for easier calculations of rates
   mutate(DATETIME = ymd_hms(paste(DATE,TIME)), # make a datetime
@@ -62,7 +62,7 @@ Data<-pHSlope %>%
 ### Now Make a plot showing how the Tank pH differed from the inflow pH over time
 
 tank_pH_diffs <- Data %>%
-  ggplot(aes(x = DATETIME, y = pHDiff, color = TREATMENT, group = TANKID, na.rm = TRUE))+
+  ggplot(aes(x = DATETIME, y = pHDiff, color = TREATMENT, group = TANK_NUM, na.rm = TRUE))+
   geom_point()+
   geom_line()
 tank_pH_diffs +
@@ -84,8 +84,8 @@ Data<-Data %>%
 
 ### Select what I want for TA data ### 
 TA_Data <- Data %>%
-  select(DATETIME, DATE, TIME, TA, TREATMENT, TANKID) %>%
-  group_by(DATETIME, DATE, TIME, TREATMENT, TANKID) %>%
+  select(DATETIME, DATE, TIME, TA, TREATMENT, TANK_NUM) %>%
+  group_by(DATETIME, DATE, TIME, TREATMENT, TANK_NUM) %>%
   drop_na()
 TA_Data
 
@@ -165,7 +165,7 @@ TA_plot
 ## filtering for 12:00 and 21:00 sampling times and reframing to add TA daily mean and daily range between 12 and 9 
 TA_data2 <- TA_Data %>% 
   filter(TIME %in% c("12:00:00","21:00:00")) %>% 
-  group_by(TREATMENT, DATE, TANKID) %>%
+  group_by(TREATMENT, DATE, TANK_NUM) %>%
   reframe(TA_range = TA[TIME == hms("12:00:00")] - TA[TIME == hms("21:00:00")],
           TA_dailymean = mean(TA, na.rm = TRUE))
 TA_data2 <- TA_data2[-c(33,40,42,52,56),]
@@ -203,7 +203,7 @@ TA_range_plot
 ggsave(plot = TA_range_plot, filename = here("Output", "TA_range_plot.png"), width = 9, height = 7)
 
 # mean range TA stats #
-TA_range_model <- lmer(TA_range ~ TREATMENT +(1|TANKID), data=TA_data2)
+TA_range_model <- lmer(TA_range ~ TREATMENT +(1|TANK_NUM), data=TA_data2)
 plot(TA_range_model)
 qqp(residuals(TA_range_model), "norm") ## dropped row 33 since a large outlier and rerun stats
 summary(TA_range_model)
@@ -233,20 +233,20 @@ TA_mean_plot
 ggsave(plot = TA_mean_plot, filename = here("Output", "TA_mean_plot.png"), width = 9, height = 6)
 
 ## TA daily mean stats ##
-TA_mean_model <- lmer(TA_dailymean ~ TREATMENT + (1|TANKID), data=TA_data2)
+TA_mean_model <- lmer(TA_dailymean ~ TREATMENT + (1|TANK_NUM), data=TA_data2)
 plot(TA_mean_model)
 qqp(residuals(TA_mean_model), "norm") ## dropped 42, 56 as major outliers and rerun stats
 summary(TA_mean_model)
 anova(TA_mean_model) # suuuuuuper significant
 # model without random effects for post hoc groupings
-TA_mean_model2 <- lm(TA_dailymean ~ TREATMENT + (1|TANKID), data=TA_data2)
+TA_mean_model2 <- lm(TA_dailymean ~ TREATMENT + (1|TANK_NUM), data=TA_data2)
 HSD.test(TA_mean_model2, "TREATMENT", console = TRUE)
 
 ###################################
 ### NEC DATA ### 
 NEC_data <- Data %>%
-  select(DATETIME, DATE, TIME, NEC, TREATMENT, TANKID) %>%
-  group_by(DATETIME, DATE, TIME, TREATMENT, TANKID) %>%
+  select(DATETIME, DATE, TIME, NEC, TREATMENT, TANK_NUM) %>%
+  group_by(DATETIME, DATE, TIME, TREATMENT, TANK_NUM) %>%
   drop_na()
 
 #NEC_data <- NEC_data[-c(10,79),] # drop these? 
@@ -279,7 +279,7 @@ NEC_plot
 ## filter NEC data for 12:00 and 21:00 sampling and reframe for range and daily mean of these times ## 
 NEC_data2 <- NEC_data %>% 
   filter(TIME %in% c("12:00:00","21:00:00")) %>% 
-  group_by(TREATMENT, DATE, TANKID) %>%
+  group_by(TREATMENT, DATE, TANK_NUM) %>%
   reframe(NEC_range = NEC[TIME == hms("12:00:00")] - NEC[TIME == hms("21:00:00")],
           NEC_dailymean = mean(NEC, na.rm = TRUE))
 NEC_data2 <- NEC_data2[-c(12,14,24,25),] # taking out these outliers for now - chat with Nyssa 
@@ -313,7 +313,7 @@ NEC_range_plot
 ggsave(plot = NEC_range_plot, filename = here("Output", "NEC_range_plot.png"), width = 9, height = 6)
 
 ## NEC mean daily range stats ## 
-NEC_range_model <- lmer(NEC_range ~ TREATMENT +(1|TANKID), data=NEC_data2)
+NEC_range_model <- lmer(NEC_range ~ TREATMENT +(1|TANK_NUM), data=NEC_data2)
 plot(NEC_range_model)
 qqp(residuals(NEC_range_model), "norm")
 summary(NEC_range_model)
@@ -341,7 +341,7 @@ NEC_mean_plot
 ggsave(plot = NEC_mean_plot, filename = here("Output", "NEC_mean_plot.png"), width = 9, height = 6)
 
 ## NEC daily mean stats ##
-NEC_mean_model <- lmer(NEC_dailymean ~ TREATMENT + (1|TANKID), data=NEC_data2)
+NEC_mean_model <- lmer(NEC_dailymean ~ TREATMENT + (1|TANK_NUM), data=NEC_data2)
 plot(NEC_mean_model)
 qqp(residuals(NEC_mean_model), "norm")
 summary(NEC_mean_model)
@@ -379,9 +379,10 @@ pH_plot
 ## clean up pH data and filter only 12:00 and 21:00 sampling times ## 
 pH_clean <- Data %>% 
   filter(TIME %in% c("12:00:00","21:00:00")) %>% 
-  group_by(TREATMENT, DATE, TANKID) %>%
+  group_by(TREATMENT, DATE, TANK_NUM) %>%
   reframe(pH_range = pH[TIME == hms("12:00:00")] - pH[TIME == hms("21:00:00")],
             pH_dailymean = mean(pH, na.rm = TRUE))
+#write_csv(pH_clean, here("Data", "Chemistry", "Cleaned_pH_Data_FULL.csv"))
 
 pH_plotdata<- pH_clean %>%
   group_by(TREATMENT) %>%
@@ -389,6 +390,8 @@ pH_plotdata<- pH_clean %>%
             pH_rangese = sd(pH_range, na.rm = TRUE)/sqrt(n()),
             pH_mean = mean(pH_dailymean, na.rm = TRUE),
             pH_se = sd(pH_dailymean, na.rm = TRUE)/sqrt(n()))
+
+#write_csv(pH_plotdata, here("Data", "Chemistry", "Cleaned_pH_Data_per_Treatment.csv"))
 
 ## plot pH range from 12:00 and 21:00 sampling throughout experiment ## 
 pH_plotdata$TREATMENT <- factor(pH_plotdata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
@@ -415,7 +418,7 @@ pH_range_plot
 ggsave(plot = pH_range_plot, filename = here("Output", "pH_range_plot.png"), width = 9, height = 6)
 
 ## pH range stats ##
-pH_range_model <- lmer(pH_range ~ TREATMENT +(1|TANKID), data=pH_clean)
+pH_range_model <- lmer(pH_range ~ TREATMENT +(1|TANK_NUM), data=pH_clean)
 plot(pH_range_model)
 qqp(residuals(pH_range_model), "norm")
 summary(pH_range_model)
@@ -445,23 +448,25 @@ pH_mean_plot
 ggsave(plot = pH_mean_plot, filename = here("Output", "pH_mean_plot.png"), width = 9, height = 6)
 
 ## mean pH treatment stats ## 
-mean_pH_model <- lmer(pH_dailymean~TREATMENT +(1|TANKID), data=pH_clean)
+mean_pH_model <- lmer(pH_dailymean~TREATMENT +(1|TANK_NUM), data=pH_clean)
 plot(mean_pH_model)
 qqp(residuals(mean_pH_model), "norm")
 summary(mean_pH_model)
 anova(mean_pH_model)
 
 ### Combine biomass data and carb chem data ### 
+#source(here("Scripts", "AFDW.R"))
+
 chem_biomass_data <- afdw_nopre %>%
-  right_join(Data, by = "TANKID", "TREATMENT") %>%
-  select(CORAL_NUM, GENOTYPE, TREATMENT, TANKID, mean_AFDW, mean_tissue_biomass, DATE, TIME, pH)
+  right_join(Data, by = "TANK_NUM", "TREATMENT") %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, TANK_NUM, mean_AFDW, mean_tissue_biomass, DATE, TIME, pH)
 
 chem_biomass_data_clean <- chem_biomass_data %>%
   filter(TIME %in% c("12:00:00","21:00:00")) %>% 
-  group_by(TREATMENT, DATE, TIME, TANKID) 
+  group_by(TREATMENT, DATE, TIME, TANK_NUM) 
 
 chem_biomass_plotdata <- chem_biomass_data_clean %>%
-  group_by(TANKID, TREATMENT, mean_tissue_biomass, CORAL_NUM, GENOTYPE) %>%
+  group_by(TANK_NUM, TREATMENT, mean_tissue_biomass, CORAL_NUM, GENOTYPE) %>%
   summarize(pH_mean = mean(pH, na.rm = TRUE),
             pH_se = sd(pH, na.rm = TRUE)/sqrt(n()))
 chem_biomass_plotdata <- chem_biomass_plotdata[-c(54),]
@@ -483,7 +488,7 @@ biomass_meanpH_plot <- chem_biomass_plotdata %>%
 biomass_meanpH_plot
 ggsave(plot = biomass_meanpH_plot, filename = here("Output", "biomass_meanpH_plot.png"), width = 9, height = 7)
 
-biomass_meanpH_model <- lmer(mean_tissue_biomass~ pH_mean + (1|TANKID), data = chem_biomass_plotdata)
+biomass_meanpH_model <- lmer(mean_tissue_biomass~ pH_mean + (1|TANK_NUM), data = chem_biomass_plotdata)
 anova(biomass_meanpH_model)
 summary(biomass_meanpH_model)
 
@@ -491,7 +496,7 @@ TA_biomass_data$TREATMENT <- factor(TA_biomass_data$TREATMENT, levels = c("Contr
 
 
 TA_biomass_data <- afdw_nopre %>%
-  select(TANKID, TREATMENT, mean_tissue_biomass, GENOTYPE) %>%
+  select(TANK_NUM, TREATMENT, mean_tissue_biomass, GENOTYPE) %>%
   full_join(TA_plotdata) 
 
 biomass_TA_plot <- TA_biomass_data %>%
@@ -509,7 +514,7 @@ biomass_TA_plot <- TA_biomass_data %>%
 biomass_TA_plot
 ggsave(plot = biomass_TA_plot, filename = here("Output", "biomass_TA_plot.png"), width = 9, height = 7)
 
-TA_biomass_model <- lmer(mean_tissue_biomass ~ TA_mean + (1|TANKID), data = TA_biomass_data)
+TA_biomass_model <- lmer(mean_tissue_biomass ~ TA_mean + (1|TANK_NUM), data = TA_biomass_data)
 anova(TA_biomass_model)
 summary(TA_biomass_model)
 
