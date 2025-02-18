@@ -1,5 +1,7 @@
 library(tidyverse)
 library(here)
+library(performance)
+
 
 final_respo_norm <- read_csv(here("Data", "RespoFiles", "Final", "RespoR_Normalized_FinalRates.csv"))
 metadata <- read_csv(here("Data", "MO24BEAST_Metadata.csv"))
@@ -16,7 +18,7 @@ pH_summary <- clean_pH_data_FULL %>%
 final_respo_meta_join <- final_respo_norm %>% ## join final respo data with metadata sheet
   right_join(metadata) %>%
   drop_na() %>%
-  select(TANK_NUM, TREATMENT, GP, R, NP) %>%
+  select(TANK_NUM, GENOTYPE, TREATMENT, GP, R, NP) %>%
   left_join(pH_summary) # add pH summary data onto left side of data sheet
 
 final_respo_meta_join$TREATMENT <- factor(final_respo_meta_join$TREATMENT, levels = c("Control", "Coral_Dom", 
@@ -28,7 +30,6 @@ final_respo_GP <- final_respo_meta_join %>%
   ggplot(aes(x=TREATMENT, y = GP, color = TREATMENT)) +
   labs(x = "Community Tank", y = "Coral Gross Photosynthetic Rate") +
   geom_jitter(data = final_respo_meta_join, aes(x = TREATMENT, y = GP), alpha = 0.7) +
-  geom_point() + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 final_respo_GP
@@ -39,7 +40,6 @@ final_respo_GP
 final_pHmean_GP <- final_respo_meta_join %>%
   ggplot(aes(x=pH_mean, y = GP, color = TREATMENT)) + 
   labs(x = "pH Mean", y = "Gross Photosynthesis") +
-  geom_jitter(data = final_respo_meta_join, aes(x = pH_mean, y = GP), alpha = 0.7) +
   geom_point() +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
@@ -54,12 +54,13 @@ final_pHmean_GP
 # seem to stay between 0.075 - 0.15 
 
 final_pHrange_GP <- final_respo_meta_join %>%
-  ggplot(aes(x=pH_range, y = GP, color = TREATMENT)) + 
-  labs(x = "pH Range", y = "Gross Photosynthesis") + 
-  geom_jitter(data = final_respo_meta_join, aes(x = pH_range, y = GP), alpha = 0.7) +
+  ggplot(aes(x=pH_range, y = GP, color = TREATMENT)) + # color = treatment
+  labs(x = "pH Range", y = "Gross Photosynthesis") +
   geom_point() + 
+  #geom_smooth(se = FALSE) +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
-                                "Rubble_Dom" = "tan"))
+                                "Rubble_Dom" = "tan")) 
+    facet_wrap(~GENOTYPE)
 final_pHrange_GP
 # here I'm seeing more of a distinct pattern compared to the mean pH: Control tanks had the least difference in pH range
 # throughout sampling days (~0); corals in these treatments had GP rates between 0.05 - 0.15. 
@@ -74,7 +75,6 @@ final_respo_R <- final_respo_meta_join %>%
   ggplot(aes(x=TREATMENT, y = R, color = TREATMENT)) +
   labs(x = "Community Tank", y = "Coral Respiration Rate") + 
   geom_jitter(data = final_respo_meta_join, aes(x = TREATMENT, y = GP), alpha = 0.7) +
-  geom_point() + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 final_respo_R
@@ -83,8 +83,8 @@ final_respo_R
 final_pHmean_R <- final_respo_meta_join %>%
   ggplot(aes(x=pH_mean, y = R, color = TREATMENT)) + 
   labs(x = "pH Mean", y = "Respiration Rate") +
-  geom_jitter(data = final_respo_meta_join, aes(x = pH_mean, y = R), alpha = 0.7) +
-  geom_point() +
+  geom_point() + 
+  facet_wrap(~GENOTYPE) +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 final_pHmean_R
@@ -94,7 +94,6 @@ final_pHmean_R
 final_pHrange_R <- final_respo_meta_join %>%
   ggplot(aes(x=pH_range, y = R, color = TREATMENT)) + 
   labs(x = "pH Range", y = "Respiration Rate") +
-  geom_jitter(data = final_respo_meta_join, aes(x = pH_range, y = R), alpha = 0.7) +
   geom_point() +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
@@ -110,8 +109,7 @@ final_pHrange_R
 final_respo_NP <- final_respo_meta_join %>%
   ggplot(aes(x=TREATMENT, y = NP, color = TREATMENT)) +
   labs(x = "Community Tank", y = "Net Photosynthesis") +
-  geom_jitter(data = final_respo_meta_join, aes(x = TREATMENT, y = NP), alpha = 0.7) +
-  geom_point() + 
+  geom_jitter(data = final_respo_meta_join, aes(x = TREATMENT, y = NP), alpha = 0.7) + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 final_respo_NP
@@ -122,8 +120,7 @@ final_respo_NP
 final_pHmean_NP <- final_respo_meta_join %>%
   ggplot(aes(x=pH_mean, y = NP, color = TREATMENT)) + 
   labs(x = "pH Mean", y = "Net Photosynthesis") +
-  geom_jitter(data = final_respo_meta_join, aes(x = pH_mean, y = NP), alpha = 0.7) +
-  geom_point() +
+  geom_point() + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 final_pHmean_NP
@@ -134,7 +131,6 @@ final_pHmean_NP
 final_pHrange_NP <- final_respo_meta_join %>%
   ggplot(aes(x=pH_range, y = NP, color = TREATMENT)) + 
   labs(x = "pH Range", y = "Net Photosynthesis") +
-  geom_jitter(data = final_respo_meta_join, aes(x = pH_range, y = NP), alpha = 0.7) +
   geom_point() +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
@@ -148,7 +144,6 @@ final_respo_GP_R <- final_respo_meta_join %>%
   ggplot(aes(x=TREATMENT, y = GP/R, color = TREATMENT)) + 
   labs(x = "Community Tank", y = "Gross Photosynthesis/Respiration Ratio") +
   geom_jitter(data = final_respo_meta_join, aes(x = TREATMENT, y = GP/R), alpha = 0.7) +
-  geom_point() + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 final_respo_GP_R
@@ -160,7 +155,6 @@ final_respo_GP_R
 final_pHmean_GP_R <- final_respo_meta_join %>%
   ggplot(aes(x=pH_mean, y = GP/R, color = TREATMENT)) + 
   labs(x = "pH Mean", y = "Gross Photosynthesis/Respiration Ratio") +
-  geom_jitter(data = final_respo_meta_join, aes(x = pH_mean, y = GP/R), alpha = 0.7) +
   geom_point() + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
@@ -173,7 +167,6 @@ final_pHmean_GP_R
 final_pHrange_GP_R <- final_respo_meta_join %>%
   ggplot(aes(x=pH_range, y = GP/R, color = TREATMENT)) + 
   labs(x = "pH Range", y = "Gross Photosynthesis/Respiration Ratio") +
-  geom_jitter(data = final_respo_meta_join, aes(x = pH_range, y = GP/R), alpha = 0.7) +
   geom_point() + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
@@ -183,33 +176,41 @@ final_pHrange_GP_R
 # coral dom communities around 0.06 - 0.12 range in pH values and GP/R ratios of 2 - 4 
 # both rubble and algae dom communities between 0.10 - 0.17 range in pH values, and similarly have GP/R ratios of 2 - 4
 
+R_GP_plot <- final_respo_meta_join %>%
+  ggplot(aes(x = R, y = GP, color = TREATMENT)) + 
+  geom_point()
+R_GP_plot
+
+
 ###################################
 # STATS # 
 
 ## GROSS PHOTOSYNTHESIS ## 
 
 # how is GP impacted by treatment type # 
-GP_treatment_model <- lm(GP ~ TREATMENT, data = final_respo_meta_join)
+GP_treatment_model <- lmer(GP ~ TREATMENT + (1|GENOTYPE), data = final_respo_meta_join)
 plot(GP_treatment_model)
 summary(GP_treatment_model)
 anova(GP_treatment_model)
 # the above model shows that the algae dominated communities had the most significant effect on altering 
 # GP of corals in the response tanks (p < 0.05) 
 
-GP_pH_model <- lm(GP ~ pH_mean, data = final_respo_meta_join)
+GP_pH_model <- lmer(GP ~ pH_mean + (1|GENOTYPE), data = final_respo_meta_join)
 plot(GP_pH_model)
 summary(GP_pH_model)
+check_model(GP_pH_model)
 anova(GP_pH_model)
 # no significant effect of mean pH on coral GP 
 
-GP_pHrange_model <- lm(GP ~ pH_range, data = final_respo_meta_join)
+GP_pHrange_model <- lmer(GP ~ pH_range + (1|GENOTYPE), data = final_respo_meta_join)
 plot(GP_pHrange_model)
+check_model(GP_pHrange_model)
 summary(GP_pHrange_model)
 anova(GP_pHrange_model)
 # no significant effect of pH range on coral GP 
 
 ## RESPIRATION ## 
-R_treatment_model <- lm(R ~ TREATMENT, data = final_respo_meta_join)
+R_treatment_model <- lmer(R ~ TREATMENT + (1| GENOTYPE), data = final_respo_meta_join)
 plot(R_treatment_model)
 summary(R_treatment_model)
 anova(R_treatment_model)
@@ -229,7 +230,7 @@ summary(R_pHrange_model)
 # sig effect of pH range on coral R (p < 0.05)
 
 ## NET PHOTOSYNTHESIS ## 
-NP_treatment_model <- lm(NP ~ TREATMENT, data = final_respo_meta_join)
+NP_treatment_model <- lmer(NP ~ TREATMENT + (1|GENOTYPE), data = final_respo_meta_join)
 plot(NP_treatment_model)
 summary(NP_treatment_model)
 anova(NP_treatment_model)
@@ -246,12 +247,13 @@ summary(NP_pHrange_model)
 # no sig effect of mean pH on coral NP 
 
 ## GP/R Ratio ## 
-GPR_treatment_model <- lm(GP/R ~ TREATMENT, data = final_respo_meta_join)
+GPR_treatment_model <- lmer(GP/R ~ TREATMENT + (1|GENOTYPE), data = final_respo_meta_join)
 plot(GPR_treatment_model)
 summary(GPR_treatment_model)
 anova(GPR_treatment_model)
 
+ggplot(data = final_respo_meta_join, aes(x = TREATMENT, y = pH_mean)) +
+  geom_jitter()
 
-
-
+anova(lm(pH_range ~ TREATMENT, data = final_respo_meta_join))
 

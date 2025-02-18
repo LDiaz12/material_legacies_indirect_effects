@@ -32,12 +32,12 @@ MetaData2<-read_csv(here("Data","Data_Raw","Chl_Content", "Chl_Files", "Metadata
 MetaData2 <- MetaData2 %>% 
   filter(!CORAL_NUM == "EMPTY") ## filter out empty wells 
 ## Combine plate metadata together ##
-metadata_comb <- rbind(MetaData1, MetaData2)
+metadata_comb <- bind_rows(MetaData1, MetaData2)
 
 ##### Analysis #####
 
 # Bring plate and metadata data frames together #
-full_data <- cbind(metadata_comb,plates_comb)
+full_data <- bind_cols(metadata_comb,plates_comb)
 full_data <- full_data %>% 
   # Calculate chl from Jeffrey and Humphrey (1975)
   # units in µg/ml
@@ -65,29 +65,31 @@ Data_norm <- full_data %>%
           Chla_norm = Chla - Chla[CORAL_NUM == "BLANK"], # subtract chla value from blank normalize
           Chlc_norm = Chlc - Chlc[CORAL_NUM == "BLANK"],
           Chl_total = Chla_norm + Chlc_norm)
-Data_norm2 <- cbind(full_data, Data_norm)
+Data_norm2 <- full_join(full_data %>%
+                          select(CORAL_NUM, GENOTYPE, TREATMENT), Data_norm)
 #Data_norm2 <- Data_norm2[-c(12)]
 #Data_norm3 <- Data_norm2[-c(2,24,29,37,62,85,94,97,119),] #removing these for now but make sure to remove this once samples are rerun
 
 ## Then normalize to SA ##
 sa <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
 
-Data_norm2$CORAL_NUM <- as.character(Data_norm2$CORAL_NUM) 
+#Data_norm2$CORAL_NUM <- as.character(Data_norm2$CORAL_NUM) 
 Data_norm2_b <- Data_norm2 %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, Chla_norm, Chlc_norm, Chl_total) %>%
   drop_na()
-
-Data_norm2_b <- Data_norm2_b %>%
-  select(-c(1,12))
 
 
 ## BELOW ONLY FOR METADATA FILE WRITING ##
+
+sa <- sa %>%
+  mutate(CORAL_NUM = as.character(CORAL_NUM))
 
 chl_full <- Data_norm2_b %>%
   right_join(sa, by = join_by(CORAL_NUM, GENOTYPE))
 
 chl_full <- chl_full %>%                
-  mutate(chla.ug.cm2 = Chla * 1 / SA_cm_2, 
-         chlc2.ug.cm2 = Chlc * 1 / SA_cm_2) %>% #add in two new columns - chl a normalized to SA and chl c normalized to SA
+  mutate(chla.ug.cm2 = Chla_norm * 1 / SA_cm_2, 
+         chlc2.ug.cm2 = Chlc_norm * 1 / SA_cm_2) %>% #add in two new columns - chl a normalized to SA and chl c normalized to SA
   drop_na() 
 
 chl_data_clean <- chl_full %>%
@@ -98,13 +100,15 @@ write_csv(chl_data_clean, here("Data", "Data_Raw", "Chl_Content", "Chl_Files", "
 ## PLOTS ## 
 chl_full$TREATMENT <- factor(chl_full$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
-chl_total_plot <- ggplot(chl_full, aes(x=TREATMENT, y=Chl_total, fill=TREATMENT)) + 
+chl_total_plot <- ggplot(chl_data_clean, aes(x=TREATMENT, y=Chl_total, fill=TREATMENT)) + 
   geom_boxplot() + 
   labs(x="Treatment", y="Total Chl (µg/cm2)") + 
   scale_fill_manual(values=c("Control"="green","Algae_Dom"="red","Coral_Dom" = "blue","Rubble_Dom" = "yellow", "Pre" = "purple"), name="Treatment") +
   theme_bw(base_size=14) +
   geom_point(position = position_dodge(width=0.4))
 chl_total_plot # this is just looking at total chl for visualization - not normalized to SA
+# two chl values for controls that are negatives
+
 ggsave(plot = chl_total_plot, filename = here("Output", "chl_total_plot.png"), width = 9, height = 6)
 ## PRE treatment signifies chl measurements from corals BEFORE experiment, so they were not put into a treatment
 
@@ -126,7 +130,7 @@ c24 <- c(
 
 
 # chl a plot  #
-chl_a_plot <- chl_full %>%
+chl_a_plot <- chl_data_clean %>%
   ggplot(aes(x = TREATMENT, y = chla.ug.cm2, color = TREATMENT)) + # color by treatment for talks
   labs(x = "Treatment", y = expression(bold("Chlorophyll a" ~ (µg ~ cm^-2)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",

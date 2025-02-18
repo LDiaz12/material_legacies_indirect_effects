@@ -3,7 +3,7 @@ library(dplyr)
 library(grid)
 library(tidyverse)
 library(here)
-here()
+
 # determining most dominant coral spp on the backreef of LTER1
 coral_cover_br <- read_csv(here("Data", "PercentCoverData", "corals.csv"))
 coral_cover_br_plot <- ggplot(data = coral_cover_br, aes(fill=name, y=mean_value, x=YEAR)) +
@@ -11,6 +11,8 @@ coral_cover_br_plot <- ggplot(data = coral_cover_br, aes(fill=name, y=mean_value
   labs(x="Year", y="Mean Percent Cover", title = "Backreef Coral Cover", fill = "Coral Species")
 coral_cover_br_plot
 # plot shows clear dominance of porites spp across disturbance time points
+# update this figure for defense - only include most abundant species and change colors so 
+# p rus is more clear 
 
 # using LTER1 backreef data
 backreef_mean_cover <- read_csv(here("Data", "PercentCoverData", "backreef_benthic_comp_mean_perc.csv"))
@@ -79,11 +81,28 @@ backreef_2019_plot <- ggplot(data=backreef_2019, aes(fill=benthic_category, x=be
 backreef_2019_plot + theme(axis.text.x = element_text(angle = 90))
 
 ## backreef algal community percent cover ##
-backreef_algae <- read_csv(here("Data", "benthic_algal_cover.csv"))
-backreef_algae_plot <- ggplot(data=backreef_algae, aes(fill=Taxonomy_Substrate_Functional_Group, x=Taxonomy_Substrate_Functional_Group, y=Percent_Cover)) + 
+backreef_algae <- read_csv(here("Data", "PercentCoverData", "benthic_algal_cover.csv"))
+# select out dominant benthic orgs I need: coral, CCA, sand, turbinaria 
+# subset is best for this instead of filtering. "|" means "or"
+
+backreef_benthic_select <- backreef_algae %>%
+  subset(Taxonomy_Substrate_Functional_Group == "Coral" | 
+         Taxonomy_Substrate_Functional_Group == "Crustose Corallines" | 
+         Taxonomy_Substrate_Functional_Group == "Sand" | 
+         Taxonomy_Substrate_Functional_Group == "Turbinaria ornata") %>%
+  select(Year, Taxonomy_Substrate_Functional_Group, Percent_Cover)
+
+backreef_benthic_select_mean <- backreef_benthic_select %>%
+  group_by(Year, Taxonomy_Substrate_Functional_Group) %>%
+  summarise(mean_perc = mean(Percent_Cover, na.rm = TRUE))
+backreef_benthic_select_mean
+
+write_csv(backreef_benthic_select_mean, here("Data", "PercentCoverData", "backreef_benthic_algae_mean.csv"))
+
+backreef_algae_plot <- ggplot(data=backreef_benthic_select, aes(fill=Taxonomy_Substrate_Functional_Group, x=Taxonomy_Substrate_Functional_Group, y=Percent_Cover)) + 
   stat_summary(fun.data=mean_sdl, geom="bar") +
-  labs(x="Benthic Taxonomy", y="Percent Cover", 
-       title = "Benthic Algae Percent Cover\nLTER Backreef", fill = "Benthic Algae") +
+  labs(x="Benthic Group", y="Percent Cover", 
+       title = "Benthic Algae Percent Cover\nLTER Backreef", fill = "Benthic Group") +
   scale_color_fermenter() +
   facet_wrap(~Year)+
   theme_bw()+
@@ -91,6 +110,7 @@ backreef_algae_plot <- ggplot(data=backreef_algae, aes(fill=Taxonomy_Substrate_F
   theme(panel.border = element_blank(), panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
 backreef_algae_plot + theme(axis.text.x = element_text(angle = 90))
+
 
 
 backreef_algae_by_year <- backreef_algae %>%

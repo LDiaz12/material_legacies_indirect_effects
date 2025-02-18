@@ -22,19 +22,21 @@ pHSlope<-pHcalib %>%
   select(TrisCalDate, term, estimate) %>%
   pivot_wider(names_from = term, values_from = estimate) %>%# put slope and intercept in their own column
   right_join(.,pHData) %>% # join with the pH sample data
-  mutate(mVTris = TempInLab*TTris + `(Intercept)`) %>% # calculate the mV of the tris at temperature in which the pH of samples were measured
-  drop_na(TempInSitu)%>%
+  mutate(mVTris = TEMPINLAB*TTris + `(Intercept)`) %>% # calculate the mV of the tris at temperature in which the pH of samples were measured
+  drop_na(TEMPINSITU)%>%
   drop_na(mV) %>%
-  mutate(pH = pH(Ex=mV,Etris=mVTris,S=Salinity,T=TempInLab))  # calculate pH of the samples using the pH seacarb function
+  mutate(pH = pH(Ex=mV,Etris=mVTris,S=SALINITY,T=TEMPINLAB))  # calculate pH of the samples using the pH seacarb function
 
 ## calculate pH insitu ## 
 pHSlope <-pHSlope%>%
-  mutate(pH_insitu = pHinsi(pH = pH, ALK = 2200, Tinsi = TempInSitu, Tlab = TempInLab, 
-                            S = Salinity,Pt = 0.1, k1k2 = "m10", kf = "dg")) %>%
+  mutate(pH_insitu = pHinsi(pH = pH, ALK = 2200, Tinsi = TEMPINSITU, Tlab = TEMPINLAB, 
+                            S = SALINITY,Pt = 0.1, k1k2 = "m10", kf = "dg")) %>%
   select(!pH)%>%
   rename(pH = pH_insitu) %>% # rename it 
   ungroup() %>%
-  select(-c(TempInLab, mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
+  select(-c(TEMPINLAB, mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
+
+write_csv(pHSlope, here("Data", "Chemistry", "24_hr_pH_data.csv"))
 
 ## calculate inflow data using pH slope and flow by each inflow table ##
 InflowData <- pHSlope %>%
