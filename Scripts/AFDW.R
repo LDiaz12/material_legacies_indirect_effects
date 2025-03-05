@@ -14,6 +14,7 @@ library(moments)
 library(emmeans)
 library(agricolae)
 library(car)
+library(performance)
 
 ### read in plate data ###
 afdw_data <- read_csv(here("Data", "Data_Raw", "Growth", "MO24BEAST_AFDW.csv"))
@@ -25,13 +26,15 @@ afdw_sa <- right_join(afdw_data, sa)
 ## New data frame with normalized afdw and mean AFDW per coral ##
 afdw_sa2 <- afdw_sa %>%
   mutate(tissue_biomass = AFDW / SA_cm_2) # normalize AFDW to surface area of the coral (g/ml/cm2 ) #
-  
+
 afdw_sa2 <- afdw_sa2 %>%
-  group_by(CORAL_NUM, GENOTYPE, TREATMENT, TANK_NUM) %>%
-  select(CORAL_NUM, GENOTYPE, TREATMENT, TANK_NUM, AFDW, tissue_biomass) %>%
-  summarise(mean_AFDW = mean(AFDW),
-            mean_tissue_biomass = mean(tissue_biomass)) %>% # mean AFDW and tissue biomass PER coral 
-  drop_na()
+  group_by(CORAL_NUM, GENOTYPE, TREATMENT) %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, TANK_NUM, `BLASTATE VOL (ML)`, AFDW, SA_cm_2, tissue_biomass) %>%
+  summarise(mean_AFDW = mean(AFDW), # calculate means because of triplicates
+            mean_tissue_biomass = mean(tissue_biomass)) # mean AFDW and tissue biomass PER coral 
+
+#write_csv(afdw_sa2, here("Data", "Data_Raw", "Growth", "coral_mean_biomass_calculated.csv"))
+afdw_sa2 <- read_csv(here("Data", "Data_Raw", "Growth", "coral_mean_biomass_calculated.csv"))
 
 # AFDW represents the total tissue biomass of the coral
 
@@ -53,26 +56,23 @@ c24 <- c(
   "darkturquoise", "green1", "yellow4", "yellow3",
   "darkorange4")
 
-### total AFDW plot without PRE corals ###
-afdw_nopre <- afdw_sa2 %>%
-  filter(!TREATMENT == "Pre")
-afdw_nopre <- afdw_nopre[-c(39),]
-
-afdw_plotdata <- afdw_nopre %>%
+### make AFDW plotdata  ###
+afdw_plotdata <- afdw_sa2 %>%
   group_by(TREATMENT) %>%
   summarize(tissuebiomass_mean = mean(mean_tissue_biomass, na.rm = TRUE),
             tissuebiomass_se = sd(mean_tissue_biomass, na.rm = TRUE)/sqrt(n()))
 afdw_plotdata
 
+# reorder factor levels 
 afdw_nopre$TREATMENT <- factor(afdw_nopre$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
-
-afdw_plot <- afdw_nopre %>%
+# first plot out mean tissue biomass per treatment
+afdw_plot <- afdw_sa2 %>%
   ggplot(aes(x = TREATMENT, y = mean_tissue_biomass, color = TREATMENT)) +
   labs(x = "Treatment", y = expression(bold("Mean Coral Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
                             "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble-Dominated")) +
-  geom_jitter(data = afdw_nopre, aes(x = TREATMENT, y = mean_tissue_biomass), alpha = 0.7) +   
+  geom_jitter(data = afdw_sa2, aes(x = TREATMENT, y = mean_tissue_biomass), alpha = 0.7) +   
   theme(axis.title = element_text(size = 12, face = "bold"),
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray"),
@@ -93,24 +93,54 @@ afdw_plot
 ggsave(plot = afdw_plot, filename = here("Output", "afdw_plot.png"), width = 9, height = 6)
 
 ## AFDW stats ## 
-afdw_model <- lmer(mean_tissue_biomass ~ TREATMENT + (1|GENOTYPE), data=afdw_nopre)
-plot(afdw_model)
-qqp(residuals(afdw_model), "norm") 
+afdw_model <- lmer(mean_tissue_biomass ~ TREATMENT + (1|GENOTYPE), data=afdw_sa2)
+check_model(afdw_model) # assumptions test reveals one outlier (remove values > 0.00075)
 summary(afdw_model)
-anova(afdw_model)
+anova(afdw_model) # no significant effect, but remove outlier and redo model 
 
-# model without random effect to use in post hoc groupings # 
-afdw_model_2 <- lm(mean_tissue_biomass ~ TREATMENT, data=afdw_nopre)
-plot(afdw_model_2)
-qqp(residuals(afdw_model_2), "norm")
-summary(afdw_model_2)
-anova(afdw_model_2)
-# post hoc testing on model w/o random effect to determine significantly 
-# different groupings 
-HSD.test(afdw_model_2, "TREATMENT", console = TRUE)
+afdw_sa2_filtered <- afdw_sa2 %>% 
+  filter(mean_tissue_biomass < 0.00075)
+
+# recalculate plot data # 
+afdw_plotdata2 <- afdw_sa2_filtered %>%
+  group_by(TREATMENT) %>%
+  summarize(tissuebiomass_mean = mean(mean_tissue_biomass, na.rm = TRUE),
+            tissuebiomass_se = sd(mean_tissue_biomass, na.rm = TRUE)/sqrt(n()))
+afdw_plotdata2 # definitely reduced the standard error for the rubble dom community a lot 
+
+# second plot, with outlier removed 
+afdw_plot2 <- afdw_sa2_filtered %>%
+  ggplot(aes(x = TREATMENT, y = mean_tissue_biomass, color = TREATMENT)) +
+  labs(x = "Treatment", y = expression(bold("Mean Coral Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2)))) +
+  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble-Dominated")) +
+  geom_jitter(data = afdw_sa2_filtered, aes(x = TREATMENT, y = mean_tissue_biomass), alpha = 0.7) +   
+  theme(axis.title = element_text(size = 12, face = "bold"),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray"),
+        panel.grid.minor = element_line(color = "gray")) +
+  theme(legend.position = "none") +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15)) + 
+  stat_summary(fun.data = mean_cl_normal, fun.args = list(mult = 1), 
+               geom = "errorbar", color = "black", width = 0.1) +
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan")) +
+  geom_text(data = afdw_plotdata2, 
+            aes(x = TREATMENT, y = tissuebiomass_mean, 
+                label = paste0("", round(tissuebiomass_mean, 4))),
+            vjust = -1, hjust = 1.8, color = "black", size = 4)
+afdw_plot2
+
+# new model with filtered data 
+afdw_model2 <- lmer(mean_tissue_biomass ~ TREATMENT + (1|GENOTYPE), data=afdw_sa2_filtered)
+check_model(afdw_model2) # assumptions test reveals one outlier (remove values > 0.00075)
+summary(afdw_model2) # control tank the only significant treatment... 
+anova(afdw_model2)
 
 ## Calculate change in AFDW from initial corals to post-experiment corals
-afdw_initial <- afdw_sa2 %>%
+afdw_initial <- afdw_sa %>%
   filter(TREATMENT == "Pre") %>% 
   select(TREATMENT, CORAL_NUM, GENOTYPE, mean_AFDW, mean_tissue_biomass)
 

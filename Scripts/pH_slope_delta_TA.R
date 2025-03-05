@@ -4,6 +4,11 @@ library(broom)
 library(here)
 library(lubridate)
 library(ggridges)
+library(agricolae)
+library(lme4)
+library(lmerTest)
+library(moments)
+library(performance)
 
 ## bring in pH calibration files and raw data files
 pHcalib<-read_csv(here("Data","Chemistry", "TrisCalSummer2024.csv"))
@@ -43,6 +48,7 @@ InflowData <- pHSlope %>%
   ungroup()%>%
   select(DATE,TIME, INFLOW_TABLE, pH_inflow, TA_inflow) # drop the Tank ID column to be able to join the data correctly by inflow #
 
+
 SurfaceArea <- 22.5*22.5
 
 Data<-pHSlope %>%
@@ -54,19 +60,20 @@ Data<-pHSlope %>%
   mutate(DATETIME = ymd_hms(paste(DATE,TIME)), # make a datetime
          pHDiff = pH - pH_inflow, # calculate the difference between the inflow and the pH in each tank 
          totalflow = FLOW_RIGHT+FLOW_LEFT,
-         residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volumne of water in ml and divide by 60
+         residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volume of water in ml and divide by 60
          deltaTA = TA_inflow - TA, # calculate the difference between in and outflow
          NEC = (deltaTA/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea) ### for a real rate should probably normalize the delta TA to the delta control just like in respo
          )
-
+#write_csv(Data, here("Data", "Chemistry", "Full_Chem_Data.csv"))
 ### Now Make a plot showing how the Tank pH differed from the inflow pH over time
 
-tank_pH_diffs <- Data %>%
+tank_pH_diffs <- Data %>% ## something weird going on with this plot... 
   ggplot(aes(x = DATETIME, y = pHDiff, color = TREATMENT, group = TANK_NUM, na.rm = TRUE))+
   geom_point()+
   geom_line()
 tank_pH_diffs +
   scale_color_hue(labels = c("Algae-Dominated", "Control", "Rubble-Dominated", "Coral-Dominated"))
+
 #ggsave(plot = tank_pH_diffs, filename = here("Output", "tank_pH_diffs.png"), width = 11, height = 9)
 
 
@@ -159,7 +166,9 @@ TA_plot <- TA_Data %>%
   theme(axis.title = element_text(size = 14),
         axis.text = element_text(size = 11)) +
   theme(legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
+        legend.text = element_text(size = 14)) + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
 TA_plot
 
 ## filtering for 12:00 and 21:00 sampling times and reframing to add TA daily mean and daily range between 12 and 9 
@@ -168,20 +177,33 @@ TA_data2 <- TA_Data %>%
   group_by(TREATMENT, DATE, TANK_NUM) %>%
   reframe(TA_range = TA[TIME == hms("12:00:00")] - TA[TIME == hms("21:00:00")],
           TA_dailymean = mean(TA, na.rm = TRUE))
-TA_data2 <- TA_data2[-c(33,40,42,52,56),]
 
 ## create TA plotdata ##
 TA_plotdata <- TA_data2 %>%
   group_by(TREATMENT) %>%
-  summarize(TA_rangemean = mean(TA_range, na.rm = TRUE),
+  summarize(TA_rangemean = mean(TA_range, na.rm = TRUE), # means and ranges throughout entire 25-day experimental period
             TA_rangese = sd(TA_range, na.rm = TRUE)/sqrt(n()),
             TA_mean = mean(TA_dailymean, na.rm = TRUE),
             TA_se = sd(TA_dailymean, na.rm = TRUE)/sqrt(n()))
 TA_plotdata
 
+
+# filtering out outlier
+TA_data2_filtered <- TA_data2 %>%
+  filter(TA_range < 400)
+
 ## plot daily TA range ## 
-TA_plotdata$TREATMENT <- factor(TA_plotdata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
-TA_range_plot <- TA_plotdata %>%
+TA_plotdata2 <- TA_data2_filtered %>%
+  group_by(TREATMENT) %>%
+  summarize(TA_rangemean = mean(TA_range, na.rm = TRUE), # means and ranges throughout entire 25-day experimental period
+            TA_rangese = sd(TA_range, na.rm = TRUE)/sqrt(n()),
+            TA_mean = mean(TA_dailymean, na.rm = TRUE),
+            TA_se = sd(TA_dailymean, na.rm = TRUE)/sqrt(n()))
+TA_plotdata2
+
+TA_plotdata2$TREATMENT <- factor(TA_plotdata2$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
+TA_range_plot2 <- TA_plotdata2 %>%
   ggplot(aes(x = TREATMENT, y = TA_rangemean, color = TREATMENT)) +
   labs(x = "Treatment", y = expression(bold("Daily Mean Total Alkalinity Range" ~ (µmol ~ kg^-1)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
@@ -192,8 +214,36 @@ TA_range_plot <- TA_plotdata %>%
         legend.position = "none",
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
-  geom_jitter(data = TA_data2, aes(x = TREATMENT, y = TA_range), alpha = 0.7) +
-  geom_point() +
+  geom_jitter(data = TA_data2_filtered, aes(x = TREATMENT, y = TA_range), alpha = 0.7) +
+  geom_errorbar(aes(ymin = TA_rangemean - TA_rangese,
+                    ymax = TA_rangemean + TA_rangese), color = "black", width = 0.1) + 
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+TA_range_plot2
+ggsave(plot = TA_range_plot, filename = here("Output", "TA_range_plot.png"), width = 9, height = 7)
+
+# mean range TA stats #
+TA_range_model <- lmer(TA_range ~ TREATMENT +(1|TANK_NUM), data=TA_data2)
+check_model(TA_range_model) #not great homogeneity of variance; potential outlier point 33 
+summary(TA_range_model)
+anova(TA_range_model)
+
+
+
+# create new plot with the outlier removed - ask Nyssa if there's a cleaner way to do this
+TA_range_plot <- TA_plotdata2 %>%
+  ggplot(aes(x = TREATMENT, y = TA_rangemean, color = TREATMENT)) +
+  labs(x = "Treatment", y = expression(bold("Daily Mean Total Alkalinity Range" ~ (µmol ~ kg^-1)))) +
+  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble-Dominated")) +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "none",
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  geom_jitter(data = TA_data2_filtered, aes(x = TREATMENT, y = TA_range), alpha = 0.7) +
   geom_errorbar(aes(ymin = TA_rangemean - TA_rangese,
                     ymax = TA_rangemean + TA_rangese), color = "black", width = 0.1) + 
   stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
@@ -202,18 +252,15 @@ TA_range_plot <- TA_plotdata %>%
 TA_range_plot
 ggsave(plot = TA_range_plot, filename = here("Output", "TA_range_plot.png"), width = 9, height = 7)
 
-# mean range TA stats #
-TA_range_model <- lmer(TA_range ~ TREATMENT +(1|TANK_NUM), data=TA_data2)
-plot(TA_range_model)
-qqp(residuals(TA_range_model), "norm") ## dropped row 33 since a large outlier and rerun stats
-summary(TA_range_model)
-anova(TA_range_model)
-# model w/o random effects for post hoc testing
-TA_range_model2 <- lm(TA_range ~ TREATMENT, data=TA_data2)
-HSD.test(TA_range_model2, "TREATMENT", console = TRUE)
+
+# stats with outlier filtered out
+TA_range_model2 <- lmer(TA_range ~ TREATMENT + (1|TANK_NUM), data = TA_data2_filtered)
+check_model(TA_range_model2) # model fits much better and meets assumptions with outlier removed
+summary(TA_range_model2) # now seeing significant effect of coral dom communities on TA daily range 
+anova(TA_range_model2) # significant effect of community type on daily range in TA
 
 # mean TA plot #
-TA_mean_plot <- TA_plotdata %>%
+TA_mean_plot <- TA_plotdata2 %>%
   ggplot(aes(x = TREATMENT, y = TA_mean, color = TREATMENT)) +
   labs(x = "Treatment", y = expression(bold("Daily Mean TA" ~ (µmol ~ kg^-1)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
@@ -224,23 +271,27 @@ TA_mean_plot <- TA_plotdata %>%
         legend.position = "none",
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
-  geom_jitter(data = TA_data2, aes(x = TREATMENT, y = TA_dailymean), alpha = 0.7) +
-  geom_point() +
+  geom_jitter(data = TA_data2_filtered, aes(x = TREATMENT, y = TA_dailymean), alpha = 0.7) +
   geom_errorbar(aes(ymin = TA_mean - TA_se,
                     ymax = TA_mean + TA_se), color = "black", width = 0.1) + 
-  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black")
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
 TA_mean_plot
 ggsave(plot = TA_mean_plot, filename = here("Output", "TA_mean_plot.png"), width = 9, height = 6)
 
 ## TA daily mean stats ##
-TA_mean_model <- lmer(TA_dailymean ~ TREATMENT + (1|TANK_NUM), data=TA_data2)
-plot(TA_mean_model)
-qqp(residuals(TA_mean_model), "norm") ## dropped 42, 56 as major outliers and rerun stats
-summary(TA_mean_model)
-anova(TA_mean_model) # suuuuuuper significant
+TA_mean_model <- lmer(TA_dailymean ~ TREATMENT + (1|TANK_NUM), data=TA_data2_filtered)
+check_model(TA_mean_model)
+summary(TA_mean_model) # rubble dom and coral dom community significant at p < 0.05 for both
+anova(TA_mean_model) # significant effect of benthic community on mean TA throughout experimental period 
+# this makes sense given the high calcification rates of corals and CCA
+
 # model without random effects for post hoc groupings
-TA_mean_model2 <- lm(TA_dailymean ~ TREATMENT + (1|TANK_NUM), data=TA_data2)
+TA_mean_model2 <- lm(TA_dailymean ~ TREATMENT, data=TA_data2_filtered)
 HSD.test(TA_mean_model2, "TREATMENT", console = TRUE)
+# coral and rubble dom communities are most similar, algae is most similar to controls which makes 
+# sense bc turbs are non calcifying 
 
 ###################################
 ### NEC DATA ### 
@@ -248,8 +299,6 @@ NEC_data <- Data %>%
   select(DATETIME, DATE, TIME, NEC, TREATMENT, TANK_NUM) %>%
   group_by(DATETIME, DATE, TIME, TREATMENT, TANK_NUM) %>%
   drop_na()
-
-#NEC_data <- NEC_data[-c(10,79),] # drop these? 
 
 ## plot mean NEC over course of experiment and color by light vs dark time intervals ## 
 NEC_plot <- NEC_data %>%
@@ -273,7 +322,9 @@ NEC_plot <- NEC_data %>%
   theme(axis.title = element_text(size = 14),
         axis.text = element_text(size = 11)) +
   theme(legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
+        legend.text = element_text(size = 14)) + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
 NEC_plot
 
 ## filter NEC data for 12:00 and 21:00 sampling and reframe for range and daily mean of these times ## 
@@ -282,7 +333,6 @@ NEC_data2 <- NEC_data %>%
   group_by(TREATMENT, DATE, TANK_NUM) %>%
   reframe(NEC_range = NEC[TIME == hms("12:00:00")] - NEC[TIME == hms("21:00:00")],
           NEC_dailymean = mean(NEC, na.rm = TRUE))
-NEC_data2 <- NEC_data2[-c(12,14,24,25),] # taking out these outliers for now - chat with Nyssa 
 
 NEC_plotdata <- NEC_data2 %>%
   group_by(TREATMENT) %>%
@@ -305,23 +355,58 @@ NEC_range_plot <- NEC_plotdata %>%
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
   geom_jitter(data = NEC_data2, aes(x = TREATMENT, y = NEC_range), alpha = 0.7) +
-  geom_point() +
   geom_errorbar(aes(ymin = NEC_rangemean - NEC_rangese,
                     ymax = NEC_rangemean + NEC_rangese), color = "black", width = 0.1) + 
-  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black")
-NEC_range_plot
-ggsave(plot = NEC_range_plot, filename = here("Output", "NEC_range_plot.png"), width = 9, height = 6)
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+NEC_range_plot # crazy outlier, let's filter out 
+#ggsave(plot = NEC_range_plot, filename = here("Output", "NEC_range_plot.png"), width = 9, height = 6)
 
-## NEC mean daily range stats ## 
-NEC_range_model <- lmer(NEC_range ~ TREATMENT +(1|TANK_NUM), data=NEC_data2)
-plot(NEC_range_model)
-qqp(residuals(NEC_range_model), "norm")
+# filter out outlier from coral dom treatment 
+NEC_data_2_filtered <- NEC_data2 %>%
+  filter(NEC_range > -8, 
+         NEC_dailymean < 0.8)
+
+# new plotdata calculations 
+NEC_plotdata2 <- NEC_data_2_filtered %>%
+  group_by(TREATMENT) %>%
+  summarize(NEC_rangemean = mean(NEC_range, na.rm = TRUE),
+            NEC_rangese = sd(NEC_range, na.rm = TRUE)/sqrt(n()),
+            NEC_mean = mean(NEC_dailymean, na.rm = TRUE),
+            NEC_se = sd(NEC_dailymean, na.rm = TRUE)/sqrt(n()))
+NEC_plotdata2
+
+# new plot using filtered data with outlier removed 
+NEC_range_plot2 <- NEC_plotdata2 %>%
+  ggplot(aes(x = TREATMENT, y = NEC_rangemean, color = TREATMENT)) +
+  labs(x = "Treatment", y = expression(bold("Daily Mean NEC Range" ~ (mmol ~ m^2 ~ h^-1)))) +
+  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble-Dominated")) +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "none",
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  geom_jitter(data = NEC_data_2_filtered, aes(x = TREATMENT, y = NEC_range), alpha = 0.7) +
+  geom_errorbar(aes(ymin = NEC_rangemean - NEC_rangese,
+                    ymax = NEC_rangemean + NEC_rangese), color = "black", width = 0.1) + 
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+NEC_range_plot2
+ggsave(plot = NEC_range_plot2, filename = here("Output", "NEC_range_plot2.png"), width = 9, height = 6)
+
+
+## NEC mean daily range stats with outlier removed ## 
+NEC_range_model <- lmer(NEC_range ~ TREATMENT +(1|TANK_NUM), data=NEC_data_2_filtered)
+check_model(NEC_range_model) # not great homogeneity of variance 
 summary(NEC_range_model)
-anova(NEC_range_model)
-
+anova(NEC_range_model) # no significant effect of community type on daily range in NEC 
 
 ## plot NEC daily mean ##
-NEC_mean_plot <- NEC_plotdata %>%
+NEC_mean_plot <- NEC_plotdata2 %>%
   ggplot(aes(x = TREATMENT, y = NEC_mean, color = TREATMENT)) +
   labs(x = "Treatment", y = expression(bold("Daily Mean NEC" ~ (mmol ~ m^2 ~ h^-1)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
@@ -332,20 +417,20 @@ NEC_mean_plot <- NEC_plotdata %>%
         legend.position = "none",
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
-  geom_jitter(data = NEC_data2, aes(x = TREATMENT, y = NEC_dailymean), alpha = 0.7) +
-  geom_point() +
+  geom_jitter(data = NEC_data_2_filtered, aes(x = TREATMENT, y = NEC_dailymean), alpha = 0.7) +
   geom_errorbar(aes(ymin = NEC_mean - NEC_se,
                     ymax = NEC_mean + NEC_se), color = "black", width = 0.1) + 
-  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black")
-NEC_mean_plot
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+NEC_mean_plot # looks like an outlier... 
 ggsave(plot = NEC_mean_plot, filename = here("Output", "NEC_mean_plot.png"), width = 9, height = 6)
 
 ## NEC daily mean stats ##
-NEC_mean_model <- lmer(NEC_dailymean ~ TREATMENT + (1|TANK_NUM), data=NEC_data2)
-plot(NEC_mean_model)
-qqp(residuals(NEC_mean_model), "norm")
-summary(NEC_mean_model)
-anova(NEC_mean_model)
+NEC_mean_model <- lmer(NEC_dailymean ~ TREATMENT + (1|TANK_NUM), data=NEC_data_2_filtered)
+check_model(NEC_mean_model)
+summary(NEC_mean_model) # significant effect of coral and rubble dom communities on the daily mean NEC
+anova(NEC_mean_model)# significant effect of community type of daily mean NEC 
 
 
 ######################################
@@ -361,7 +446,7 @@ pH_plot <- Data %>%
             alpha = 1/5, color = NA, inherit.aes = FALSE) + 
   scale_fill_identity() +
   geom_point(size = 2.5) +
-  geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), width = 0.1) + 
+  geom_errorbar(aes(ymin = mean_diff - se_diff, ymax = mean_diff+se_diff), color = "black", width = 0.1) + 
   geom_hline(yintercept = 0, lty = 2) +
   theme_classic() +
   labs(x="Date & Time",
@@ -373,15 +458,49 @@ pH_plot <- Data %>%
   theme(axis.title = element_text(size = 14),
         axis.text = element_text(size = 11)) +
   theme(legend.title = element_text(size = 16),
-        legend.text = element_text(size = 14))
+        legend.text = element_text(size = 14)) + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
 pH_plot
 
-## clean up pH data and filter only 12:00 and 21:00 sampling times ## 
+# create columns for mean DAY pH and mean NIGHT pH # 
+pH_day_night <- Data %>% 
+  filter(TIME %in% c("12:00:00", "21:00:00")) %>% 
+  group_by(TREATMENT, DATE, TANK_NUM) %>%
+  reframe(pH_day = pH[TIME == hms("12:00:00")], 
+          pH_night = pH[TIME == hms("21:00:00")])
+#write_csv(pH_day_night, here("Data", "Chemistry", "pH_day_night.csv"))
+
+# now calculate mean pH for both day and night sampling times # 
+pH_day_night_means <- pH_day_night %>% 
+  group_by(TREATMENT) %>%
+  summarize(pH_day_mean = mean(pH_day, na.rm = TRUE), 
+            pH_day_se = sd(pH_day, na.rm = TRUE)/sqrt(n()), 
+            pH_night_mean = mean(pH_night, na.rm = TRUE), 
+            pH_night_se = sd(pH_night, na.rm = TRUE)/sqrt(n()))
+#write_csv(pH_day_night_means, here("Data", "Chemistry", "pH_day_night_means.csv"))
+
+
+pHday_means_plot <- ggplot(data = pH_day_night_means, aes(x = TREATMENT, y = pH_day_mean)) +
+  geom_jitter()
+pHday_means_plot
+
+pHnight_means_plot <- ggplot(data = pH_day_night_means, aes(x = TREATMENT, y = pH_night_mean)) +
+  geom_jitter()
+pHnight_means_plot
+
+## filter only 12:00 and 21:00 sampling times ## 
 pH_clean <- Data %>% 
   filter(TIME %in% c("12:00:00","21:00:00")) %>% 
   group_by(TREATMENT, DATE, TANK_NUM) %>%
   reframe(pH_range = pH[TIME == hms("12:00:00")] - pH[TIME == hms("21:00:00")],
             pH_dailymean = mean(pH, na.rm = TRUE))
+pH_clean
+
+# add pH day and pH night means to pH_clean 
+pH_clean <- pH_clean %>% 
+  right_join(pH_day_night_means)
+
 #write_csv(pH_clean, here("Data", "Chemistry", "Cleaned_pH_Data_FULL.csv"))
 
 pH_plotdata<- pH_clean %>%
@@ -390,8 +509,19 @@ pH_plotdata<- pH_clean %>%
             pH_rangese = sd(pH_range, na.rm = TRUE)/sqrt(n()),
             pH_mean = mean(pH_dailymean, na.rm = TRUE),
             pH_se = sd(pH_dailymean, na.rm = TRUE)/sqrt(n()))
-
+pH_plotdata
 #write_csv(pH_plotdata, here("Data", "Chemistry", "Cleaned_pH_Data_per_Treatment.csv"))
+
+pH_plotdata_tank<- pH_clean %>%
+  group_by(TANK_NUM) %>%
+  summarize(pH_rangemean = mean(pH_range, na.rm = TRUE),
+            pH_rangese = sd(pH_range, na.rm = TRUE)/sqrt(n()),
+            pH_mean = mean(pH_dailymean, na.rm = TRUE),
+            pH_se = sd(pH_dailymean, na.rm = TRUE)/sqrt(n()))
+pH_plotdata_tank
+
+write_csv(pH_plotdata_tank_full, here("Data", "Chemistry", "Cleaned_pH_Data_per_Tank.csv"))
+
 
 ## plot pH range from 12:00 and 21:00 sampling throughout experiment ## 
 pH_plotdata$TREATMENT <- factor(pH_plotdata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
@@ -408,7 +538,6 @@ pH_range_plot <- pH_plotdata %>%
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
   geom_jitter(data = pH_clean, aes(x = TREATMENT, y = pH_range), alpha = 0.7) +
-  geom_point() +
   geom_errorbar(aes(ymin = pH_rangemean - pH_rangese,
                     ymax = pH_rangemean + pH_rangese), color = "black", width = 0.1) + 
   stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
@@ -419,16 +548,52 @@ ggsave(plot = pH_range_plot, filename = here("Output", "pH_range_plot.png"), wid
 
 ## pH range stats ##
 pH_range_model <- lmer(pH_range ~ TREATMENT +(1|TANK_NUM), data=pH_clean)
-plot(pH_range_model)
-qqp(residuals(pH_range_model), "norm")
-summary(pH_range_model)
+check_model(pH_range_model)
+summary(pH_range_model) # significant effect of control treatment on daily mean pH but not what we were 
+# looking for. expected to see differences between the communities... 
 anova(pH_range_model)
-# model without random effects for post hoc groupings
-pH_range_model2 <- lm(pH_range ~ TREATMENT, data=pH_clean)
-HSD.test(pH_range_model2, "TREATMENT", console = TRUE)
+
+# take outlier from rubble dom community out and replot/redo stats 
+pH_clean_filtered <- pH_clean %>%
+  filter(pH_range > -0.2)
+
+pH_plotdata2 <- pH_clean_filtered %>%
+  group_by(TREATMENT) %>%
+  summarize(pH_rangemean = mean(pH_range, na.rm = TRUE),
+            pH_rangese = sd(pH_range, na.rm = TRUE)/sqrt(n()),
+            pH_mean = mean(pH_dailymean, na.rm = TRUE),
+            pH_se = sd(pH_dailymean, na.rm = TRUE)/sqrt(n()))
+pH_plotdata2
+
+pH_plotdata2$TREATMENT <- factor(pH_plotdata2$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
+pH_range_plot2 <- pH_plotdata2 %>%
+  ggplot(aes(x = TREATMENT, y = pH_rangemean, color = TREATMENT)) +
+  labs(x = "Treatment", y = "Daily Mean pH Range") +
+  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble-Dominated")) +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "none",
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  geom_jitter(data = pH_clean_filtered, aes(x = TREATMENT, y = pH_range), alpha = 0.7) +
+  geom_errorbar(aes(ymin = pH_rangemean - pH_rangese,
+                    ymax = pH_rangemean + pH_rangese), color = "black", width = 0.1) + 
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+pH_range_plot2
+
+# stats with filtered data set
+pH_range_model2 <- lmer(pH_range ~ TREATMENT +(1|TANK_NUM), data=pH_clean_filtered)
+check_model(pH_range_model2)
+summary(pH_range_model2)
+anova(pH_range_model2) # control still only the significant treatment on mean pH range 
 
 ## mean pH plot of 12:00 and 21:00 sampling throughout experiment ## 
-pH_mean_plot <- pH_plotdata %>%
+pH_mean_plot <- pH_plotdata2 %>%
   ggplot(aes(x = TREATMENT, y = pH_mean, color = TREATMENT)) +
   labs(x = "Treatment", y = "Daily Mean pH") +
   scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
@@ -439,27 +604,34 @@ pH_mean_plot <- pH_plotdata %>%
         legend.position = "none",
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
-  geom_jitter(data = pH_clean, aes(x = TREATMENT, y = pH_dailymean), alpha = 0.7) +
-  geom_point() +
+  geom_jitter(data = pH_clean_filtered, aes(x = TREATMENT, y = pH_dailymean), alpha = 0.7) +
   geom_errorbar(aes(ymin = pH_mean - pH_se,
                     ymax = pH_mean + pH_se), color = "black", width = 0.1) + 
-  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black")
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
 pH_mean_plot
 ggsave(plot = pH_mean_plot, filename = here("Output", "pH_mean_plot.png"), width = 9, height = 6)
 
 ## mean pH treatment stats ## 
-mean_pH_model <- lmer(pH_dailymean~TREATMENT +(1|TANK_NUM), data=pH_clean)
-plot(mean_pH_model)
-qqp(residuals(mean_pH_model), "norm")
+mean_pH_model <- lmer(pH_dailymean~TREATMENT +(1|TANK_NUM), data=pH_clean_filtered)
+check_model(mean_pH_model)
 summary(mean_pH_model)
 anova(mean_pH_model)
+# no significant effect of community type on daily mean pH 
 
 ### Combine biomass data and carb chem data ### 
-#source(here("Scripts", "AFDW.R"))
+# read in biomass (AFDW) data 
+afdw <- read_csv(here("Data", "Data_Raw", "Growth", "MO24BEAST_AFDW.csv"))
 
-chem_biomass_data <- afdw_nopre %>%
-  right_join(Data, by = "TANK_NUM", "TREATMENT") %>%
-  select(CORAL_NUM, GENOTYPE, TREATMENT, TANK_NUM, mean_AFDW, mean_tissue_biomass, DATE, TIME, pH)
+#filter out 'pre' experiment treatments 
+afdw_nopre <- afdw %>%
+  filter(!TREATMENT == "Pre")
+
+chem_biomass_data <- afdw_nopre %>% # join afdw data frame with chem data 
+  right_join(Data) %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, TANK_NUM, 
+         TA, deltaTA, NEC, mean_AFDW, mean_tissue_biomass, DATE, TIME, pH)
 
 chem_biomass_data_clean <- chem_biomass_data %>%
   filter(TIME %in% c("12:00:00","21:00:00")) %>% 
@@ -469,13 +641,26 @@ chem_biomass_plotdata <- chem_biomass_data_clean %>%
   group_by(TANK_NUM, TREATMENT, mean_tissue_biomass, CORAL_NUM, GENOTYPE) %>%
   summarize(pH_mean = mean(pH, na.rm = TRUE),
             pH_se = sd(pH, na.rm = TRUE)/sqrt(n()))
-chem_biomass_plotdata <- chem_biomass_plotdata[-c(54),]
 
-pH_biomass_model <- lm(mean_tissue_biomass ~ pH_mean, chem_biomass_plotdata)
-plot(pH_biomass_model)
-summary(pH_biomass_model)
+# create model for mean pH influence on mean coral tissue biomass
+pH_biomass_model_rando <- lmer(mean_tissue_biomass ~ pH_mean + (1|GENOTYPE), data = chem_biomass_plotdata)
+check_model(pH_biomass_model_rando)
+summary(pH_biomass_model_rando)
 
-biomass_meanpH_plot <- chem_biomass_plotdata %>%
+pH_biomass_model <- lm(mean_tissue_biomass ~ pH_mean, data = chem_biomass_plotdata)
+check_model(pH_biomass_model)
+summary(pH_biomass_model) 
+
+# remove influential plot 
+chem_biomass_plotdata2 <- chem_biomass_plotdata %>% 
+  filter(mean_tissue_biomass < 0.00075)
+
+# new stats with outlier removed 
+pH_biomass_model_rando2 <- lmer(mean_tissue_biomass ~ pH_mean + (1|GENOTYPE), data = chem_biomass_plotdata2)
+check_model(pH_biomass_model_rando2)
+summary(pH_biomass_model_rando2)
+
+biomass_meanpH_plot <- chem_biomass_plotdata2 %>%
   ggplot(aes(x = pH_mean, y = mean_tissue_biomass)) + 
   geom_point(aes(color = TREATMENT)) +
   labs(y = expression(bold("Mean Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))), x= "Mean pH") +
@@ -484,25 +669,37 @@ biomass_meanpH_plot <- chem_biomass_plotdata %>%
         axis.title = element_text(size = 18, face = "bold"),
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
-  geom_smooth(method = "lm", formula = y~x)
+  geom_smooth(method = "lm", formula = y~x) + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
 biomass_meanpH_plot
 ggsave(plot = biomass_meanpH_plot, filename = here("Output", "biomass_meanpH_plot.png"), width = 9, height = 7)
 
-biomass_meanpH_model <- lmer(mean_tissue_biomass~ pH_mean + (1|TANK_NUM), data = chem_biomass_plotdata)
-anova(biomass_meanpH_model)
-summary(biomass_meanpH_model)
 
-TA_biomass_data$TREATMENT <- factor(TA_biomass_data$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+# mean tissue biomass and mean pH with random effect of tank number 
+biomass_meanpH_tank <- lmer(mean_tissue_biomass ~ pH_mean + (1|TANK_NUM), data = chem_biomass_plotdata2)
+check_model(biomass_meanpH_tank)
+summary(biomass_meanpH_tank) # no sig effect of mean pH on mean tissue biomass
 
+## TA and biomass data ## 
+chem_biomass_plotdata <- chem_biomass_data_clean %>%
+  group_by(TANK_NUM, TREATMENT, mean_tissue_biomass, CORAL_NUM, GENOTYPE) %>%
+  summarize(pH_mean = mean(pH, na.rm = TRUE),
+            pH_se = sd(pH, na.rm = TRUE)/sqrt(n()), 
+            TA_mean = mean(TA, na.rm = TRUE), 
+            TA_se = sd(TA, na.rm = TRUE)/sqrt(n()))
+chem_biomass_plotdata
 
-TA_biomass_data <- afdw_nopre %>%
-  select(TANK_NUM, TREATMENT, mean_tissue_biomass, GENOTYPE) %>%
-  full_join(TA_plotdata) 
+chem_biomass_plotdata <- chem_biomass_plotdata %>%
+  filter(mean_tissue_biomass < 0.00075)
 
-biomass_TA_plot <- TA_biomass_data %>%
+chem_biomass_plotdata$TREATMENT <- factor(chem_biomass_plotdata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
+# plot mean tissue biomass as a function of mean TA
+biomass_TA_plot <- chem_biomass_plotdata %>%
   ggplot(aes(x = TA_mean, y = mean_tissue_biomass)) + 
   geom_point(aes(color = TREATMENT)) +
-  labs(y = expression(bold("Mean Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))), x= expression(bold("Daily Mean TA" ~ (µmol ~ kg^-1)))) +
+  labs(y = expression(bold("Mean Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))), x= expression(bold("Mean Total Alkalinity" ~ (µmol ~ kg^-1)))) +
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
@@ -512,10 +709,12 @@ biomass_TA_plot <- TA_biomass_data %>%
   scale_color_manual(values = c("Algae_Dom" = "#E31A1C", "Control" = "green4", "Coral_Dom" = "dodgerblue2",
                                 "Rubble_Dom" = "#6A3D9A"))
 biomass_TA_plot
-ggsave(plot = biomass_TA_plot, filename = here("Output", "biomass_TA_plot.png"), width = 9, height = 7)
 
-TA_biomass_model <- lmer(mean_tissue_biomass ~ TA_mean + (1|TANK_NUM), data = TA_biomass_data)
-anova(TA_biomass_model)
+#ggsave(plot = biomass_TA_plot, filename = here("Output", "biomass_TA_plot.png"), width = 9, height = 7)
+
+# create model of mean tissue biomass as a function of mean TA 
+TA_biomass_model <- lmer(mean_tissue_biomass ~ TA_mean + (1|TANK_NUM), data = chem_biomass_plotdata)
+check_model(TA_biomass_model)
 summary(TA_biomass_model)
 
 
