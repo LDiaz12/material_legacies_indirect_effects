@@ -5,7 +5,7 @@ library(emmeans)
 library(ggrepel)
 
 final_respo_norm <- read_csv(here("Data", "RespoFiles", "Final", "RespoR_Normalized_FinalRates.csv"))
-metadata <- read_csv(here("Data", "MO24BEAST_Metadata.csv"))
+metadata <- read_csv(here("Data", "MO24BEAST_Metadata_FULL.csv"))
 clean_pH_data <- read_csv(here("Data", "Chemistry", "Cleaned_pH_Data_per_Treatment.csv"))
 clean_pH_data_FULL <- read_csv(here("Data", "Chemistry", "Cleaned_pH_Data_FULL.csv"))
 full_chem_data <- read_csv(here("Data", "Chemistry", "Full_Chem_Data.csv"))
@@ -18,20 +18,13 @@ pH_summary <- clean_pH_data_FULL %>%
   summarise(pH_mean = mean(pH_dailymean, na.rm = TRUE), 
             pH_range = mean(pH_range, na.rm = TRUE))
 
-final_respo_meta_join <- final_respo_norm %>% ## join final respo data with metadata sheet
-  right_join(metadata) %>%
-  drop_na() %>%
-  select(TANK_NUM, CORAL_NUM, GENOTYPE, TREATMENT, GP, R, NP) %>%
-  left_join(pH_summary) # add pH summary data onto left side of data sheet
 
-final_respo_meta_join$TREATMENT <- factor(final_respo_meta_join$TREATMENT, levels = c("Control", "Coral_Dom", 
-                                                                                      "Algae_Dom", "Rubble_Dom"))
+metadata$TREATMENT <- factor(metadata$TREATMENT, levels = c("Control", "Coral_Dom", "Algae_Dom", "Rubble_Dom"))
 
 respo_meta_pHmeans <- final_respo_norm %>%
   right_join(metadata) %>% 
-  select(TANK_NUM, GENOTYPE, TREATMENT, GP, R, NP, SA_cm_2) %>%
-  left_join(pH_day_night_means) %>%
-  drop_na()
+  select(TANK_NUM, GENOTYPE, TREATMENT, GP, R, NP) %>%
+  left_join(pH_day_night_means)
 
 #####################################
 ## GROSS PHOTOSYNTHETIC RATE ##

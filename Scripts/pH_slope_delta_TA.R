@@ -9,6 +9,7 @@ library(lme4)
 library(lmerTest)
 library(moments)
 library(performance)
+#install.packages("dplyr")
 
 ## bring in pH calibration files and raw data files
 pHcalib<-read_csv(here("Data","Chemistry", "TrisCalSummer2024.csv"))
@@ -187,6 +188,8 @@ TA_plotdata <- TA_data2 %>%
             TA_se = sd(TA_dailymean, na.rm = TRUE)/sqrt(n()))
 TA_plotdata
 
+#write_csv(TA_plotdata, here("Data", "Chemistry", "Cleaned_TA_Data_per_Treatment.csv"))
+
 
 # filtering out outlier
 TA_data2_filtered <- TA_data2 %>%
@@ -221,7 +224,7 @@ TA_range_plot2 <- TA_plotdata2 %>%
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 TA_range_plot2
-ggsave(plot = TA_range_plot, filename = here("Output", "TA_range_plot.png"), width = 9, height = 7)
+#ggsave(plot = TA_range_plot2, filename = here("Output", "TA_range_plot2.png"), width = 9, height = 7)
 
 # mean range TA stats #
 TA_range_model <- lmer(TA_range ~ TREATMENT +(1|TANK_NUM), data=TA_data2)
@@ -229,6 +232,13 @@ check_model(TA_range_model) #not great homogeneity of variance; potential outlie
 summary(TA_range_model)
 anova(TA_range_model)
 
+# TA per treatment
+TA_treatmentdata <- TA_data2 %>%
+  group_by(TREATMENT) %>%
+  summarize(TA_rangemean = mean(TA_range, na.rm = TRUE),
+            TA_rangese = sd(TA_range, na.rm = TRUE)/sqrt(n()),
+            TA_mean = mean(TA_dailymean, na.rm = TRUE),
+            TA_se = sd(TA_dailymean, na.rm = TRUE)/sqrt(n()))
 
 
 # create new plot with the outlier removed - ask Nyssa if there's a cleaner way to do this
@@ -250,7 +260,7 @@ TA_range_plot <- TA_plotdata2 %>%
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 TA_range_plot
-ggsave(plot = TA_range_plot, filename = here("Output", "TA_range_plot.png"), width = 9, height = 7)
+#ggsave(plot = TA_range_plot, filename = here("Output", "TA_range_plot.png"), width = 9, height = 7)
 
 
 # stats with outlier filtered out
@@ -406,6 +416,8 @@ summary(NEC_range_model)
 anova(NEC_range_model) # no significant effect of community type on daily range in NEC 
 
 ## plot NEC daily mean ##
+NEC_plotdata2$TREATMENT <- factor(NEC_plotdata2$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
 NEC_mean_plot <- NEC_plotdata2 %>%
   ggplot(aes(x = TREATMENT, y = NEC_mean, color = TREATMENT)) +
   labs(x = "Treatment", y = expression(bold("Daily Mean NEC" ~ (mmol ~ m^2 ~ h^-1)))) +

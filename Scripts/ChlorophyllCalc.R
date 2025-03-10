@@ -201,23 +201,19 @@ full_data2 <- chl_full_filtered %>%
   mutate(Chla_percent_change = ((Chla_norm - Chla_norm_initial)/Chla_norm_initial) * 100,
          Chlc_percent_change = ((Chlc_norm - Chlc_norm_initial)/Chlc_norm_initial) * 100) %>%
   mutate(TREATMENT = factor(TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))) %>%
-  select(-(CORAL_NUM.y)) %>% 
-  rename(CORAL_NUM = CORAL_NUM.x)
+  select(-(CORAL_NUM.y))
 
 ## Change chl a plot ##
 # calculate means of the differences in chl a per treatment
 chla_summary <- full_data2 %>%
   group_by(TREATMENT) %>%
-  summarise(
-    mean_Chla_percent_change = mean(Chla_percent_change, na.rm = TRUE),
-    se_Chla_percent_change = sd(Chla_percent_change, na.rm = TRUE) / sqrt(n())
-  )
+  summarise(mean_Chla_percent_change = mean(Chla_percent_change, na.rm = TRUE),
+            se_Chla_percent_change = sd(Chla_percent_change, na.rm = TRUE)/sqrt(n()))
+
 chla_norm_summary <- full_data2 %>%
   group_by(TREATMENT) %>%
-  summarise(
-    mean_Chla_norm = mean(Chla_norm, na.rm = TRUE),
-    se_Chla_norm = sd(Chla_norm, na.rm = TRUE) / sqrt(n())
-  )
+  summarise(mean_Chla_norm = mean(Chla_norm, na.rm = TRUE),
+            se_Chla_norm = sd(Chla_norm, na.rm = TRUE) / sqrt(n()))
 
 ## plot change in chl a content from final minus initial corals per treatment with errors 
 chla_change_plot <- full_data2 %>%
@@ -253,7 +249,7 @@ anova(delta_chla_model) # no sig effect of treatment on percent change of chla
 #########################
 ## Change Chl c2 plot ##
 chlc_change_plot <- full_data2 %>%
-  ggplot(aes(x = TREATMENT, y = Chlc_diff, color = TREATMENT)) +
+  ggplot(aes(x = TREATMENT, y = Chlc_percent_change, color = TREATMENT)) +
   geom_hline(yintercept = 0) +
   labs(x = "Treatment", y = "Change in Chl c2 Content", title = "Change in Chlorophyll c2 Content by Treatment") +
   geom_jitter(width = 0.1) +
@@ -278,9 +274,11 @@ afdw_data <- read_csv(here("Data", "Data_Raw", "Growth", "coral_mean_biomass_cal
 #afdw_data$CORAL_NUM <- as.numeric(afdw_data$CORAL_NUM)
 sa$CORAL_NUM <- as.numeric(sa$CORAL_NUM)
 afdw_sa <- right_join(afdw_data, sa)
+
 afdw_sa_noNA <- afdw_sa %>% 
   drop_na()
-full_data2$CORAL_NUM <- as.numeric(full_data2$CORAL_NUM)
+
+full_data2$CORAL_NUM.x <- as.numeric(full_data2$CORAL_NUM.x)
 
 chl_biomass_data <- full_data2 %>%
   full_join(afdw_sa_noNA) %>%
@@ -288,6 +286,7 @@ chl_biomass_data <- full_data2 %>%
          mean_tissue_biomass) %>%
   drop_na()
 
+chl_biomass_data$GENOTYPE <- as.character(chl_biomass_data$GENOTYPE)
 ### regression of chl a and mean tissue biomass ###
 chl_biomass_model <- lm(Chla_norm ~ mean_tissue_biomass, data = chl_biomass_data) ## does the amount of chla depend on coral tissue biomass?
 check_model(chl_biomass_model)
