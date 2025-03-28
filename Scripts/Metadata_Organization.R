@@ -1,9 +1,10 @@
 library(tidyverse)
 library(here)
 
-## code to combine all biological parameter data per individual coral ##
 ## first read in metadata, and then all final calculation sheets ##
 metadata <- read_csv(here("Data", "MO24BEAST_Metadata.csv"))
+metadata <- metadata %>%
+  filter(!TREATMENT == "Pre")
 
 # surface area final calculation
 surface_area <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
@@ -28,48 +29,44 @@ pH_data <- read_csv(here("Data", "Chemistry", "Cleaned_pH_Data_per_Treatment.csv
 # DOC means per tank data 
 DOC_tank_means <- read_csv(here("Data", "DOC", "DOC_tank_means_data.csv"))
 
-# final respo rates 
-final_respo_rates <- read_csv(here("Data", "RespoFiles", "Final", "RespoR_Normalized_FinalRates.csv"))
-
 # TA means per treatment 
 TA_data <- read_csv(here("Data", "Chemistry", "Cleaned_TA_Data_per_Treatment.csv"))
 
-
-## now use right_join to combine all bio parameters to the Metadata sheet and continually add on to it ##
-metadata_full <- metadata %>%
-  right_join(surface_area)
-
-metadata_full <- metadata_full %>%
-  right_join(endos)
-
-metadata_full <- metadata_full %>%
-  right_join(chlorophyll, by = "CORAL_NUM", "TREATMENT")
-
-metadata_full <- metadata_full %>% 
-  select(-c(GENOTYPE.y, TREATMENT.y, TANK_NUM.y, CORAL_TANK_NUM.y, SA_cm_2.y)) %>%
-  rename(GENOTYPE = GENOTYPE.x,
-         TREATMENT = TREATMENT.x, 
-         TANK_NUM = TANK_NUM.x, 
-         CORAL_TANK_NUM = CORAL_TANK_NUM.x, 
-         SA_cm_2 = SA_cm_2.x)
-
-metadata_full$TANK_NUM <- as.factor(metadata_full$TANK_NUM)
-
-metadata_full <- metadata_full %>% 
-  right_join(DOC_tank_means) %>%
+# final respo rates 
+final_respo_rates <- read_csv(here("Data", "RespoFiles", "Final", "RespoR_Normalized_FinalRates.csv"))
+final_respo_rates <- final_respo_rates %>%
+  select(-c(DATE, RUN_NUM, umol.sec.corr, CHAMBER, Temp.C)) %>%
   drop_na()
+final_respo_rates$CORAL_NUM <- as.numeric(final_respo_rates$CORAL_NUM)
 
-#write_csv(metadata_full, here("Data", "MO24BEAST_Metadata_FULL.csv"))
+## now use full_join to combine all bio parameters to the Metadata sheet ##
+metadata_physio_full <- metadata %>% 
+  full_join(endos) %>%
+  full_join(chlorophyll) %>%
+  full_join(afdw_metadata) %>%
+  full_join(final_respo_rates) %>%
+  filter(!TREATMENT == "Pre", 
+         !chla.ug.cm2<0, 
+         !chlc2.ug.cm2<0,
+         !NP<0)
+        
+#write_csv(metadata_physio_full, here("Data", "MO24BEAST_physio_metadata.csv"))
 
-metadata_full <- read_csv(here("Data", "MO24BEAST_Metadata_FULL.csv"))
+chem_metadata <- read_csv(here("Data", "chem_metadata.csv"))
 
-metadata_full_b <- metadata_full %>%
+chem_full <- chem_metadata %>%
+  full_join(DOC_tank_means) %>% 
+  full_join(pH_data) %>%
+  full_join(TA_data)
+
+write_csv(chem_full, here("Data", "chem_full.csv"))
+
+final_respo_rates$CORAL_NUM <- as.numeric(final_respo_rates$CORAL_NUM)
+
+metadata_full_resp <- metadata_full %>%
   right_join(final_respo_rates)
 
-metadata_full_b <- metadata_full %>%
-  right_join(pH_data)
+#write_csv(metadata_full_resp, here("Data", "MO24BEAST_Metadata_FULL.csv"))
 
-metadata_full_b <- metadata_full_b %>%
-  right_join(TA_data)
 
-#write_csv(metadata_full_b, here("Data", "MO24BEAST_Metadata_FULL.csv"))
+

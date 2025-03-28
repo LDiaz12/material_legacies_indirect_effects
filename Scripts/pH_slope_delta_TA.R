@@ -345,8 +345,8 @@ NEC_data2 <- NEC_data %>%
           NEC_dailymean = mean(NEC, na.rm = TRUE))
 
 NEC_plotdata <- NEC_data2 %>%
-  group_by(TREATMENT) %>%
-  summarize(NEC_rangemean = mean(NEC_range, na.rm = TRUE),
+  group_by(TREATMENT, TANK_NUM) %>%
+  dplyr::summarize(NEC_rangemean = mean(NEC_range, na.rm = TRUE),
             NEC_rangese = sd(NEC_range, na.rm = TRUE)/sqrt(n()),
             NEC_mean = mean(NEC_dailymean, na.rm = TRUE),
             NEC_se = sd(NEC_dailymean, na.rm = TRUE)/sqrt(n()))
@@ -365,8 +365,8 @@ NEC_range_plot <- NEC_plotdata %>%
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
   geom_jitter(data = NEC_data2, aes(x = TREATMENT, y = NEC_range), alpha = 0.7) +
-  geom_errorbar(aes(ymin = NEC_rangemean - NEC_rangese,
-                    ymax = NEC_rangemean + NEC_rangese), color = "black", width = 0.1) + 
+  #geom_errorbar(aes(ymin = NEC_rangemean - NEC_rangese,
+                    #ymax = NEC_rangemean + NEC_rangese), color = "black", width = 0.1) + 
   stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))

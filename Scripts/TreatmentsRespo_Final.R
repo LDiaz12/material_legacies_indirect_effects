@@ -62,14 +62,17 @@ colnames(RespoR) <- c("FileName", "Intercept", "umol.L.sec","Temp.C")
 Sample.Info <- read_csv(here("Data","RespoFiles","Final", "FinalRespoMetaData.csv"))
 surface_area <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
 
+# only keep what you need from surface area data, rename to surface area
 surface_area <- surface_area %>%
   select(CORAL_NUM, GENOTYPE, SA_cm_2) %>% 
   mutate(SURFACE_AREA = SA_cm_2) %>%
   select(-(SA_cm_2))
 
-surface_area$CORAL_NUM <- as.numeric(surface_area$CORAL_NUM)
-Sample.Info$CORAL_NUM <- as.numeric(Sample.Info$CORAL_NUM)
 
+#coral num is character here because of blanks
+surface_area$CORAL_NUM <- as.character(surface_area$CORAL_NUM)
+
+#when combined, should have two rows per coral: one for light run and one for dark run 
 Sample.Info <- Sample.Info %>%
   left_join(surface_area)
 
@@ -157,7 +160,7 @@ write_csv(RespoR, here("Data","RespoFiles","Final", "Final_Respo_R.csv"))
 # post-processing: normalize rates
 #############################
 RespoR <- read_csv(here("Data","RespoFiles","Final", "Final_Respo_R.csv"))
-RespoR$CORAL_NUM <- as.numeric(RespoR$CORAL_NUM)
+#RespoR$CORAL_NUM <- as.numeric(RespoR$CORAL_NUM)
 
 # copy paste filenames into sample.info
 RespoR <- RespoR %>% left_join(Sample.Info)
@@ -180,7 +183,7 @@ RespoR_Normalized <- RespoR2 %>% # running into problems here with some corals l
          umol.cm2.hr = (umol.sec.corr*3600)/SURFACE_AREA,
          umol.cm2.hr_uncorr = (umol.sec*3600)/SURFACE_AREA) %>% 
   select(DATE, CORAL_NUM, GENOTYPE, LIGHT_DARK, RUN_NUM, umol.cm2.hr, umol.cm2.hr_uncorr,
-         umol.sec.corr, CHAMBER, Temp.C)
+         umol.sec.corr, CHAMBER)
 
 #############################
 #Account for blank rate by light/Dark and Block

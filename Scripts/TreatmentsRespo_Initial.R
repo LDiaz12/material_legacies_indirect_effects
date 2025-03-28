@@ -63,9 +63,10 @@ Sample.Info <- read_csv(here("Data","RespoFiles","Initial", "InitialRespoMetaDat
 surface_area <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
 
 surface_area <- surface_area %>%
-  select(CORAL_NUM, GENOTYPE, SURFACE_AREA = SA_cm_2) %>%
-  mutate(CORAL_NUM = as.character(CORAL_NUM))
-
+  select(CORAL_NUM, GENOTYPE, SA_cm_2) %>% 
+  mutate(SURFACE_AREA = SA_cm_2) %>%
+  select(-(SA_cm_2))
+surface_area$CORAL_NUM <- as.character(surface_area$CORAL_NUM)
 
 Sample.Info <- Sample.Info %>%
   left_join(surface_area)
@@ -156,33 +157,17 @@ write_csv(RespoR, here("Data","RespoFiles", "Initial", "Initial_Respo_R.csv"))
 #############################
 RespoR <- read_csv(here("Data","RespoFiles","Initial", "Initial_Respo_R.csv"))
 
-RespoR <- RespoR %>% ## the below code will split the FileName strings by "_"
-  mutate(FileName_BLANK = if_else(str_detect(FileName, "BLANK"), FileName, NA_character_),
-         FileName = if_else(str_detect(FileName, "BLANK"), NA_character_, FileName)) %>%
-  separate_wider_delim(FileName, delim = "_", names = c("GENOTYPE", "CORAL_NUM", "LIGHT_DARK", 
-                                                        "RUN_NUM", "O2")) %>%
-  separate_wider_delim(FileName_BLANK, delim = "_", names = c("BLANK_CORAL_NUM", "BLANK_LIGHT_DARK", "BLANK_RUN_NUM", "BLANK_O2")) %>% # had to do a separate one for BLANK because there are different # of values
-  mutate(CORAL_NUM = coalesce(CORAL_NUM, BLANK_CORAL_NUM),   #this mutate takes any values from the "BLANK" columns and 
-         LIGHT_DARK = coalesce(LIGHT_DARK, BLANK_LIGHT_DARK),   #coalesces it with the "regular" column names
-         RUN_NUM = coalesce(RUN_NUM, BLANK_RUN_NUM),
-         O2 = coalesce(O2, BLANK_O2),
-         RUN_NUM = str_remove(RUN_NUM, "RUN")) %>%  # get rid of the word "RUN" but keep the number value
-  select(-c(BLANK_CORAL_NUM, BLANK_LIGHT_DARK, BLANK_RUN_NUM, BLANK_O2, O2)) # get rid of "BLANK" and "O2" columns
+# copy paste filenames into sample.info
+RespoR <- RespoR %>% 
+  left_join(Sample.Info) %>%
+  select(-NOTES)
 
-RespoR <- RespoR %>%
-  mutate(GENOTYPE = if_else(is.na(GENOTYPE), "BLANK", GENOTYPE)) # fill in 'BLANK' wherever there's an NA 
-
-RespoR$RUN_NUM <- as.numeric(RespoR$RUN_NUM)
-
-RespoR2 <- RespoR %>%
-  right_join(Sample.Info, by = c("GENOTYPE", "CORAL_NUM", "LIGHT_DARK", "RUN_NUM", "DATE")) %>% # Join the raw respo calculations with the metadata
+RespoR2 <- RespoR %>% # search for NAs here...
   mutate(umol.sec = umol.L.sec*ch.vol/1000) %>% #Account for chamber volume to convert from umol L-1 s-1 to umol s-1. This standardizes across water volumes (different because of coral size) and removes per Liter
   mutate_if(sapply(., is.character), as.factor) %>% #convert character columns to factors
   mutate(BLANK = as.factor(BLANK)) #make blank column a factor
 
-#RespoR2$SURFACE_AREA <- as.numeric(RespoR2$SURFACE_AREA)
-
-RespoR_Normalized <- RespoR2 %>%
+RespoR_Normalized <- RespoR2 %>% # running into problems here with some corals losing their umol.cm2.hr 
   group_by(LIGHT_DARK, BLANK, RUN_NUM) %>% #  add run num here if one blank per run
   summarise(umol.sec = mean(umol.sec, na.rm=TRUE)) %>% # get mean value of blanks per run and remove NAs
   filter(BLANK == 1) %>% # only keep the actual blanks
@@ -191,9 +176,8 @@ RespoR_Normalized <- RespoR2 %>%
   mutate(umol.sec.corr = umol.sec - blank.rate, # subtract the blank rates from the raw rates
          umol.cm2.hr = (umol.sec.corr*3600)/SURFACE_AREA,
          umol.cm2.hr_uncorr = (umol.sec*3600)/SURFACE_AREA) %>% 
-  select(DATE, CORAL_NUM, GENOTYPE, LIGHT_DARK, RUN_NUM, umol.cm2.hr, CHAMBER, 
-                Temp.C, umol.cm2.hr_uncorr) %>%
-  drop_na()
+  select(DATE, CORAL_NUM, GENOTYPE, LIGHT_DARK, RUN_NUM, umol.cm2.hr, umol.cm2.hr_uncorr,
+         umol.sec.corr, CHAMBER)
 
 #View(RespoR_Normalized)
 
@@ -228,10 +212,10 @@ RespoR_Normalized_LIGHT <- RespoR_Normalized %>%
 view(RespoR_Normalized_LIGHT)
 
 # rejoin data into single df
-RespoR_Normalized_Final <- full_join(RespoR_Normalized_DARK, RespoR_Normalized_LIGHT) %>%
+RespoR_Normalized_Final <- full_join(RespoR_Normalized_DARK, RespoR_Normalized_LIGHT, 
+                                     relationship = "many-to-many") %>%
   mutate(GP = NP + R, 
-         GP_uncorr = NP_uncorr + R_uncorr) %>%
-  drop_na() # idk why H_150 is not reading in... 
+         GP_uncorr = NP_uncorr + R_uncorr)
 
 
 #############################

@@ -19,13 +19,32 @@ DOC_full <- DOC_full %>%
   mutate(DATETIME = ymd_hms(paste(DATE, TIME)))
 #write_csv(DOC_full, here("Data", "DOC", "DOC_full_data.csv"))
 
-# calculate DOC mean values for each tank 
-DOC_tank_means <- DOC_full %>% 
+## filtering for 12:00 and 21:00 sampling times and reframing to add TA daily mean and daily range between 12 and 9 
+DOC_full_summary <- DOC_full %>% 
+  filter(TIME %in% c("12:00:00","21:00:00")) %>% 
+  group_by(TREATMENT, DATE, TANK_NUM) %>%
+  reframe(DOC_range = NPOC_uM[TIME == hms("12:00:00")] - NPOC_uM[TIME == hms("21:00:00")],
+          DOC_dailymean = mean(NPOC_uM, na.rm = TRUE),
+          TON_range = TN_uM[TIME == hms("12:00:00")] - TN_uM[TIME == hms("21:00:00")],
+          TON_dailymean = mean(TN_uM, na.rm = TRUE))
+
+## create TA plotdata ##
+DOC_tankmeans <- DOC_full_summary %>%
   group_by(TANK_NUM) %>%
-  summarize(mean_NPOC_mgL = mean(NPOC_mg_L, na.rm = TRUE), 
-            mean_TN_mgL = mean(TN_mg_L, na.rm = TRUE), 
-            mean_NPOC_uM = mean(NPOC_uM, na.rm = TRUE), 
-            mean_TN_uM = mean(TN_uM, na.rm = TRUE))
+  summarize(DOC_rangemean = mean(DOC_range, na.rm = TRUE),
+            DOC_mean = mean(DOC_dailymean, na.rm = TRUE),
+            TON_rangemean = mean(TON_range, na.rm = TRUE), 
+            TON_mean = mean(TON_dailymean, na.rm = TRUE))
+write_csv(DOC_tankmeans, here("Data", "DOC", "DOC_tank_means_data.csv"))
+
+
+# calculate DOC mean values for each tank 
+#DOC_tank_means <- DOC_full %>% 
+  #group_by(TANK_NUM) %>%
+  #summarize(mean_NPOC_mgL = mean(NPOC_mg_L, na.rm = TRUE), 
+            #mean_TN_mgL = mean(TN_mg_L, na.rm = TRUE), 
+            #mean_NPOC_uM = mean(NPOC_uM, na.rm = TRUE), 
+            #mean_TN_uM = mean(TN_uM, na.rm = TRUE))
 #write_csv(DOC_tank_means, here("Data", "DOC", "DOC_tank_means_data.csv"))
 
 
