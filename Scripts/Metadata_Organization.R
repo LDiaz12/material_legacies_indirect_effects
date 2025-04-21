@@ -32,6 +32,12 @@ DOC_tank_means <- read_csv(here("Data", "DOC", "DOC_tank_means_data.csv"))
 # TA means per treatment 
 TA_data <- read_csv(here("Data", "Chemistry", "Cleaned_TA_Data_per_Treatment.csv"))
 
+# NEC data per tank and treatment 
+NEC_tank_means <- read_csv(here("Data", "Chemistry", "Cleaned_NEC_Data_per_Tank.csv"))
+
+# NEP data per tank and treatment 
+NEP_tank_means <- read_csv(here("Data", "Chemistry", "Cleaned_NEP_Data_per_Tank.csv"))
+
 # final respo rates 
 final_respo_rates <- read_csv(here("Data", "RespoFiles", "Final", "RespoR_Normalized_FinalRates.csv"))
 final_respo_rates <- final_respo_rates %>%
@@ -51,15 +57,23 @@ metadata_physio_full <- metadata %>%
          !NP<0)
         
 #write_csv(metadata_physio_full, here("Data", "MO24BEAST_physio_metadata.csv"))
+physio_metadata <- read_csv(here("Data", "MO24BEAST_physio_metadata.csv"))
+
+physio_metadata <- physio_metadata %>% 
+  mutate(NEP = GP - R)
+#write_csv(physio_metadata, here("Data", "MO24BEAST_physio_metadata.csv"))
+
 
 chem_metadata <- read_csv(here("Data", "chem_metadata.csv"))
 
 chem_full <- chem_metadata %>%
   full_join(DOC_tank_means) %>% 
   full_join(pH_data) %>%
-  full_join(TA_data)
+  full_join(TA_data) %>%
+  full_join(NEC_tank_means) %>%
+  full_join(NEP_tank_means)
 
-write_csv(chem_full, here("Data", "chem_full.csv"))
+#write_csv(chem_full, here("Data", "Chemistry", "chem_full.csv"))
 
 final_respo_rates$CORAL_NUM <- as.numeric(final_respo_rates$CORAL_NUM)
 
@@ -67,6 +81,5 @@ metadata_full_resp <- metadata_full %>%
   right_join(final_respo_rates)
 
 #write_csv(metadata_full_resp, here("Data", "MO24BEAST_Metadata_FULL.csv"))
-
 
 

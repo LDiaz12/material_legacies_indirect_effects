@@ -10,6 +10,7 @@ clean_pH_data <- read_csv(here("Data", "Chemistry", "Cleaned_pH_Data_per_Treatme
 clean_pH_data_FULL <- read_csv(here("Data", "Chemistry", "Cleaned_pH_Data_FULL.csv"))
 full_chem_data <- read_csv(here("Data", "Chemistry", "Full_Chem_Data.csv"))
 pH_day_night_means <- read_csv(here("Data", "Chemistry", "pH_day_night_means.csv"))
+physio_metadata <- read_csv(here("Data", "MO24BEAST_physio_metadata.csv"))
 
 ####################################
 ## RESPO AND PH DATA JOIN ##
@@ -239,6 +240,52 @@ R_GP_plot <- final_respo_meta_join %>%
   geom_smooth(method = "lm", formula = y~x)
 R_GP_plot
 
+
+#plot NEP per treatment# 
+physio_metadata$TREATMENT <- factor(physio_metadata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+
+treatment_NEP_plot <- physio_metadata %>%
+  ggplot(aes(x=TREATMENT, y = NEP, color = TREATMENT)) +
+  labs(x = "Community Tank", y = "Net Ecosystem Production (mmol C)") +
+  geom_jitter(data = physio_metadata, aes(x = TREATMENT, y = NEP), alpha = 0.7) +
+  #geom_text_repel(aes(label = CORAL_NUM)) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
+                     values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+treatment_NEP_plot
+#ggsave(plot = treatment_NEP_plot, filename = here("Output", "NEP_treatment_plot.png"), width = 9, height = 6)
+
+# calculate mean NEP per treatment #
+NEP_sum_data <- physio_metadata %>% 
+  group_by(TREATMENT, TANK_NUM) %>%
+  reframe(NEP_mean = mean(NEP, na.rm = TRUE))
+
+NEP_means <- NEP_sum_data %>% 
+  group_by(TREATMENT) %>% 
+  summarize(NEP_total_mean = mean(NEP_mean, na.rm = TRUE),
+            NEP_se = sd(NEP_mean, na.rm = TRUE)/sqrt(n()))
+NEP_means
+
+## mean NEP per treatment plot #
+NEP_mean_plot <- NEP_means %>%
+  ggplot(aes(x = TREATMENT, y = NEP_total_mean, color = TREATMENT)) +
+  labs(x = "Community Tank", y = expression(bold("Mean Net Ecosystem Production" ~ (mmol ~ C)))) +
+  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble/CCA-Dominated")) +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "none",
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  geom_jitter(data = NEP_sum_data, aes(x = TREATMENT, y = NEP_mean), alpha = 0.7) +
+  geom_errorbar(aes(ymin = NEP_total_mean - NEP_se, ymax = NEP_total_mean + NEP_se), color = "black", width = 0.1) + 
+  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+NEP_mean_plot
+#ggsave(plot = NEP_mean_plot, filename = here("Output", "NEP_means_plot.png"), width = 9, height = 9)
+
 ###################################
 # STATS # 
 
@@ -325,6 +372,13 @@ emmeans(R_treatment_model, pairwise ~ "TREATMENT", adjust="Tukey")
 ggplot(data = final_respo_meta_join, aes(x = TREATMENT, y = pH_mean)) +
   geom_jitter()
 anova(lm(pH_range ~ TREATMENT, data = final_respo_meta_join))
+
+
+## NEP ## 
+NEP_treatment_model <- lmer(NEP ~ TREATMENT + (1|GENOTYPE) + (1|TANK_NUM), data = physio_metadata)
+check_model(NEP_treatment_model)
+summary(NEP_treatment_model)
+anova(NEP_treatment_model)
 
 ### EFFECTS OF DOC AND CORAL METABOLISM ### 
 
