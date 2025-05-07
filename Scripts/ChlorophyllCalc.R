@@ -94,11 +94,20 @@ chl_full <- chl_full %>%
   mutate(chla.ug.cm2 = Chla_norm * 1 / SA_cm_2, 
          chlc2.ug.cm2 = Chlc_norm * 1 / SA_cm_2) #add in two new columns - chl a normalized to SA and chl c normalized to SA
 
-chl_full_filtered <- chl_full %>% 
-  filter(Chl_total > -1,
-         chlc2.ug.cm2 < 0.020)
+ 
+chl_initial <- chl_full %>%
+  filter(TREATMENT == "Pre") %>%
+  select(c(GENOTYPE, chla.ug.cm2)) %>%
+  rename(initial_chla = chla.ug.cm2)
 
-#write_csv(chl_full, here("Data", "Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_chl_full_data.csv"))
+chl_data_full <- chl_full %>%
+  left_join(chl_initial)
+
+ggplot(chl_data_full %>%
+         filter(!TREATMENT == "Pre")) +
+  geom_point(aes(x = initial_chla, y = chla.ug.cm2, color = TREATMENT))
+
+#write_csv(chl_data_full, here("Data", "Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_chl_full_data.csv"))
 
 ## PLOTS ## 
 chl_full_filtered$TREATMENT <- factor(chl_full_filtered$TREATMENT, levels = c("Pre", "Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))

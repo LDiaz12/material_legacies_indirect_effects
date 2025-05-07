@@ -27,13 +27,27 @@ afdw_sa <- right_join(afdw_data, sa)
 afdw_sa2 <- afdw_sa %>%
   mutate(tissue_biomass = AFDW / SA_cm_2) # normalize AFDW to surface area of the coral (g/ml/cm2 ) #
 
-afdw_sa2 <- afdw_sa2 %>%
-  group_by(CORAL_NUM, GENOTYPE, TREATMENT) %>%
+afdw_sa3 <- afdw_sa2 %>%
   select(CORAL_NUM, GENOTYPE, TREATMENT, TANK_NUM, `BLASTATE VOL (ML)`, AFDW, SA_cm_2, tissue_biomass) %>%
-  summarise(mean_AFDW = mean(AFDW), # calculate means because of triplicates
+  group_by(CORAL_NUM, GENOTYPE, TREATMENT) %>%
+  summarize(mean_AFDW = mean(AFDW), # calculate means because of triplicates
             mean_tissue_biomass = mean(tissue_biomass)) # mean AFDW and tissue biomass PER coral 
 
-#write_csv(afdw_sa2, here("Data", "Data_Raw", "Growth", "coral_mean_biomass_calculated.csv"))
+afdw_initial <- afdw_sa3 %>%
+  filter(TREATMENT == "Pre") %>%
+  group_by(GENOTYPE, mean_tissue_biomass) %>%
+  select(-c(CORAL_NUM, TREATMENT, mean_AFDW)) %>%
+  rename(initial_biomass = mean_tissue_biomass)
+
+afdw_data_full <- afdw_sa3 %>%
+  left_join(afdw_initial)
+
+ggplot(afdw_data_full %>%
+         filter(!TREATMENT == "Pre")) +
+  geom_point(aes(x = initial_biomass, y = mean_tissue_biomass, color = TREATMENT))
+
+#write_csv(afdw_data_full, here("Data", "Data_Raw", "Growth", "coral_mean_biomass_calculated.csv"))
+
 afdw_sa2 <- read_csv(here("Data", "Data_Raw", "Growth", "coral_mean_biomass_calculated.csv"))
 
 # AFDW represents the total tissue biomass of the coral

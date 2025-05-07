@@ -26,7 +26,23 @@ endo_data2 <- endo_data %>%
   mutate(endo_per_cm2 = (ENDO_COUNT)*(1/1000)*(BLASTATE_VOL_ML)*(1/SA_cm_2)) %>%
   drop_na()
 
-#write_csv(endo_data2, here("Data", "Endosymbionts", "endo_data_calculated.csv"))
+# isolate inital values and mutate into a new column # 
+endo_initial <- endo_data2 %>%
+  filter(TREATMENT == "Pre") %>%
+  group_by(GENOTYPE, endo_per_cm2) %>%
+  select(-c(TREATMENT, CORAL_NUM, INCLUDE_VOL_UL, ENDO_COUNT, BLASTATE_VOL_ML, mean_AFDW,
+         mean_tissue_biomass, SA_cm_2)) %>%
+  rename(initial_endo = endo_per_cm2)
+
+endo_data_full <- endo_data2 %>%
+  left_join(endo_initial)
+
+#write_csv(endo_data_full, here("Data", "Endosymbionts", "endo_data_calculated.csv"))
+
+ggplot(endo_data_full %>%
+         filter(!TREATMENT == "Pre")) +
+  geom_point(aes(x = initial_endo, y = endo_per_cm2, color = TREATMENT))
+
 
 endo_plotdata <- endo_data2 %>%
   group_by(TREATMENT) %>%

@@ -223,7 +223,27 @@ RespoR_Normalized_Final <- full_join(RespoR_Normalized_DARK, RespoR_Normalized_L
 
 write_csv(RespoR_Normalized_Final, here("Data","RespoFiles","Final", "RespoR_Normalized_FinalRates.csv"))  
 
+# read in initial respo and add values to final respo data sheet # 
+initial_respo <- read_csv(here("Data", "RespoFiles", "Initial", "RespoR_Normalized_InitialRates.csv"))
+final_respo <- read_csv(here("Data", "RespoFiles","Final", "RespoR_Normalized_FinalRates.csv"))
 
+respo_initial <- initial_respo %>%
+  select(c(GENOTYPE, R, R_uncorr, NP, NP_uncorr, GP, GP_uncorr)) %>%
+  filter(!GENOTYPE == "BLANK") %>%
+  rename(initial_R = R,
+         initial_R_uncorr = R_uncorr,
+         initial_NP = NP, 
+         initial_NP_uncorr = NP_uncorr, 
+         initial_GP = GP, 
+         initial_GP_uncorr = GP_uncorr)
+
+full_respo_data <-  final_respo %>%
+  left_join(respo_initial)
+
+ggplot(full_respo_data) +
+  geom_point(aes(x = initial_GP, y = GP, color = GENOTYPE))
+
+#write_csv(full_respo_data, here("Data", "RespoFiles", "full_respo_data.csv"))
 
 
 ###############################################################################################

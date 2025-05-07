@@ -23,8 +23,8 @@ table(year_fact)
 is.factor(year_fact)
 
 backreef_mean_cover$benthic_group <- factor(backreef_mean_cover$benthic_group, 
-                                            levels = c("coral", "ctb", "macroalgae", "sand"),
-                                            labels = c("Coral", "Rubble", "Macroalgae", "Sand"))
+                                            levels = c("coral", "ctb", "CCA", "macroalgae", "sand"),
+                                            labels = c("Coral", "Rubble", "CCA", "Macroalgae", "Sand"))
 
 
 br_benthic_cover_plot <- ggplot(data=backreef_mean_cover, aes(fill=benthic_group, x=year_fact, y=mean_percent_cover)) +
@@ -34,13 +34,13 @@ br_benthic_cover_plot <- ggplot(data=backreef_mean_cover, aes(fill=benthic_group
   theme(axis.title = element_text(size = 14, face = "bold"),
         axis.text = element_text(size = 12), 
         plot.title = element_text(size = 16, face = "bold")) +
-  scale_fill_manual(values = c("Coral" = "coral", "Rubble" = "lightgray", "Macroalgae" = "darkgreen", "Sand" = "tan"),
-                    labels = c("Coral", "Rubble", "Macroalgae", "Sand")) +
+  scale_fill_manual(values = c("Coral" = "coral", "Rubble" = "lightgray", "CCA" = "orchid" ,"Macroalgae" = "darkgreen", "Sand" = "tan"),
+                    labels = c("Coral", "Rubble", "CCA", "Macroalgae", "Sand")) +
   geom_text(aes(label = paste0(round(mean_percent_cover, 0), "%")),
             position = position_fill(vjust = 0.5), # centers text within each bar segment
             color = "black", size = 4)
 br_benthic_cover_plot
-ggsave(plot = br_benthic_cover_plot, filename = here("Output", "br_benthic_cover_plot.png"), width = 6, height = 6)
+#ggsave(plot = br_benthic_cover_plot, filename = here("Output", "br_benthic_cover_plot.png"), width = 6, height = 6)
 
 ##pre cover plot##
 backreef_2006 <- read_csv(here("Data", "PercentCoverData", "backreef_2006_cover.csv"))

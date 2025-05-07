@@ -1,5 +1,6 @@
 library(tidyverse)
 library(here)
+library(car)
 
 ## first read in metadata, and then all final calculation sheets ##
 metadata <- read_csv(here("Data", "MO24BEAST_Metadata.csv"))
@@ -39,30 +40,30 @@ NEC_tank_means <- read_csv(here("Data", "Chemistry", "Cleaned_NEC_Data_per_Tank.
 NEP_tank_means <- read_csv(here("Data", "Chemistry", "Cleaned_NEP_Data_per_Tank.csv"))
 
 # final respo rates 
+final_respo_data <- read_csv(here("Data", "RespoFiles", "full_respo_data.csv"))
+final_respo_data <- final_respo_data %>%
+  filter(!GENOTYPE == "BLANK")
+final_respo_data$CORAL_NUM <- as.numeric(final_respo_data$CORAL_NUM)
+
 final_respo_rates <- read_csv(here("Data", "RespoFiles", "Final", "RespoR_Normalized_FinalRates.csv"))
 final_respo_rates <- final_respo_rates %>%
   select(-c(DATE, RUN_NUM, umol.sec.corr, CHAMBER, Temp.C)) %>%
   drop_na()
-final_respo_rates$CORAL_NUM <- as.numeric(final_respo_rates$CORAL_NUM)
+
 
 ## now use full_join to combine all bio parameters to the Metadata sheet ##
 metadata_physio_full <- metadata %>% 
   full_join(endos) %>%
   full_join(chlorophyll) %>%
   full_join(afdw_metadata) %>%
-  full_join(final_respo_rates) %>%
-  filter(!TREATMENT == "Pre", 
-         !chla.ug.cm2<0, 
-         !chlc2.ug.cm2<0,
-         !NP<0)
+  full_join(final_respo_data)
+
+metadata_physio_full <- metadata_physio_full %>%
+  select(-c(Chlc_norm, Chl_total, chlc2.ug.cm2))
         
 #write_csv(metadata_physio_full, here("Data", "MO24BEAST_physio_metadata.csv"))
+
 physio_metadata <- read_csv(here("Data", "MO24BEAST_physio_metadata.csv"))
-
-physio_metadata <- physio_metadata %>% 
-  mutate(NEP = GP - R)
-#write_csv(physio_metadata, here("Data", "MO24BEAST_physio_metadata.csv"))
-
 
 chem_metadata <- read_csv(here("Data", "chem_metadata.csv"))
 
@@ -82,4 +83,45 @@ metadata_full_resp <- metadata_full %>%
 
 #write_csv(metadata_full_resp, here("Data", "MO24BEAST_Metadata_FULL.csv"))
 
+# chla and endo regression # 
+chl_endos <- lm(chla.ug.cm2 ~ endo_per_cm2, data = physio_metadata)
+check_model(chl_endos)
+chl_endo_plot <- physio_metadata %>%
+  ggplot(aes(x=endo_per_cm2, y = chla.ug.cm2, color = TREATMENT)) + 
+  geom_point()
+chl_endo_plot
+
+chl_plot <- physio_metadata %>%
+  mutate(chl_endo = chla.ug.cm2/endo_per_cm2) %>%
+  filter(chl_endo < 1) %>%
+  ggplot(aes(x = TREATMENT, y = chl_endo)) + 
+  geom_point(alpha = 0.5) + 
+  stat_summary()
+chl_plot
+
+physio_metadata <- physio_metadata %>%
+  mutate(chl_endo = chla.ug.cm2/endo_per_cm2)
+
+chl_endo_model <- lmer(log(chl_endo) ~ TREATMENT + (1|GENOTYPE), data = physio_metadata %>%
+                         filter(chl_endo < 1))
+check_model(chl_endo_model)
+anova(chl_endo_model)
+summary(chl_endo_model)
+
+chem_physio_data <- physio_metadata %>%
+  full_join(chem_full)
+
+chl_plot2 <- chem_physio %>%
+  mutate(chl_endo = chla.ug.cm2/endo_per_cm2) %>%
+  filter(mean_tissue_biomass < 0.00075) %>%
+  ggplot(aes(x = mean_tissue_biomass, y = R)) +
+  geom_point(aes(color = as.factor(TANK_NUM))) +
+  #coord_trans(y = "log") + 
+  geom_smooth(method = "lm")
+chl_plot2
+
+
+chl_endo_PC_model <- lmer(log(endo_per_cm2) ~ DOC_rangemean + (1|GENOTYPE), data = chem_physio %>%
+                            mutate(chl_endo = chla.ug.cm2/endo_per_cm2))
+anova(chl_endo_PC_model)
 
