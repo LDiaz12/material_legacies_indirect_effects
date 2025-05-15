@@ -282,20 +282,23 @@ ggqqplot(physio_full, "GP", facet.by="TREATMENT") # normal with a few outliers i
 # CHEM VARIABLES # all chem variables should have 4 points per treatment 
 # NEC range mean and PC1
 NEC_PC1 <- chem_per_tank %>% 
-  ggplot(aes(x = NEC_rangemean, y = Comp.1, color = TREATMENT)) +
+  ggplot(aes(x = NEC_rangemean, y = Comp.1)) +
   geom_point() + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
+  geom_smooth(aes(x = NEC_rangemean, y = Comp.1)) +
+  #scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                #"Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
   theme_bw()
 NEC_PC1
 #ggsave(here("Output", "PCA", "NEC_rangemean_PC1.png"), plot = NEC_PC1)
 
+
 # NEC mean and PC1
 NECmean_PC1 <- chem_per_tank %>% 
-  ggplot(aes(x = NEC_mean, y = Comp.1, color = TREATMENT)) +
+  ggplot(aes(x = NEC_mean, y = Comp.1)) +
   geom_point() + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
+  geom_smooth(aes(x = NEC_mean, y = Comp.1)) +
+  #scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                #"Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
   theme_bw()
 NECmean_PC1
 #ggsave(here("Output", "PCA", "NEC_mean_PC1.png"), plot = NECmean_PC1)
@@ -322,23 +325,66 @@ NECmean_PC2
 
 # NEP range mean and PC1
 NEP_PC1 <- chem_per_tank %>% 
-  ggplot(aes(x = NEP_rangemean, y = Comp.1, color = TREATMENT)) +
+  ggplot(aes(x = NEP_rangemean, y = Comp.1)) +
   geom_point() + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
+  geom_smooth(aes(x = NEP_rangemean, y = Comp.1)) +
+  #scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                               # "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
   theme_bw()
 NEP_PC1
 #ggsave(here("Output", "PCA", "NEP_rangemean_PC1.png"), plot = NEP_PC1)
 
 # NEP mean and PC1
 NEPmean_PC1 <- chem_per_tank %>% 
-  ggplot(aes(x = NEP_mean, y = Comp.1, color = TREATMENT)) +
+  ggplot(aes(x = NEP_mean, y = Comp.1)) +
   geom_point() + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
+  geom_smooth(aes(x = NEP_mean, y = Comp.1)) +
+  #scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                               # "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
   theme_bw()
 NEPmean_PC1
 #ggsave(here("Output", "PCA", "NEP_mean_PC1.png"), plot = NEPmean_PC1)
+
+NEP_pH_ranges <- chem_per_tank %>% 
+  ggplot(aes(x = NEP_rangemean, y = pH_rangemean)) +
+  geom_point() + 
+  geom_smooth(aes(x = NEP_rangemean, y = pH_rangemean)) +
+  #scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+  # "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
+  theme_bw()
+NEP_pH_ranges
+#ggsave(here("Output", "NEP_Plots", "NEP_pH_ranges.png"), plot = NEP_pH_ranges)
+
+NEP_TA_ranges <- chem_per_tank %>% 
+  ggplot(aes(x = NEP_rangemean, y = TA_rangemean)) +
+  geom_point() + 
+  geom_smooth(aes(x = NEP_rangemean, y = TA_rangemean)) +
+  #scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+  # "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
+  theme_bw()
+NEP_TA_ranges
+#ggsave(here("Output", "NEP_Plots", "NEP_TA_ranges.png"), plot = NEP_TA_ranges)
+
+NEP_pH_means <- chem_per_tank %>% 
+  ggplot(aes(x = NEP_mean, y = pH_mean)) +
+  geom_point() + 
+  geom_smooth(aes(x = NEP_mean, y = pH_mean)) +
+  #scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+  # "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
+  theme_bw()
+NEP_pH_means
+#ggsave(here("Output", "NEP_Plots", "NEP_pH_means.png"), plot = NEP_pH_means)
+
+NEP_TA_means <- chem_per_tank %>% 
+  ggplot(aes(x = NEP_mean, y = TA_mean)) +
+  geom_point() + 
+  geom_smooth(aes(x = NEP_mean, y = TA_mean)) +
+  #scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+  # "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
+  theme_bw()
+NEP_TA_means
+#ggsave(here("Output", "NEP_Plots", "NEP_TA_means.png"), plot = NEP_TA_means)
+
 
 # NEP range mean and PC2 
 NEP_PC2 <- chem_per_tank %>% 

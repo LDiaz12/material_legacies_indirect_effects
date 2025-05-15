@@ -10,6 +10,8 @@ library(lmerTest)
 library(moments)
 library(performance)
 library(ggpubr)
+library(emmeans)
+library(agricolae)
 
 
 ## bring in pH calibration files and raw data files
@@ -315,6 +317,7 @@ chem_reframe_date_removed_clean$TREATMENT <- factor(chem_reframe_date_removed_cl
 NEP_pH_plot <- ggplot(chem_reframe_date_removed_clean) + 
   labs(x = "Daily Mean NEP", y = "Daily Mean pH") +
   geom_point(aes(x = NEP_dailymean, y = pH_dailymean, color = TREATMENT)) + 
+  geom_smooth(aes(x = NEP_dailymean, y = pH_dailymean)) + 
   theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
@@ -322,13 +325,12 @@ NEP_pH_plot <- ggplot(chem_reframe_date_removed_clean) +
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) + 
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  facet_wrap(~TREATMENT, scales = "free")
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
 NEP_pH_plot
 
 #ggsave(plot = NEP_pH_plot, filename = here("Output", "NEP_plots", "NEP_pH_plot.png"), width = 9, height = 6)
 
-NEP_pH_model2 <- lmer(pH_dailymean ~ NEP_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
+NEP_pH_model2 <- lmer(pH_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
 check_model(NEP_pH_model2)
 summary(NEP_pH_model2)
 
@@ -340,6 +342,7 @@ ggplot(chem_reframe_clean) +
 NEC_TA_plot <- ggplot(chem_reframe_date_removed_clean) + 
   labs(x = "Daily Mean NEC", y = "Daily Mean TA") +
   geom_point(aes(x = NEC_dailymean, y = TA_dailymean, color = TREATMENT)) + 
+  geom_smooth(aes(x = NEC_dailymean, y = TA_dailymean)) +
   theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
@@ -347,8 +350,7 @@ NEC_TA_plot <- ggplot(chem_reframe_date_removed_clean) +
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) + 
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  facet_wrap(~TREATMENT, scales = "free")
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
 NEC_TA_plot
 #ggsave(plot = NEC_TA_plot, filename = here("Output", "TA_NECPlots", "NEC_TA_plot.png"), width = 9, height = 6)
 
@@ -357,7 +359,7 @@ NEC_TA_model <- lmer(TA_dailymean ~ NEC_dailymean * TREATMENT + (1|TANK_NUM), da
 check_model(NEC_TA_model)
 summary(NEC_TA_model)
 
-NEC_TA_model2 <- lmer(TA_dailymean ~ NEC_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
+NEC_TA_model2 <- lmer(TA_dailymean ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
 check_model(NEC_TA_model2)
 summary(NEC_TA_model2)
 
@@ -366,6 +368,7 @@ summary(NEC_TA_model2)
 NEP_DOC_plot <- ggplot(chem_reframe_date_removed_clean) + 
   labs(x = "Daily Mean NEP", y = "Daily Mean DOC") +
   geom_point(aes(x = NEP_dailymean, y = DOC_dailymean, color = TREATMENT)) + 
+  geom_smooth(aes(x = NEP_dailymean, y = DOC_dailymean)) +
   theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
@@ -373,8 +376,7 @@ NEP_DOC_plot <- ggplot(chem_reframe_date_removed_clean) +
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) + 
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  facet_wrap(~TREATMENT, scales = "free")
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) 
 NEP_DOC_plot
 #ggsave(plot = NEP_DOC_plot, filename = here("Output", "NEP_Plots", "NEP_DOC_plot.png"), width = 9, height = 6)
 
@@ -382,7 +384,7 @@ NEP_DOC_model <- lmer(DOC_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_
 check_model(NEP_DOC_model)
 summary(NEP_DOC_model)
 
-NEP_DOC_model2 <- lmer(DOC_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean)
+NEP_DOC_model2 <- lmer(DOC_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
 check_model(NEP_DOC_model2)
 summary(NEP_DOC_model2)
 
@@ -455,21 +457,50 @@ rect_intervals <- tibble::tibble(
            "lightyellow", "lightgrey", "lightyellow", "lightgrey", "lightyellow",
            "lightgrey", "lightyellow","lightgrey", "lightyellow", "lightgrey"))
 
-### Plot TA ###
+### Plot raw TA data ###
+raw_TA_plot <- Data %>%
+  group_by(TREATMENT, DATETIME)%>%
+  ggplot(aes(x = DATETIME, y = TA, color = TREATMENT, na.rm = TRUE)) +
+  geom_rect(data = rect_intervals, 
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+            alpha = 1/5, color = NA, inherit.aes = FALSE) +
+  scale_x_datetime(date_labels = "%D\n%T", breaks= seq(min(Data$DATETIME), max(Data$DATETIME), 
+                                                             by = "3 days")) + # is there a way to change the time from 5:00 to 12:00?
+  scale_fill_identity() +
+  geom_point() +
+  geom_jitter(data = Data, aes(x = DATETIME, y = TA), alpha = 0.7) +
+  theme_classic() +
+  labs(x="Date & Time",
+       y = "Total Alkalinity (umol/kg)") +
+  theme(axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+        plot.title = element_text(size = 14),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 16),
+        legend.text = element_text(size = 14)) + 
+  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+                                "Rubble_Dom" = "tan"))
+raw_TA_plot
+#ggsave(plot = raw_TA_plot, filename = here("Output", "TA_NECPlots", "raw_TA_plot.png"), width = 9, height = 9)
+
+### Plot mean TA ###
 TA_plot <- Data %>%
-  group_by(TREATMENT, TIME)%>%
+  group_by(TREATMENT, DATETIME)%>%
   summarise(mean_TA = mean(TA, na.rm = TRUE),
             se_TA = sd(TA, na.rm = TRUE)/sqrt(n()))%>%
-  ggplot(aes(x = TIME, y = mean_TA, color = TREATMENT, na.rm = TRUE)) +
+  ggplot(aes(x = DATETIME, y = mean_TA, color = TREATMENT, na.rm = TRUE)) +
+  geom_rect(data = rect_intervals, 
+            aes(xmin = xmin, xmax = xmax, ymin = -Inf, ymax = Inf, fill = fill),
+            alpha = 1/5, color = NA, inherit.aes = FALSE) +
   scale_fill_identity() +
   geom_point(size = 2.5) +
   theme_classic() +
   labs(x="Date & Time",
        y = "Mean Total Alkalinity (umol/kg)") +
-  theme(plot.title = element_text(size = 14))+
-  theme(axis.title = element_text(size = 14),
-        axis.text = element_text(size = 11)) +
-  theme(legend.title = element_text(size = 16),
+  theme(plot.title = element_text(size = 14),
+        axis.title = element_text(size = 14),
+        axis.text = element_text(size = 11),
+        legend.title = element_text(size = 16),
         legend.text = element_text(size = 14)) + 
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
@@ -544,17 +575,17 @@ NEC_plot <- chem_summary_data %>% # chem reframe data is only 12 and 9 pm sampli
   theme_classic() +
   labs(x="Dominant Benthic Community",
        y = expression(bold("Daily Mean Net Ecosystem Calcification (NEC)" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1)))) +
-  scale_x_discrete(labels = c("Algae-Dominated", "Control", "Coral-Dominated", "Rubble/CCA-Dominated")) +
-  theme(axis.text.x = element_text(size = 10, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 10),
-        axis.title = element_text(size = 12, face = "bold"),
+  scale_x_discrete(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated")) +
+  theme(axis.text.x = element_text(size = 13, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 13),
+        axis.title = element_text(size = 15, face = "bold"),
         legend.position = "none",
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) + 
   geom_jitter(data = chem_reframe_clean, aes(x = TREATMENT, y = NEC_dailymean), alpha = 0.7) +
   stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") + 
   stat_summary(fun.data = mean_sdl, geom = "errorbar", fun.args = list(mult = 1), width = 0.1, color = "black") +
-  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
+  scale_color_manual(values = c("Control" = "blue", "Algae_Dom" = "darkgreen", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan"))
 NEC_plot
 #ggsave(plot = NEC_plot, filename = here("Output", "TA_NECPlots", "NEC_mean_plot.png"), width = 9, height = 10)
@@ -563,9 +594,11 @@ NEC_plot
 NEC_mean_model <- lmer(NEC_dailymean ~ TREATMENT + (1|TANK_NUM), data=chem_reframe_clean)
 check_model(NEC_mean_model)
 summary(NEC_mean_model) # coral and rubble/cca community significantly different from algae 
-anova(NEC_mean_model) # significant effect of community type of daily mean NEC 
+anova(NEC_mean_model) # significant effect of community type on daily mean NEC 
+emmeans(NEC_mean_model, pairwise ~ "TREATMENT", adjust = "Tukey")
 
-
+NEC_mean_model_noRandom <- lm(NEC_dailymean ~ TREATMENT, data = chem_reframe_clean)
+HSD.test(NEC_mean_model_noRandom, "TREATMENT", console=TRUE)
 
 ## NEC range ## 
 ## plot daily NEC range ## 
@@ -592,6 +625,9 @@ NEC_range_model <- lmer(NEC_range ~ TREATMENT + (1|TANK_NUM), data=chem_reframe_
 check_model(NEC_range_model)
 summary(NEC_range_model)
 anova(NEC_range_model) 
+
+
+
 
 ## NEC DAY vs NEC NIGHT ##
 # NEC day
@@ -635,6 +671,11 @@ NEC_daytime_model <- lmer(NEC_day_mean ~ TREATMENT + (1|TANK_NUM), data=NEC_data
 check_model(NEC_daytime_model)
 summary(NEC_daytime_model)
 anova(NEC_daytime_model) # sig effect of community on daytime NEC rates
+
+emmeans(NEC_daytime_model, pairwise ~ "TREATMENT", adjust = "Tukey")
+
+NEC_daytime_model_noRandom <- lm(NEC_day_mean ~ TREATMENT, data = NEC_data_day)
+HSD.test(NEC_daytime_model_noRandom, "TREATMENT", console=TRUE)
 
 
 # NEC night
@@ -746,6 +787,11 @@ check_model(NEP_range_model)
 summary(NEP_range_model)
 anova(NEP_range_model)
 
+emmeans(NEP_range_model, pairwise ~ "TREATMENT", adjust = "Tukey")
+
+NEP_range_model_noRandom <- lm(NEP_range ~ TREATMENT, data = NEP_data2)
+HSD.test(NEP_range_model_noRandom, "TREATMENT", console=TRUE)
+
 # NEP mean #
 NEP_mean_plot <- NEP_plotdata %>%
   ggplot(aes(x = TREATMENT, y = NEP_mean, color = TREATMENT)) +
@@ -815,6 +861,13 @@ NEP_day_mean_model <- lmer(NEP_day_mean ~ TREATMENT + (1|TANK_NUM), data=NEP_dat
 check_model(NEP_day_mean_model)
 summary(NEP_day_mean_model)
 anova(NEP_day_mean_model)
+
+emmeans(NEP_day_mean_model, pairwise ~ "TREATMENT", adjust = "Tukey")
+
+NEP_day_mean_model_noRandom <- lm(NEP_day_mean ~ TREATMENT, data = NEP_data_day)
+HSD.test(NEP_day_mean_model_noRandom, "TREATMENT", console=TRUE)
+
+
 
 
 ## NEP NIGHT TIME ## 
@@ -1074,38 +1127,98 @@ anova(mean_pH_model)
 # no significant effect of community type on daily mean pH 
 
 
-# NEP and pH # 
-NEP_pH_data <- Data %>%
-  select(DATETIME, DATE, TIME, TREATMENT, TANK_NUM, NEP, pH) %>%
-  filter(TIME %in% c("12:00:00","21:00:00")) %>%
-  group_by(TREATMENT, DATE, TANK_NUM) %>%
-  filter(NEP > -4)
-  
-NEP_ph_model <- lmer(pH ~ NEP + (1|TANK_NUM), data = NEP_pH_data)
-check_model(NEP_ph_model)
-summary(NEP_ph_model)
+##### NEP and pH #####
+Data1 <- Data %>%
+  filter(!NEP < -4) %>%
+  filter(!TA > 2700)
 
-Data$TREATMENT <- factor(Data$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+Data1$TREATMENT <- factor(Data1$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+NEP_pH_plot <- Data1 %>%
+  ggplot(aes(x = NEP, y = pH)) +
+  geom_point(aes(color = TREATMENT)) + 
+  geom_smooth(method = "lm", formula = y~x) +
+  labs(x = "NEP", y = "pH") +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "bottom",
+        legend.text = element_text(size = 15),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  stat_regline_equation(label.x = 0, label.y = 8.45, size = 5) + 
+  stat_cor(label.x = 0, label.y = 8.4, size = 5) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+NEP_pH_plot
+#ggsave(plot = NEP_pH_plot, filename = here("Output", "NEP_Plots", "NEP_pH.png"), width = 12, height = 9)
 
+NEP_pH_facetplot <- Data1 %>%
+  ggplot(aes(x = NEP, y = pH)) +
+  geom_point(aes(color = TREATMENT)) + 
+  geom_smooth(method = "lm", formula = y~x) +
+  labs(x = "NEP", y = "pH") +
+  facet_wrap(~ TREATMENT) +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "bottom",
+        legend.text = element_text(size = 15),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  stat_regline_equation(label.x = 0, label.y = 8.45, size = 5) + 
+  stat_cor(label.x = 0, label.y = 8.4, size = 5) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+NEP_pH_facetplot
+#ggsave(plot = NEP_pH_facetplot, filename = here("Output", "NEP_Plots", "NEP_pH_faceted.png"), width = 12, height = 9)
 
-NEC_TA_plot <- Data %>%
+NEP_pH_model <- lmer(pH ~ NEP + (1|TANK_NUM), data = Data1)
+check_model(NEP_pH_model)
+summary(NEP_pH_model)
+
+##### NEC AND TA #####
+NEC_TA_plot <- Data1 %>%
   ggplot(aes(x = NEC, y = TA)) +
   geom_point(aes(color = TREATMENT)) + 
   geom_smooth(method = "lm", formula = y~x) +
-  #stat_regline_equation(label.x = -2.2, label.y = 8.3) + 
-  #stat_cor(label.x = -2.2, label.y = 8.25) +
-  facet_wrap(~TREATMENT) +
   labs(x = "NEC", y = "TA") +
   theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
         legend.position = "bottom",
+        legend.text = element_text(size = 15),
         panel.background = element_rect(fill = "white"),
         panel.grid.major = element_line(color = "gray")) +
+  stat_regline_equation(label.x = 2.5, label.y = 2390, size = 5) + 
+  stat_cor(label.x = 2.5, label.y = 2375, size = 5) +
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
                                 "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
 NEC_TA_plot
-#ggsave(here("Output", "TA_NECPlots", "NEC_TA.png"), plot = NEC_TA_plot)
+#ggsave(plot = NEC_TA_plot, filename = here("Output", "TA_NECPlots", "NEC_TA.png"), width = 12, height = 9)
+
+NEC_TA_model <- lmer(TA ~ NEC + (1|TANK_NUM), data = Data1)
+check_model(NEC_TA_model)
+summary(NEC_TA_model)
+
+NEC_TA_facetplot <- Data1 %>%
+  ggplot(aes(x = NEC, y = TA)) +
+  geom_point(aes(color = TREATMENT)) + 
+  geom_smooth(method = "lm", formula = y~x) +
+  facet_wrap(~ TREATMENT) +
+  labs(x = "NEC", y = "TA") +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "bottom",
+        legend.text = element_text(size = 15),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  stat_regline_equation(label.x = 1, label.y = 2420, size = 5) + 
+  stat_cor(label.x = 1, label.y = 2390, size = 5) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+NEC_TA_facetplot
+#ggsave(plot = NEC_TA_facetplot, filename = here("Output", "TA_NECPlots", "NEC_TA_treatments.png"), width = 14, height = 9)
 
 
 
