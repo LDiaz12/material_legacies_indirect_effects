@@ -23,21 +23,8 @@ endos <- endos %>%
 # chlorophyll final data sheet 
 chlorophyll <- read_csv(here("Data", "Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_chl_full_data.csv"))
 
-# pH data per tank and treatment 
-
-pH_data <- read_csv(here("Data", "Chemistry", "Cleaned_pH_Data_per_Treatment.csv"))
-
-# DOC means per tank data 
-DOC_tank_means <- read_csv(here("Data", "DOC", "DOC_tank_means_data.csv"))
-
-# TA means per treatment 
-TA_data <- read_csv(here("Data", "Chemistry", "Cleaned_TA_Data_per_Treatment.csv"))
-
-# NEC data per tank and treatment 
-NEC_tank_means <- read_csv(here("Data", "Chemistry", "Cleaned_NEC_Data_per_Tank.csv"))
-
-# NEP data per tank and treatment 
-NEP_tank_means <- read_csv(here("Data", "Chemistry", "Cleaned_NEP_Data_per_Tank.csv"))
+# DOC, pH, TA, NEP, and NEC data per tank and treatment 
+chem_summary_data <- read_csv(here("Data", "Chemistry", "chem_summary_data.csv"))
 
 # final respo rates 
 final_respo_data <- read_csv(here("Data", "RespoFiles", "full_respo_data.csv"))
@@ -65,23 +52,15 @@ metadata_physio_full <- metadata_physio_full %>%
 
 physio_metadata <- read_csv(here("Data", "MO24BEAST_physio_metadata.csv"))
 
-chem_metadata <- read_csv(here("Data", "chem_metadata.csv"))
-
-chem_full <- chem_metadata %>%
-  full_join(DOC_tank_means) %>% 
-  full_join(pH_data) %>%
-  full_join(TA_data) %>%
-  full_join(NEC_tank_means) %>%
-  full_join(NEP_tank_means)
-
-#write_csv(chem_full, here("Data", "Chemistry", "chem_full.csv"))
+chem_metadata <- chem_summary_data
 
 final_respo_rates$CORAL_NUM <- as.numeric(final_respo_rates$CORAL_NUM)
 
-metadata_full_resp <- metadata_full %>%
-  right_join(final_respo_rates)
+metadata_full <- physio_metadata %>%
+  full_join(chem_metadata) %>%
+  filter(!TREATMENT == "Pre")
 
-#write_csv(metadata_full_resp, here("Data", "MO24BEAST_Metadata_FULL.csv"))
+#write_csv(metadata_full, here("Data", "MO24BEAST_Metadata_FULL.csv"))
 
 # chla and endo regression # 
 chl_endos <- lm(chla.ug.cm2 ~ endo_per_cm2, data = physio_metadata)

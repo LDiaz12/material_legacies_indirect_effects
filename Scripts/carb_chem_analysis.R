@@ -119,6 +119,11 @@ ggplot(full_carb_chem_data) +
   facet_wrap(~DATE)
 # 06/06/2024 looks like it was a bad date for each of the parameters. it was raining all day and overcast
 
+calc_avg_residence_time <- Data %>%
+  group_by(TANK_NUM) %>%
+  summarize(avg_res_time = mean(residence_time, na.rm = TRUE)) %>%
+  drop_na()
+
 
 ## create one summary data frame with means and ranges for TA, pH, and DOC ##
 # start by isolating 12:00 and 21:00 time periods #
@@ -1220,6 +1225,93 @@ NEC_TA_facetplot <- Data1 %>%
 NEC_TA_facetplot
 #ggsave(plot = NEC_TA_facetplot, filename = here("Output", "TA_NECPlots", "NEC_TA_treatments.png"), width = 14, height = 9)
 
+##### NEC and DOC ##### 
+
+NEC_DOC_plot <- Data1 %>%
+  ggplot(aes(x = NEC, y = log(NPOC_uM))) + # log scale to improve normality
+  geom_point(aes(color = TREATMENT)) + 
+  geom_smooth(method = "lm", formula = y~x) +
+  labs(x = "NEC", y = "DOC") +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "bottom",
+        legend.text = element_text(size = 15),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  stat_regline_equation(label.x = -4, label.y = 5.8, size = 5) + 
+  stat_cor(label.x = -4, label.y = 5.6, size = 5) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+NEC_DOC_plot
+#ggsave(plot = NEC_DOC_plot, filename = here("Output", "TA_NECPlots", "NEC_DOC.png"), width = 14, height = 10)
+
+NEC_DOC_facetplot <- Data1 %>%
+  ggplot(aes(x = NEC, y = log(NPOC_uM))) +
+  geom_point(aes(color = TREATMENT)) + 
+  geom_smooth(method = "lm", formula = y~x) +
+  labs(x = "NEC", y = "DOC") +
+  facet_wrap(~TREATMENT, scales = "free") +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "bottom",
+        legend.text = element_text(size = 15),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  stat_regline_equation(label.x = -2, label.y = 5.8, size = 3) + 
+  stat_cor(label.x = -2, label.y = 5.6, size = 3) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+NEC_DOC_facetplot
+
+NEC_DOC_model <- lmer(log(NPOC_uM) ~ NEC + (1|TANK_NUM), data = Data1)
+check_model(NEC_DOC_model)
+summary(NEC_DOC_model) # not significant 
+
+##### NEP and DOC ##### 
+NEP_DOC_plot <- Data1 %>%
+  ggplot(aes(x = NEP, y = log(NPOC_uM))) +
+  geom_point(aes(color = TREATMENT)) + 
+  geom_smooth(method = "lm", formula = y~x) +
+  labs(x = "NEP", y = "DOC") +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "bottom",
+        legend.text = element_text(size = 15),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  stat_regline_equation(label.x = 3.5, label.y = 5.8, size = 5) + 
+  stat_cor(label.x = 3.5, label.y = 5.7, size = 5) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+NEP_DOC_plot
+#ggsave(plot = NEP_DOC_plot, filename = here("Output", "NEP_Plots", "NEP_DOC.png"), width = 14, height = 10)
+
+NEP_DOC_model <- lmer(log(NPOC_uM) ~ NEP + (1|TANK_NUM), data = Data1)
+check_model(NEP_DOC_model)
+summary(NEP_DOC_model)
+
+NEP_DOC_facetplot <- Data1 %>%
+  ggplot(aes(x = NEP, y = log(NPOC_uM))) +
+  geom_point(aes(color = TREATMENT)) + 
+  geom_smooth(method = "lm", formula = y~x) +
+  labs(x = "NEP", y = "DOC") +
+  facet_wrap(~TREATMENT) +
+  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
+        axis.text.y = element_text(size = 15),
+        axis.title = element_text(size = 18, face = "bold"),
+        legend.position = "bottom",
+        legend.text = element_text(size = 15),
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  stat_regline_equation(label.x = 2.5, label.y = 4.5, size = 3) + 
+  stat_cor(label.x = 2.5, label.y = 4.3, size = 3) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+NEP_DOC_facetplot
+#ggsave(plot = NEP_DOC_facetplot, filename = here("Output", "NEP_Plots", "NEP_DOC_facetplot.png"), width = 14, height = 10)
 
 
 ################################################
