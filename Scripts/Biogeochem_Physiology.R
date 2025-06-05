@@ -8,6 +8,14 @@ library(moments)
 library(performance)
 library(ggpubr)
 library(emmeans)
+library(cowplot)
+#install.packages("sjPlot")
+library(sjPlot)
+library(sjmisc)
+#install.packages("effects")
+library(effects)
+library(sjstats)
+
 
 ## ANALYSIS OF BIOGEOCHEM IMPACTING CORAL PHYSIOLOGY ## 
 
@@ -66,46 +74,6 @@ chla_rangepH_plot
 chla_rangepH_model <- lm(chla.ug.cm2 ~ pH_rangemean, data = metadata)
 check_model(chla_rangepH_model)
 summary(chla_rangepH_model) # significant at p = 0.04
-
-# regression of chl-a and mean TA # 
-chla_meanTA_plot <- metadata %>%
-  ggplot(aes(x = TA_mean, y = chla.ug.cm2)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  stat_regline_equation(label.x = 2320, label.y = 0.14, size = 8) + 
-  stat_cor(label.x = 2320, label.y = 0.13, size = 8) +
-  labs(x = "Daily Mean TA", y = "Chlorophyll-a ug/cm2") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-chla_meanTA_plot
-#ggsave(plot = chla_meanTA_plot, filename = here("Output", "Biogeochem_Physio", "chla_meanTA.png"), width = 14, height = 10)
-
-# regression of chl-a and mean range in TA # 
-chla_rangeTA_plot <- metadata %>%
-  ggplot(aes(x = TA_rangemean, y = chla.ug.cm2)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean Range in TA", y = "Chlorophyll-a ug/cm2") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = -35, label.y = 0.14, size = 8) + 
-  stat_cor(label.x = -35, label.y = 0.13, size = 8) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-chla_rangeTA_plot
-#ggsave(plot = chla_rangeTA_plot, filename = here("Output", "Biogeochem_Physio", "chla_rangeTA.png"), width = 14, height = 10)
 
 # regression of chl-a and mean DOC # 
 chla_meanDOC_plot <- metadata %>%
@@ -189,46 +157,6 @@ endo_rangepH_plot <- metadata %>%
                      values = c("blue", "darkgreen", "coral", "tan"))
 endo_rangepH_plot
 #ggsave(plot = endo_rangepH_plot, filename = here("Output", "Biogeochem_Physio", "endo_rangepH.png"), width = 14, height = 10)
-
-# regression of endos and mean TA # 
-endo_meanTA_plot <- metadata %>%
-  ggplot(aes(x = TA_mean, y = endo_per_cm2)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean TA", y = "Endosymbiont Density (counts/cm2)") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = 2280, label.y = 1.3, size = 8) + 
-  stat_cor(label.x = 2280, label.y = 1.2, size = 8) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-endo_meanTA_plot
-#ggsave(plot = endo_meanTA_plot, filename = here("Output", "Biogeochem_Physio", "endo_meanTA.png"), width = 14, height = 10)
-
-# regression of endos and daily mean range in TA # 
-endo_rangeTA_plot <- metadata %>%
-  ggplot(aes(x = TA_rangemean, y = endo_per_cm2)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean Range in TA", y = "Endosymbiont Density (counts/cm2)") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = -75, label.y = 1.3, size = 8) + 
-  stat_cor(label.x = -75, label.y = 1.2, size = 8) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-endo_rangeTA_plot
-#ggsave(plot = endo_rangeTA_plot, filename = here("Output", "Biogeochem_Physio", "endo_rangeTA.png"), width = 14, height = 10)
 
 # regression of endos and mean DOC #
 endo_meanDOC_plot <- metadata %>%
@@ -317,46 +245,6 @@ biomass_rangepH_plot <- metadata %>%
 biomass_rangepH_plot
 #ggsave(plot = biomass_rangepH_plot, filename = here("Output", "Biogeochem_Physio", "biomass_rangepH.png"), width = 14, height = 10)
 
-# regression of tissue biomass and mean TA # 
-biomass_meanTA_plot <- metadata %>%
-  ggplot(aes(x = TA_mean, y = mean_tissue_biomass)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean TA", y = "Mean Tissue Biomass") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = 2280, label.y = 4e-04, size = 8) + 
-  stat_cor(label.x = 2280, label.y = 3.5e-04, size = 8) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-biomass_meanTA_plot
-#ggsave(plot = biomass_meanTA_plot, filename = here("Output", "Biogeochem_Physio", "biomass_meanTA.png"), width = 14, height = 10)
-
-# regression of tissue biomass and range in TA # 
-biomass_rangeTA_plot <- metadata %>%
-  ggplot(aes(x = TA_rangemean, y = mean_tissue_biomass)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean Range in TA", y = "Mean Tissue Biomass") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = -80, label.y = 4e-04, size = 8) + 
-  stat_cor(label.x = -80, label.y = 3.5e-04, size = 8) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-biomass_rangeTA_plot
-#ggsave(plot = biomass_rangeTA_plot, filename = here("Output", "Biogeochem_Physio", "biomass_rangeTA.png"), width = 14, height = 10)
-
 # regression of tissue biomass and mean DOC # 
 biomass_meanDOC_plot <- metadata %>%
   ggplot(aes(x = DOC_mean, y = mean_tissue_biomass)) + 
@@ -438,46 +326,6 @@ R_rangepH_plot <- metadata %>%
                      values = c("blue", "darkgreen", "coral", "tan"))
 R_rangepH_plot
 #ggsave(plot = R_rangepH_plot, filename = here("Output", "Biogeochem_Physio", "R_rangepH.png"), width = 14, height = 10)
-
-# R and mean TA # 
-R_meanTA_plot <- metadata %>%
-  ggplot(aes(x = TA_mean, y = R)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean TA", y = "Respiration Rate") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = 2280, label.y = 0.07, size = 8) + 
-  stat_cor(label.x = 2280, label.y = 0.065, size = 8) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-R_meanTA_plot
-#ggsave(plot = R_meanTA_plot, filename = here("Output", "Biogeochem_Physio", "R_meanTA.png"), width = 14, height = 10)
-
-# R and range TA # 
-R_rangeTA_plot <- metadata %>%
-  ggplot(aes(x = TA_rangemean, y = R)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean Range in TA", y = "Respiration Rate") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = -75, label.y = 0.07, size = 8) + 
-  stat_cor(label.x = -75, label.y = 0.065, size = 8) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-R_rangeTA_plot
-#ggsave(plot = R_rangeTA_plot, filename = here("Output", "Biogeochem_Physio", "R_rangeTA.png"), width = 14, height = 10)
 
 # R and mean DOC # 
 R_meanDOC_plot <- metadata %>%
@@ -561,46 +409,6 @@ NP_rangepH_plot <- metadata %>%
 NP_rangepH_plot
 #ggsave(plot = NP_rangepH_plot, filename = here("Output", "Biogeochem_Physio", "NP_rangepH.png"), width = 14, height = 12)
 
-# NP and mean TA # 
-NP_meanTA_plot <- metadata %>%
-  ggplot(aes(x = TA_mean, y = NP)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean TA", y = "Net Photosynthesis") +
-  theme(axis.text.x = element_text(size = 15, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = 2280, label.y = 0.14, size = 5) + 
-  stat_cor(label.x = 2280, label.y = 0.13, size = 5) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-NP_meanTA_plot
-#ggsave(plot = NP_meanTA_plot, filename = here("Output", "Biogeochem_Physio", "NP_meanTA.png"), width = 14, height = 12)
-
-# NP and range TA # 
-NP_rangeTA_plot <- metadata %>%
-  ggplot(aes(x = TA_rangemean, y = NP)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean Range in TA", y = "Net Photosynthesis") +
-  theme(axis.text.x = element_text(size = 15, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = -75, label.y = 0.14, size = 5) + 
-  stat_cor(label.x = -75, label.y = 0.13, size = 5) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-NP_rangeTA_plot
-#ggsave(plot = NP_rangeTA_plot, filename = here("Output", "Biogeochem_Physio", "NP_rangeTA.png"), width = 14, height = 12)
-
 # NP and mean DOC # 
 NP_meanDOC_plot <- metadata %>%
   ggplot(aes(x = DOC_mean, y = NP)) + 
@@ -682,46 +490,6 @@ GP_rangepH_plot <- metadata %>%
                      values = c("blue", "darkgreen", "coral", "tan"))
 GP_rangepH_plot
 #ggsave(plot = GP_rangepH_plot, filename = here("Output", "Biogeochem_Physio", "GP_rangepH.png"), width = 14, height = 12)
-
-# GP and mean TA #
-GP_meanTA_plot <- metadata %>%
-  ggplot(aes(x = TA_mean, y = GP)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean TA", y = "Gross Photosynthesis") +
-  theme(axis.text.x = element_text(size = 15, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = 2280, label.y = 0.20, size = 5) + 
-  stat_cor(label.x = 2280, label.y = 0.19, size = 5) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-GP_meanTA_plot
-#ggsave(plot = GP_meanTA_plot, filename = here("Output", "Biogeochem_Physio", "GP_meanTA.png"), width = 14, height = 12)
-
-# GP and range TA # 
-GP_rangeTA_plot <- metadata %>%
-  ggplot(aes(x = TA_rangemean, y = GP)) + 
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) + 
-  labs(x = "Daily Mean Range in TA", y = "Gross Photosynthesis") +
-  theme(axis.text.x = element_text(size = 15, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = -75, label.y = 0.20, size = 5) + 
-  stat_cor(label.x = -75, label.y = 0.19, size = 5) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
-                     values = c("blue", "darkgreen", "coral", "tan"))
-GP_rangeTA_plot
-#ggsave(plot = GP_rangeTA_plot, filename = here("Output", "Biogeochem_Physio", "GP_rangeTA.png"), width = 14, height = 12)
 
 # GP and mean DOC # 
 GP_meanDOC_plot <- metadata %>%

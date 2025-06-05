@@ -11,7 +11,7 @@ library(corrplot)
 library(plotly)
 library(ggfortify)
 #source("http://www.sthda.com/upload/rquery_cormat.r")
-
+library(vegan)
 
 # import metadata 
 #metadata <- read_csv(here("Data", "MO24BEAST_Metadata_FULL.csv"))
@@ -19,7 +19,8 @@ chem_per_tank <- read_csv(here("Data", "Chemistry", "chem_summary_data.csv"))
 
 chem_full <- read_csv(here("Data", "Chemistry", "Full_Carb_Chem_Data.csv"))
 chem_full <- chem_full %>%
-  select(c(TREATMENT, TA, pH, NPOC_uM)) %>%
+  select(c(TIME, TREATMENT, TA, pH, NPOC_uM)) %>%
+  filter(TIME %in% c("12:00:00", "21:00:00")) %>%
   drop_na()
 
 physio_full <- read_csv(here("Data", "MO24BEAST_physio_metadata.csv")) 
@@ -36,13 +37,6 @@ metadata_chem <- chem_per_tank %>%
                 pH.Mean = pH_mean, 
                 Total.Alkalinity.Range = TA_rangemean, 
                 Total.Alkalinity.Mean = TA_mean)
-           
-#mutate(log_DOC_range = log(DOC_rangemean),
-      # log_DOC_mean = log(DOC_mean), 
-      # log_pH_range = log(pH_rangemean), 
-      # log_pH_mean = log(pH_mean), 
-      # log_TA_range = log(TA_rangemean), 
-      # log_TA_mean = log(TA_mean))
 
 metadata_chem_deltas <- chem_per_tank %>%
   select(c(deltaTA_rangemean, deltaTA_mean, deltapH_rangemean, deltapH_mean, deltaDOC_rangemean, deltaDOC_mean)) %>%
@@ -54,16 +48,29 @@ metadata_chem_deltas <- chem_per_tank %>%
                 Delta.Dissolved.Organic.Carbon.Mean = deltaDOC_mean)
 
 metadata_chem_raw <- chem_full %>%
-  select(c(TA, pH, NPOC_uM)) %>%
+  select(c(TREATMENT, TIME, TA, pH, NPOC_uM)) %>%
   dplyr::rename(Total.Alkalinity = TA, 
-                Dissolved.Organic.Carbon = NPOC_uM)
+                Dissolved.Organic.Carbon = NPOC_uM) %>%
+  mutate(log_TA = log(Total.Alkalinity), 
+         log_pH = log(pH), 
+         log_DOC = log(Dissolved.Organic.Carbon))
 
 # select only physiology parameters for second PCA plot
 metadata_physio <- physio_full %>%
   select(c(endo_per_cm2, chla.ug.cm2, mean_tissue_biomass, R, NP, GP)) %>%
   dplyr::rename(Endosymbionts = endo_per_cm2, #rename columns for "prettier" names when plotting
          Chlorophyll.a = chla.ug.cm2,
-         Tissue.Biomass = mean_tissue_biomass) 
+         Tissue.Biomass = mean_tissue_biomass) %>%
+  mutate(log_Endosymbionts = log(Endosymbionts), 
+         log_Chlorophyll.a = log(Chlorophyll.a), 
+         log_Tissue.Biomass = log(Tissue.Biomass), 
+         log_R = log(R), 
+         log_NP = log(NP), 
+         log_GP = log(GP)) %>%
+  drop_na()
+
+metadata_physio <- metadata_physio %>%
+  select(c(log_Endosymbionts, log_Chlorophyll.a, log_Tissue.Biomass, log_R, log_NP, log_GP))
 
 ############## PCA OF SUMMARY CHEM DATA ################
 # convert to z-scores since remaining variables are not on the same scale 
@@ -79,47 +86,6 @@ metadata_chem_PCA$scores # gives principal components for each component on each
 
 # rough biplot 
 biplot(metadata_chem_PCA, xlab="PC1", ylab="PC2")
-
-# code for a prettier biplot! 
-#chem_full$TREATMENT <- factor(chem_full$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
-
-############################
-# normality tests
-ggplot(chem_per_tank, aes(x=pH_mean)) +
-  geom_histogram() # not normally distributed 
-
-ggplot(chem_per_tank, aes(x=pH_rangemean)) +
-  geom_histogram(bins = 20) # not normal
-
-ggplot(chem_per_tank, aes(x=DOC_mean)) +
-  geom_histogram(bins = 10)
-
-ggplot(chem_per_tank, aes(x=DOC_rangemean)) +
-  geom_histogram(bins = 10)
-
-ggplot(chem_per_tank, aes(x=TA_mean)) +
-  geom_histogram(bins = 10)
-
-ggplot(chem_per_tank, aes(x=TA_rangemean)) +
-  geom_histogram(bins = 10)
-################################
-
-#plot chem PCA 
-#p_blank <- autoplot(metadata_chem_PCA, data = chem_full, color = "TREATMENT") +
-  #coord_fixed(xlim = c(-0.6,0.6), ylim= c(-0.6,0.6)) +
- # scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated",
-                               # "Rubble/CCA-Dominated"), values = c("blue", "darkgreen",
-                                                                   # "coral","tan")) +
- # theme_bw() + 
-  #theme(panel.border = element_blank(),
-      #  panel.grid.major = element_blank(), 
-      #  panel.grid.minor = element_blank(),
-       # axis.line = element_line(color = "black")) +
- # geom_hline(yintercept = 0.0, color = "black", alpha = 0.5) +
- # geom_vline(xintercept = 0.0, color = "black", alpha = 0.5)
-#p_blank
-
-#ggsave(here("Output","PCA", "metadata_PCA_chem_BLANK.png"), plot = p_blank)
 
 # PCA plot of summary chem values # 
 metadata_chem_plot <- ggbiplot(metadata_chem_PCA, obs.scale=1, var.scale=1, groups=chem_per_tank$TREATMENT, ellipse=TRUE, ellipse.fill = FALSE, varname.size=3, varname.adjust=1.2, circle=FALSE) +
@@ -164,11 +130,13 @@ chem_deltas_plot
 #ggsave(here("Output", "PCA", "deltas_chem_PCA_plot.png"), plot = chem_deltas_plot)
 
 # PCA plot of raw chem data # 
-chem_raw_scaled <- scale(metadata_chem_raw, scale = TRUE, center = TRUE)
+chem_raw_scaled <- scale(metadata_chem_raw[,-c(1:2)], scale = TRUE, center = TRUE)
 
-chem_raw_PCA <- princomp(chem_raw_scaled, cor=FALSE) 
+chem_raw_PCA <- princomp(chem_raw_scaled[,4:6], cor=FALSE) 
 summary(chem_raw_PCA)
 fviz_eig(chem_raw_PCA)
+
+chem_data_full <- bind_cols(as_tibble(chem_raw_PCA$scores), metadata_chem_raw)
 
 chem_raw_plot <- ggbiplot(chem_raw_PCA, obs.scale=1, var.scale=1, groups=chem_full$TREATMENT, ellipse=TRUE, ellipse.fill = FALSE, varname.size=3, varname.adjust=1.2, circle=FALSE) +
   geom_point(aes(colour=factor(chem_full$TREATMENT)), size = 1) + 
@@ -177,6 +145,7 @@ chem_raw_plot <- ggbiplot(chem_raw_PCA, obs.scale=1, var.scale=1, groups=chem_fu
   scale_color_manual(values = c("Control" = "blue", "Algae_Dom" = "darkgreen",
                                 "Coral_Dom" = "coral","Rubble_Dom" = "tan")) +
   theme_bw() +
+  #acet_wrap(~TIME)
   theme(panel.border = element_blank(),
         panel.grid.major = element_blank(), 
         panel.grid.minor = element_blank(),
@@ -188,11 +157,34 @@ chem_raw_plot
 #ggsave(here("Output", "PCA", "raw_chem_PCA_plot.png"), plot = chem_raw_plot)
 
 
+chem_data_full %>%
+  ggplot(aes(x = Comp.1, y = Comp.2, color = TREATMENT)) + 
+  geom_point() + 
+  stat_ellipse() + 
+  facet_wrap(~TIME)
+
+chem_PCA_matrix <- chem_data_full %>%
+  select(Comp.1, Comp.2) %>%
+  as.matrix()
+
+chem_per_tank <- chem_per_tank %>%
+  bind_cols(chem_PCA_matrix[,1:2])
+
+
+
+disper_chem_MANOVA <- betadisper(dist(chem_data_full[,c("log_pH", "log_TA", "log_DOC")]), chem_data_full$TREATMENT, type = "centroid")
+disper_chem_MANOVA
+anova(disper_chem_MANOVA)
+
+
+#chem_PCA_scores <- metadata_chem_PCA$scores
+summary(metadata_chem_MANOVA, test = "Wilks", tol=0)
+
 ###################################################
 
 ############ PCA OF PHYSIOLOGICAL DATA ##################
 # convert to z-scores since remaining variables are not on the same scale 
-metadata_physio_scaled <- scale(metadata_physio, scale = TRUE, center = TRUE)
+metadata_physio_scaled <- scale(metadata_physio, scale = TRUE, center = TRUE) # physio data is logged
 
 metadata_physio_PCA <- princomp(metadata_physio_scaled, cor=FALSE) # create PCA model using princomp (principal component)
 summary(metadata_physio_PCA)
@@ -274,9 +266,15 @@ ggqqplot(physio_full, "NP", facet.by="TREATMENT") # normal with a couple outlier
 ggqqplot(physio_full, "GP", facet.by="TREATMENT") # normal with a few outliers in control and algae dom
 
 
+rquery.cormat(metadata_physio_scaled)
+
+
+
+
+
+
+
 # join chem and physio full to plot every single chem and physio parameter with PC1 and PC2
-#chem_physio <- chem_full %>%
-  #full_join(physio_full)
 
 # take chem and physio data frames and plot each variable with PC1 # 
 # CHEM VARIABLES # all chem variables should have 4 points per treatment 

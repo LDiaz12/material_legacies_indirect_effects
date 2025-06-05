@@ -5,6 +5,7 @@ library(emmeans)
 library(agricolae)
 library(ggrepel)
 library(lubridate)
+library(ggplot2)
 
 # read in DOC data files # 
 DOC_1 <- read_csv(here("Data", "DOC", "DOC_JUN2_JUN6.csv"))
@@ -18,6 +19,8 @@ DOC_full <- bind_rows(DOC_1, DOC_2) %>%
 DOC_full <- DOC_full %>%
   mutate(DATETIME = ymd_hms(paste(DATE, TIME)))
 #write_csv(DOC_full, here("Data", "DOC", "DOC_full_data.csv")) # all DOC data joined together
+
+DOC_full <- read_csv(here("Data", "DOC", "DOC_full_data.csv"))
 
 ## filtering for 12:00 and 21:00 sampling times and reframing to add TA daily mean and daily range between 12 and 9 
 DOC_full_summary <- DOC_full %>% 
@@ -36,9 +39,6 @@ DOC_tankmeans <- DOC_full_summary %>%
             TON_rangemean = mean(TON_range, na.rm = TRUE), 
             TON_mean = mean(TON_dailymean, na.rm = TRUE))
 #write_csv(DOC_tankmeans, here("Data", "DOC", "DOC_tank_means_data.csv")) 
-
-
-
 
 
 ## DOC1 plot NPOC mg/l ##
@@ -132,7 +132,7 @@ DOC_NPOC_uM <- DOC_full %>%
   geom_text_repel(aes(label = TANK_NUM)) +
   facet_wrap(~DATE) 
 DOC_NPOC_uM
-ggsave(plot = DOC_NPOC_uM, filename = here("Output", "DOCOutput", "DOC_NPOC_uM.png"), width = 12, height = 10)
+#ggsave(plot = DOC_NPOC_uM, filename = here("Output", "DOCOutput", "DOC_NPOC_uM.png"), width = 12, height = 10)
 
 # DOC - plot mean NPOC uM by community # 
 

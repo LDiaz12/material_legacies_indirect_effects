@@ -37,7 +37,6 @@ final_respo_rates <- final_respo_rates %>%
   select(-c(DATE, RUN_NUM, umol.sec.corr, CHAMBER, Temp.C)) %>%
   drop_na()
 
-
 ## now use full_join to combine all bio parameters to the Metadata sheet ##
 metadata_physio_full <- metadata %>% 
   full_join(endos) %>%
@@ -61,6 +60,11 @@ metadata_full <- physio_metadata %>%
   filter(!TREATMENT == "Pre")
 
 #write_csv(metadata_full, here("Data", "MO24BEAST_Metadata_FULL.csv"))
+
+# t-tests and effect size plot # 
+metadata_full <- read_csv(here("Data", "MO24BEAST_Metadata_FULL.csv"))
+t.test(endo_per_cm2 ~ pH_mean, data = metadata_full)
+
 
 # chla and endo regression # 
 chl_endos <- lm(chla.ug.cm2 ~ endo_per_cm2, data = physio_metadata)
@@ -103,4 +107,5 @@ chl_plot2
 chl_endo_PC_model <- lmer(log(endo_per_cm2) ~ DOC_rangemean + (1|GENOTYPE), data = chem_physio %>%
                             mutate(chl_endo = chla.ug.cm2/endo_per_cm2))
 anova(chl_endo_PC_model)
+
 
