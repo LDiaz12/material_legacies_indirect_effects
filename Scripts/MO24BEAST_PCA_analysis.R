@@ -2,7 +2,7 @@
 library(tidyverse)
 library(readr)
 library(factoextra)
-#library(devtools)
+library(devtools)
 library(ggbiplot)
 library(here)
 library(mvnormtest)
@@ -57,20 +57,19 @@ metadata_chem_raw <- chem_full %>%
 
 # select only physiology parameters for second PCA plot
 metadata_physio <- physio_full %>%
-  select(c(endo_per_cm2, chla.ug.cm2, mean_tissue_biomass, R, NP, GP)) %>%
+  select(c(TREATMENT, endo_per_cm2, chla.ug.cm2, mean_tissue_biomass, R, GP)) %>%
   dplyr::rename(Endosymbionts = endo_per_cm2, #rename columns for "prettier" names when plotting
          Chlorophyll.a = chla.ug.cm2,
          Tissue.Biomass = mean_tissue_biomass) %>%
-  mutate(log_Endosymbionts = log(Endosymbionts), 
-         log_Chlorophyll.a = log(Chlorophyll.a), 
-         log_Tissue.Biomass = log(Tissue.Biomass), 
-         log_R = log(R), 
-         log_NP = log(NP), 
-         log_GP = log(GP)) %>%
+  mutate(Endosymbionts = log(Endosymbionts), 
+         Chlorophyll.a = log(Chlorophyll.a), 
+         Tissue.Biomass = log(Tissue.Biomass), 
+         R = log(R), 
+         GP = log(GP)) %>%
   drop_na()
 
-metadata_physio <- metadata_physio %>%
-  select(c(log_Endosymbionts, log_Chlorophyll.a, log_Tissue.Biomass, log_R, log_NP, log_GP))
+metadata_physio2 <- metadata_physio %>%
+  select(c(Endosymbionts, Chlorophyll.a, Tissue.Biomass, R, GP))
 
 ############## PCA OF SUMMARY CHEM DATA ################
 # convert to z-scores since remaining variables are not on the same scale 
@@ -184,7 +183,7 @@ summary(metadata_chem_MANOVA, test = "Wilks", tol=0)
 
 ############ PCA OF PHYSIOLOGICAL DATA ##################
 # convert to z-scores since remaining variables are not on the same scale 
-metadata_physio_scaled <- scale(metadata_physio, scale = TRUE, center = TRUE) # physio data is logged
+metadata_physio_scaled <- scale(metadata_physio2, scale = TRUE, center = TRUE) # physio data is logged
 
 metadata_physio_PCA <- princomp(metadata_physio_scaled, cor=FALSE) # create PCA model using princomp (principal component)
 summary(metadata_physio_PCA)
@@ -197,10 +196,10 @@ metadata_physio_PCA$scores # gives principal components for each component on ea
 biplot(metadata_physio_PCA, xlab="PC1", ylab="PC2")
 
 # code for a prettier biplot! 
-physio_full$TREATMENT <- factor(physio_full$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
+metadata_physio$TREATMENT <- factor(metadata_physio$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
-metadata_physio_plot <- ggbiplot(metadata_physio_PCA, obs.scale=1, var.scale=1, groups=physio_full$TREATMENT, ellipse=TRUE, ellipse.fill = FALSE, varname.size=3, varname.adjust=1.2, circle=FALSE) +
-  geom_point(aes(colour=factor(physio_full$TREATMENT)), size = 1) + 
+metadata_physio_plot <- ggbiplot::ggbiplot(metadata_physio_PCA, obs.scale=1, var.scale=1, groups=metadata_physio$TREATMENT, ellipse=TRUE, ellipse.fill = FALSE, varname.size=3, varname.adjust=1.2, circle=FALSE) +
+  geom_point(aes(color=factor(metadata_physio$TREATMENT)), size = 1) + 
   labs(color = "Dominant \nBenthic \nCommunity") +
   coord_fixed(xlim = c(-5,5), ylim = c(-5,5)) +
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
@@ -252,9 +251,9 @@ ggqqplot(chem_full, "TA_mean", facet.by="TREATMENT")
 
 ## PHYSIO MANOVA ## 
 physio_PCA_scores <- metadata_physio_PCA$scores
-metadata_physio_MANOVA <- manova(physio_PCA_scores ~ TREATMENT, data = physio_full)
+metadata_physio_MANOVA <- manova(physio_PCA_scores ~ TREATMENT, data = metadata_physio)
 summary(metadata_physio_MANOVA, test = "Wilks") 
-# ellipses in physio PCA are NOT statistically different from each other, which can be seen in the plot and the overlapping 
+# ellipses in physio PCA are NOT statistically different from each other
 
 # qq plots for each physio parameter to check for normality # 
 ggqqplot(physio_full, "endo_per_cm2", facet.by="TREATMENT") # normal except for 1 outlier on algae dom
@@ -270,10 +269,7 @@ rquery.cormat(metadata_physio_scaled)
 
 
 
-
-
-
-
+###############################
 # join chem and physio full to plot every single chem and physio parameter with PC1 and PC2
 
 # take chem and physio data frames and plot each variable with PC1 # 

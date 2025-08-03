@@ -25,6 +25,7 @@ chlorophyll <- read_csv(here("Data", "Data_Raw", "Chl_Content", "Chl_Files", "MO
 
 # DOC, pH, TA, NEP, and NEC data per tank and treatment 
 chem_summary_data <- read_csv(here("Data", "Chemistry", "chem_summary_data.csv"))
+full_carb_chem_data <- read_csv(here("Data", "Chemistry", "Full_Carb_Chem_Data.csv"))
 
 # final respo rates 
 final_respo_data <- read_csv(here("Data", "RespoFiles", "full_respo_data.csv"))
@@ -50,6 +51,8 @@ metadata_physio_full <- metadata_physio_full %>%
 #write_csv(metadata_physio_full, here("Data", "MO24BEAST_physio_metadata.csv"))
 
 physio_metadata <- read_csv(here("Data", "MO24BEAST_physio_metadata.csv"))
+physio_metadata <- physio_metadata %>%
+  select(-DATE)
 
 chem_metadata <- chem_summary_data
 
@@ -61,9 +64,20 @@ metadata_full <- physio_metadata %>%
 
 #write_csv(metadata_full, here("Data", "MO24BEAST_Metadata_FULL.csv"))
 
-# t-tests and effect size plot # 
-metadata_full <- read_csv(here("Data", "MO24BEAST_Metadata_FULL.csv"))
-t.test(endo_per_cm2 ~ pH_mean, data = metadata_full)
+# write separate metadata files for DAY and NIGHT # 
+# DAY #
+chem_summary_data_DAY <- read_csv(here("Data", "Chemistry", "chem_summary_data_DAY.csv"))
+metadata_full_DAY <- physio_metadata %>%
+  full_join(chem_summary_data_DAY) %>%
+  filter(!TREATMENT == "Pre")
+#write_csv(metadata_full_DAY, here("Data", "metadata_full_DAY.csv"))
+
+# NIGHT #
+chem_summary_data_NIGHT <- read_csv(here("Data", "Chemistry", "chem_summary_data_NIGHT.csv"))
+metadata_full_NIGHT <- physio_metadata %>%
+  full_join(chem_summary_data_NIGHT) %>%
+  filter(!TREATMENT == "Pre")
+#write_csv(metadata_full_NIGHT, here("Data", "metadata_full_NIGHT.csv"))
 
 
 # chla and endo regression # 
