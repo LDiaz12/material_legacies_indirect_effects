@@ -19,25 +19,25 @@ endo_data <- endos %>%
 ## Calculate endo count per cm2 using blastate volume from "AFDW" data set ##
 # combine endo_data with afdw data # 
 endo_data$CORAL_NUM <- as.numeric(endo_data$CORAL_NUM)
+
 endo_data2 <- endo_data %>%
   right_join(afdw_data) %>%
   right_join(surface_area) %>%
   select(-c(CORALID, weight1_g, weight2_g, weight_of_wax_g, date)) %>% 
-  mutate(endo_per_cm2 = (ENDO_COUNT)*(1/1000)*(BLASTATE_VOL_ML)*(1/SA_cm_2)) %>%
+  mutate(endo_per_cm2 = (ENDO_COUNT)*(1/1000)*(mean_blastate)*(1/SA_cm_2)) %>%
   drop_na()
 
 # isolate inital values and mutate into a new column # 
 endo_initial <- endo_data2 %>%
   filter(TREATMENT == "Pre") %>%
   group_by(GENOTYPE, endo_per_cm2) %>%
-  select(-c(TREATMENT, CORAL_NUM, INCLUDE_VOL_UL, ENDO_COUNT, BLASTATE_VOL_ML, mean_AFDW,
+  select(-c(TREATMENT, CORAL_NUM, INCLUDE_VOL_UL, ENDO_COUNT, mean_blastate, mean_AFDW,
          mean_tissue_biomass, SA_cm_2)) %>%
   rename(initial_endo = endo_per_cm2)
 
 endo_data_full <- endo_data2 %>%
   left_join(endo_initial)
 
-#write_csv(endo_data_full, here("Data", "Endosymbionts", "endo_data_calculated.csv"))
 
 ggplot(endo_data_full %>%
          filter(!TREATMENT == "Pre")) +
@@ -67,4 +67,5 @@ endo_plot
 
 #ggsave(plot = endo_plot, filename = here("Output", "EndoOutput", "mean_endo_per_treatment.png"), width = 10, height = 6)
 
+#write_csv(endo_data_full, here("Data", "Endosymbionts", "endo_data_calculated.csv"))
 

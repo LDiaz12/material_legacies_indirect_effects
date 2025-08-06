@@ -88,15 +88,11 @@ InflowData <- pHSlope2 %>%
   ungroup()%>%
   select(DATE,TIME, INFLOW_TABLE, pH_inflow, TA_inflow, DIC_inflow, DOC_inflow) # drop the Tank ID column to be able to join the data correctly by inflow #
 
-ggplot(InflowData) + 
-  geom_point(aes(x = TIME, y = DOC_inflow, color = INFLOW_TABLE)) + 
-  facet_wrap(~DATE)
-
-InflowData <- InflowData %>%
-  mutate(pH_inflow = ifelse(DATE == "20240606" & INFLOW_TABLE == "2" & pH_inflow > 8.05, NA, pH_inflow),
-         TA_inflow = ifelse(DATE == "20240606" & INFLOW_TABLE == "1" & TA_inflow < 2300, NA, TA_inflow),
-         DOC_inflow = ifelse(DATE == "20240606" & INFLOW_TABLE == "1", NA, DOC_inflow), 
-         DOC_inflow = ifelse(DATE == "20240611" & INFLOW_TABLE == "1" & DOC_inflow > 300, NA, DOC_inflow))
+#InflowData <- InflowData %>%
+ # mutate(pH_inflow = ifelse(DATE == "20240606" & INFLOW_TABLE == "2" & pH_inflow > 8.05, NA, pH_inflow),
+  #       TA_inflow = ifelse(DATE == "20240606" & INFLOW_TABLE == "1" & TA_inflow < 2300, NA, TA_inflow),
+   #      DOC_inflow = ifelse(DATE == "20240606" & INFLOW_TABLE == "1", NA, DOC_inflow), 
+    #     DOC_inflow = ifelse(DATE == "20240611" & INFLOW_TABLE == "1" & DOC_inflow > 300, NA, DOC_inflow))
 
 
 SurfaceArea <- 22.5*22.5 #cm^2
@@ -474,19 +470,6 @@ tank_chem_means <- chem_reframe_clean %>%
 tank_chem_means
 
 
-ggplot(chem_reframe_clean) + 
-  geom_point(aes(x = NEP_dailymean, y = NEC_dailymean, color = TREATMENT)) + 
-  facet_wrap(~TREATMENT, scales = "free")
-
-ggplot(chem_reframe_clean) + 
-  geom_point(aes(x = NEP_dailymean, y = pH_dailymean, color = TREATMENT)) + 
-  facet_wrap(~TREATMENT, scales = "free")
-
-NEP_pH_model <- lmer(pH_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean)
-check_model(NEP_pH_model)
-summary(NEP_pH_model)
-
-
 chem_reframe_date_removed_clean$TREATMENT <- factor(chem_reframe_date_removed_clean$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"), 
                                                     labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"))
 
@@ -509,36 +492,6 @@ NEP_pH_plot
 NEP_pH_model2 <- lmer(pH_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
 check_model(NEP_pH_model2)
 summary(NEP_pH_model2)
-
-
-ggplot(chem_reframe_clean) + 
-  geom_point(aes(x = NEC_dailymean, y = TA_dailymean, color = TREATMENT)) + 
-  facet_wrap(~TREATMENT, scales = "free")
-
-NEC_TA_plot <- ggplot(chem_reframe_date_removed_clean) + 
-  labs(x = "Daily Mean NEC", y = "Daily Mean TA") +
-  geom_point(aes(x = NEC_dailymean, y = TA_dailymean, color = TREATMENT)) + 
-  geom_smooth(aes(x = NEC_dailymean, y = TA_dailymean)) +
-  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none",
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
-NEC_TA_plot
-#ggsave(plot = NEC_TA_plot, filename = here("Output", "TA_NECPlots", "NEC_TA_plot.png"), width = 9, height = 6)
-
-
-NEC_TA_model <- lmer(TA_dailymean ~ NEC_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_clean)
-check_model(NEC_TA_model)
-summary(NEC_TA_model)
-
-NEC_TA_model2 <- lmer(TA_dailymean ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
-check_model(NEC_TA_model2)
-summary(NEC_TA_model2)
-
 
 
 NEP_DOC_plot <- ggplot(chem_reframe_date_removed_clean) + 
@@ -1087,7 +1040,7 @@ NEC_v_NEP_patchwork
 #ggsave(plot = NEC_v_NEP_patchwork, filename = here("Output", "NEC_v_NEP_patchwork.png"), width = 12, height = 10)
 
 
-######################################
+###########PH DATA ##########################
 ### PH DATA ###
 pH_plot <- Data %>%
   group_by(TREATMENT, DATETIME)%>%
@@ -1306,6 +1259,89 @@ range_DOC_model <- lmer(DOC_range ~ TREATMENT +(1|TANK_NUM), data = chem_reframe
 check_model(range_DOC_model)
 summary(range_DOC_model)
 anova(range_DOC_model)
+
+
+
+############# NEP DATA ############
+
+#### Look at NEP vs pH and DOC
+Clean_Chem_all<- chem_reframe_NIGHT_clean %>% 
+  bind_rows(chem_reframe_DAY_clean) %>%
+  filter(NEP<4) # remove the one outlier with really high NEP at night
+
+# ANCOVA with pH~NEP*Treament and accounting for tankID
+mod_pH<-lm(pH ~ NEP * TREATMENT, data = Clean_Chem_all)
+anova(mod_pH)
+summary(mod_pH)
+
+mod_DOC<-lm(DOC~NEP*TREATMENT,data = Clean_Chem_all)
+anova(mod_DOC)
+summary(mod_DOC)
+
+mod_DOC_NEC<-lm(DOC~NEC*TREATMENT,data = Clean_Chem_all)
+anova(mod_DOC_NEC)
+summary(mod_DOC_NEC)
+
+mod_NEP_NEC<-lm(NEC~pH*TREATMENT,data = Clean_Chem_all)
+anova(mod_NEP_NEC)
+summary(mod_NEP_NEC)
+
+chem_plot_all_pH<-Clean_Chem_all %>%
+  ggplot(aes(x = NEP, y = pH))+
+  geom_point(aes(color = TREATMENT), alpha = 0.2)+
+  geom_smooth(method = "lm", color = "black")+
+  labs(color = "",
+       y = expression("pH"[T]),
+       x = "")+
+  theme(axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        axis.title = element_text(size = 16, face = "bold"),
+        legend.position = "none",
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated",
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"), guide = FALSE)
+chem_plot_all_pH
+
+chem_plot_all_DOC <- Clean_Chem_all %>%
+  ggplot(aes(x = NEP, y = DOC))+
+  geom_point(aes(color = TREATMENT), alpha = 0.2)+
+  geom_smooth(method = "lm", color = "black")+
+  labs(color = "",
+       x = expression("NEP (mmol C m"^2~" hr"^-1~")"),
+       y = expression("DOC ("~mu~"mol L"^-1~")"))+
+  theme(axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        axis.title = element_text(size = 16, face = "bold"),
+        legend.position = "bottom",
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated",
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+
+chem_plot_all_DOC
+
+chem_plot_all_NEP_NEC<-Clean_Chem_all %>%
+  ggplot(aes(x = NEP, y = NEC, color = TREATMENT))+
+  geom_point(alpha = 0.2)+
+  geom_smooth(method = "lm")+
+  labs(color = "",
+       y = expression("NEC (mmol C m"^2~" hr"^-1~")"),
+       x = "")+
+  theme(axis.text.x = element_text(size = 14),
+        axis.text.y = element_text(size = 14),
+        axis.title = element_text(size = 16, face = "bold"),
+        # legend.position = "bottom",
+        legend.position = "none",
+        panel.background = element_rect(fill = "white"),
+        panel.grid.major = element_line(color = "gray")) +
+  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated",
+                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"), guide = FALSE)
+
+chem_plot_all_NEP_NEC
+
+(chem_plot_all_NEP_NEC/chem_plot_all_pH/chem_plot_all_DOC& theme(legend.position = 'bottom'))+
+  plot_annotation(tag_levels = "a")+plot_layout(guides = "collect")
 
 
 ##### NEP and pH #####
@@ -2311,78 +2347,3 @@ NEC_NEP_pH_DOC_NIGHT
 #ggsave(plot = NEC_NEP_pH_DOC_NIGHT, filename = here("Output", "NEC_NEP_deltapH_DOC_NIGHT_patchwork.png"), width = 15, height = 15)
 
 
-################################################
-### Combine biomass data and carb chem data ### 
-# read in biomass (AFDW) data 
-afdw <- read_csv(here("Data", "Data_Raw", "Growth", "MO24BEAST_AFDW.csv"))
-
-#filter out 'pre' experiment treatments 
-afdw_nopre <- afdw %>%
-  filter(!TREATMENT == "Pre")
-
-chem_biomass_data <- afdw_nopre %>% # join afdw data frame with chem data 
-  right_join(Data) %>%
-  select(CORAL_NUM, GENOTYPE, TREATMENT, TANK_NUM, 
-         TA, deltaTA, NEC, mean_AFDW, mean_tissue_biomass, DATE, TIME, pH)
-
-chem_biomass_data_clean <- chem_biomass_data %>%
-  filter(TIME %in% c("12:00:00","21:00:00")) %>% 
-  group_by(TREATMENT, DATE, TIME, TANK_NUM) 
-
-chem_biomass_plotdata <- chem_biomass_data_clean %>%
-  group_by(TANK_NUM, TREATMENT, mean_tissue_biomass, CORAL_NUM, GENOTYPE) %>%
-  summarize(pH_mean = mean(pH, na.rm = TRUE),
-            pH_se = sd(pH, na.rm = TRUE)/sqrt(n()))
-
-# create model for mean pH influence on mean coral tissue biomass
-pH_biomass_model_rando <- lmer(mean_tissue_biomass ~ pH_mean + (1|GENOTYPE), data = chem_biomass_plotdata)
-check_model(pH_biomass_model_rando)
-summary(pH_biomass_model_rando)
-
-pH_biomass_model <- lm(mean_tissue_biomass ~ pH_mean, data = chem_biomass_plotdata)
-check_model(pH_biomass_model)
-summary(pH_biomass_model) 
-
-# remove influential plot 
-chem_biomass_plotdata2 <- chem_biomass_plotdata %>% 
-  filter(mean_tissue_biomass < 0.00075)
-
-# new stats with outlier removed 
-pH_biomass_model_rando2 <- lmer(mean_tissue_biomass ~ pH_mean + (1|GENOTYPE), data = chem_biomass_plotdata2)
-check_model(pH_biomass_model_rando2)
-summary(pH_biomass_model_rando2)
-
-biomass_meanpH_plot <- chem_biomass_plotdata2 %>%
-  ggplot(aes(x = pH_mean, y = mean_tissue_biomass)) + 
-  geom_point(aes(color = TREATMENT)) +
-  labs(y = expression(bold("Mean Tissue Biomass" ~ (g ~ mL^-1 ~ cm^-2))), x= "Mean pH") +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  geom_smooth(method = "lm", formula = y~x) + 
-  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
-                                "Rubble_Dom" = "tan"))
-biomass_meanpH_plot
-ggsave(plot = biomass_meanpH_plot, filename = here("Output", "biomass_meanpH_plot.png"), width = 9, height = 7)
-
-
-# mean tissue biomass and mean pH with random effect of tank number 
-biomass_meanpH_tank <- lmer(mean_tissue_biomass ~ pH_mean + (1|TANK_NUM), data = chem_biomass_plotdata2)
-check_model(biomass_meanpH_tank)
-summary(biomass_meanpH_tank) # no sig effect of mean pH on mean tissue biomass
-
-## TA and biomass data ## 
-chem_biomass_plotdata <- chem_biomass_data_clean %>%
-  group_by(TANK_NUM, TREATMENT, mean_tissue_biomass, CORAL_NUM, GENOTYPE) %>%
-  summarize(pH_mean = mean(pH, na.rm = TRUE),
-            pH_se = sd(pH, na.rm = TRUE)/sqrt(n()), 
-            TA_mean = mean(TA, na.rm = TRUE), 
-            TA_se = sd(TA, na.rm = TRUE)/sqrt(n()))
-chem_biomass_plotdata
-
-chem_biomass_plotdata <- chem_biomass_plotdata %>%
-  filter(mean_tissue_biomass < 0.00075)
-
-chem_biomass_plotdata$TREATMENT <- factor(chem_biomass_plotdata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))

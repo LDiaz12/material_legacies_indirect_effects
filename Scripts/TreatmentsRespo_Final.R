@@ -36,7 +36,8 @@ library(tidyverse)
 library(here)
 library(PNWColors)
 library(ggrepel)
-
+#install.packages("respR")
+library(respR)
 
 #############################
 # get the file path
@@ -53,9 +54,9 @@ file.names<-basename(list.files(path = path.p, pattern = "csv$", recursive = TRU
 file.names.full<-list.files(path = path.p, pattern = "csv$", recursive = TRUE) 
 
 #generate a 4 column dataframe with specific column names
-# data is in umol.L.sec
+# data is in mg.L.sec
 RespoR <- data.frame(matrix(NA, nrow=length(file.names.full), ncol=4)) # use instead of tidyverse tibble
-colnames(RespoR) <- c("FileName", "Intercept", "umol.L.sec","Temp.C")
+colnames(RespoR) <- c("FileName", "Intercept", "mg.L.sec","Temp.C")
 
 #Load your respiration data file, with all the times, water volumes(mL), surface area
 
@@ -108,7 +109,7 @@ for(i in 1:length(file.names.full)) {
     geom_point(color = "dodgerblue") +
     labs(
       x = 'Time (seconds)',
-      y = expression(paste(' O'[2],' (',mu,'mol/L)')),
+      y = expression(paste(' O'[2],' (mg/L)')),
       title = "original"
     )
   
@@ -124,7 +125,7 @@ for(i in 1:length(file.names.full)) {
     geom_point(color = "dodgerblue")+
     labs(
       x = 'Time (seconds)',
-      y = expression(paste(' O'[2],' (',mu,'mol/L)')),
+      y = expression(paste(' O'[2],' (mg/L)')),
       title = "thinned"
     )
   
@@ -160,7 +161,15 @@ write_csv(RespoR, here("Data","RespoFiles","Final", "Final_Respo_R.csv"))
 # post-processing: normalize rates
 #############################
 RespoR <- read_csv(here("Data","RespoFiles","Final", "Final_Respo_R.csv"))
-#RespoR$CORAL_NUM <- as.numeric(RespoR$CORAL_NUM)
+### convert from mg/L to umol/L ###
+respo_convert <- convert_DO(RespoR$mg.L.sec, 
+             from = "mg/L",
+             to = "umol/L",
+             t = 28,
+             S = 36, 
+             P = 1.02)
+RespoR <- cbind(RespoR, 
+                umol.L.sec = respo_convert)
 
 # copy paste filenames into sample.info
 RespoR <- RespoR %>% left_join(Sample.Info)
@@ -208,7 +217,7 @@ RespoR_Normalized_LIGHT <- RespoR_Normalized %>%
   filter(LIGHT_DARK == "LIGHT") %>% 
   #mutate(mmol.gram.hr = ifelse(mmol.gram.hr < 0, 0, mmol.gram.hr), # for any values below 0, make 0
   #mmol.gram.hr_uncorr = ifelse(mmol.gram.hr_uncorr < 0, 0, mmol.gram.hr_uncorr)) %>% 
-  select(DATE, CORAL_NUM, GENOTYPE, RUN_NUM, CHAMBER, Temp.C, NP = umol.cm2.hr, NP_uncorr = umol.cm2.hr_uncorr)
+  select(DATE, CORAL_NUM, GENOTYPE, RUN_NUM, CHAMBER, NP = umol.cm2.hr, NP_uncorr = umol.cm2.hr_uncorr)
 view(RespoR_Normalized_LIGHT) 
 
 # rejoin data into single df
