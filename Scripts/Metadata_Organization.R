@@ -66,7 +66,7 @@ final_respo_rates$CORAL_NUM <- as.numeric(final_respo_rates$CORAL_NUM)
 metadata_full <- metadata_physio_full %>%
   full_join(chem_metadata) 
 
-#write_csv(metadata_full, here("Data", "MO24BEAST_Metadata_FULL.csv"))
+write_csv(metadata_full, here("Data", "MO24BEAST_Metadata_FULL.csv"))
 
 # write separate metadata files for DAY and NIGHT # 
 # DAY #
