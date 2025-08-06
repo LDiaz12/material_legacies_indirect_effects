@@ -172,28 +172,6 @@ avg_total_flow
 # start by isolating 12:00 and 21:00 time periods #
 ## filtering for 12:00 and 21:00 sampling times and reframing to add daily mean and daily range between 12 and 9 
 
-chem_reframe_date_removed <- Data %>% # chem reframe with 20240606 removed from analyses 
-  filter(TIME %in% c("12:00:00","21:00:00")) %>% 
-  filter(!DATE == "20240606") %>%
-  group_by(TREATMENT, DATE, TANK_NUM) %>%
-  reframe(TA_range = TA[TIME == hms("12:00:00")] - TA[TIME == hms("21:00:00")],
-          TA_dailymean = mean(TA, na.rm = TRUE),
-          deltaTA_range = deltaTA[TIME == hms("12:00:00")] - deltaTA[TIME == hms("21:00:00")],
-          deltaTA_dailymean = mean(deltaTA, na.rm = TRUE),
-          pH_range = pH[TIME == hms("12:00:00")] - pH[TIME == hms("21:00:00")],
-          pH_dailymean = mean(pH, na.rm = TRUE),
-          deltapH_range = deltapH[TIME == hms("12:00:00")] - deltapH[TIME == hms("21:00:00")],
-          deltapH_dailymean = mean(deltapH, na.rm = TRUE),
-          DOC_range = NPOC_uM[TIME == hms("12:00:00")] - NPOC_uM[TIME == hms("21:00:00")],
-          DOC_dailymean = mean(NPOC_uM, na.rm = TRUE),
-          deltaDOC_range = deltaDOC[TIME == hms("12:00:00")] - deltaDOC[TIME == hms("21:00:00")],
-          deltaDOC_dailymean = mean(deltaDOC, na.rm = TRUE),
-          NEC_range = NEC[TIME == hms("12:00:00")] - NEC[TIME == hms("21:00:00")],
-          NEC_dailymean = mean(NEC, na.rm = TRUE),
-          NEP_range = NEP[TIME == hms("12:00:00")] - NEP[TIME == hms("21:00:00")],
-          NEP_dailymean = mean(NEP, na.rm = TRUE))
-
-
 chem_reframe <- Data %>% 
   filter(TIME %in% c("12:00:00","21:00:00")) %>% 
   group_by(TREATMENT, DATE, TANK_NUM) %>%
@@ -244,14 +222,6 @@ chem_reframe_DAY_clean <- chem_reframe_DAY %>%
          NEP = ifelse(NEP > 5, NA, NEP), 
          pH = ifelse(pH < 7.8, NA, pH), 
          TA = ifelse(TA > 2700, NA, TA))
-#check again after cleaning
-chem_reframe_DAY_plots2 <- chem_reframe_DAY_clean %>%
-  select(DATE, TIME, TREATMENT, TANK_NUM, TA:NEP) %>%
-  pivot_longer(cols = TA:NEP) %>%
-  ggplot(aes(x = TREATMENT, y = value)) +
-  geom_point() + 
-  facet_wrap(~name, scales = "free")
-chem_reframe_DAY_plots2
 
 # reframe chem data only during NIGHT 
 chem_reframe_NIGHT <- Data %>%
@@ -277,15 +247,6 @@ chem_reframe_NIGHT_clean <- chem_reframe_NIGHT %>%
          NEC = ifelse(NEC > 1, NA, NEC), 
          NEP = ifelse(NEP > 2, NA, NEP), 
          TA = ifelse(TA < 2250, NA, TA))
-# check plots again after cleaning 
-chem_reframe_NIGHT_plots2 <- chem_reframe_NIGHT_clean %>%
-  select(DATE, TIME, TREATMENT, TANK_NUM, TA:NEP) %>%
-  pivot_longer(cols = TA:NEP) %>%
-  ggplot(aes(x = TREATMENT, y = value)) +
-  geom_point() + 
-  facet_wrap(~name, scales = "free")
-chem_reframe_NIGHT_plots2
-
 
 # make summary data of tanks at night # 
 chem_summary_data_NIGHT <- chem_reframe_NIGHT_clean %>%
@@ -469,59 +430,6 @@ tank_chem_means <- chem_reframe_clean %>%
             DOC_error = sd(DOC_dailymean, na.rm = TRUE)/sqrt(n()))
 tank_chem_means
 
-
-chem_reframe_date_removed_clean$TREATMENT <- factor(chem_reframe_date_removed_clean$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"), 
-                                                    labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"))
-
-NEP_pH_plot <- ggplot(chem_reframe_date_removed_clean) + 
-  labs(x = "Daily Mean NEP", y = "Daily Mean pH") +
-  geom_point(aes(x = NEP_dailymean, y = pH_dailymean, color = TREATMENT)) + 
-  geom_smooth(aes(x = NEP_dailymean, y = pH_dailymean)) + 
-  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none",
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
-NEP_pH_plot
-
-#ggsave(plot = NEP_pH_plot, filename = here("Output", "NEP_plots", "NEP_pH_plot.png"), width = 9, height = 6)
-
-NEP_pH_model2 <- lmer(pH_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
-check_model(NEP_pH_model2)
-summary(NEP_pH_model2)
-
-
-NEP_DOC_plot <- ggplot(chem_reframe_date_removed_clean) + 
-  labs(x = "Daily Mean NEP", y = "Daily Mean DOC") +
-  geom_point(aes(x = NEP_dailymean, y = DOC_dailymean, color = TREATMENT)) + 
-  geom_smooth(aes(x = NEP_dailymean, y = DOC_dailymean)) +
-  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none",
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) 
-NEP_DOC_plot
-#ggsave(plot = NEP_DOC_plot, filename = here("Output", "NEP_Plots", "NEP_DOC_plot.png"), width = 9, height = 6)
-
-NEP_DOC_model <- lmer(DOC_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean)
-check_model(NEP_DOC_model)
-summary(NEP_DOC_model)
-
-NEP_DOC_model2 <- lmer(DOC_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_date_removed_clean)
-check_model(NEP_DOC_model2)
-summary(NEP_DOC_model2)
-
-
-ggplot(chem_reframe_date_removed_clean) + 
-  geom_point(aes(x = NEP_dailymean, y = DOC_dailymean, color = TREATMENT)) + 
-  facet_wrap(~TREATMENT, scales = "free")
-
 ######################
 ## create rect intervals for the NEC plot below for light vs dark times ##
 rect_intervals <- tibble::tibble(
@@ -698,61 +606,6 @@ HSD.test(TA_mean_model2, "TREATMENT", console = TRUE)
 
 ## DAILY MEAN NEC ## 
 chem_reframe_clean$TREATMENT <- factor(chem_reframe_clean$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
-
-NEC_plot <- chem_reframe_clean %>% # chem reframe data is only 12 and 9 pm sampling, CLEANED 
-  ggplot(aes(x = TREATMENT, y = NEC_dailymean, color = TREATMENT)) +
-  labs(x="",
-       y = expression(bold("Daily Mean NEC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1)))) +
-  scale_x_discrete(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated")) +
-  scale_color_manual(values = c("Control" = "blue", "Algae_Dom" = "darkgreen", "Coral_Dom" = "coral",
-                                "Rubble_Dom" = "tan")) +
-  geom_hline(yintercept = 0, lty=2) +
-  geom_point(data = chem_reframe_clean, aes(x = TREATMENT, y = NEC_dailymean), alpha = 0.25) +
-  stat_summary(size = 1, color = "black") + 
-  stat_summary(fun.data = mean_sdl, geom = "errorbar", fun.args = list(mult = 1), width = 0.1, color = "black") +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 13, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 13),
-        axis.title = element_text(size = 15, face = "bold"),
-        legend.position = "none")
-NEC_plot
-#ggsave(plot = NEC_plot, filename = here("Output", "TA_NECPlots", "NEC_mean_plot.png"), width = 9, height = 10)
-
-## NEC daily mean stats ##
-NEC_mean_model <- lmer(NEC_dailymean ~ TREATMENT + (1|TANK_NUM), data=chem_reframe_clean)
-check_model(NEC_mean_model)
-summary(NEC_mean_model) # coral and rubble/cca community significantly different from algae 
-anova(NEC_mean_model) # significant effect of community type on daily mean NEC 
-emmeans(NEC_mean_model, pairwise ~ "TREATMENT", adjust = "Tukey")
-
-NEC_mean_model_noRandom <- lm(NEC_dailymean ~ TREATMENT, data = chem_reframe_clean)
-HSD.test(NEC_mean_model_noRandom, "TREATMENT", console=TRUE)
-
-## NEC range ## 
-## plot daily NEC range ## 
-NEC_range_plot <- chem_summary_data %>%
-  ggplot(aes(x = TREATMENT, y = NEC_rangemean, color = TREATMENT)) +
-  labs(x = "Treatment", y = expression(bold("Daily Mean NEC Range" ~ (mmol ~ m^2 ~ h^-1)))) +
-  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
-                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble/CCA-Dominated")) +
-  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none",
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  geom_jitter(data = chem_reframe_clean, aes(x = TREATMENT, y = NEC_range), alpha = 0.7) +
-  stat_summary(fun.y = mean, geom = "point", size = 2.5, color = "black") +
-  stat_summary(fun.data = mean_sdl, geom = "errorbar", fun.args = list(mult = 1), width = 0.1, color = "black") +
-  scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
-                                "Rubble_Dom" = "tan"))
-NEC_range_plot 
-#ggsave(plot = NEC_range_plot, filename = here("Output", "NEC_range_plot.png"), width = 9, height = 6)
-
-NEC_range_model <- lmer(NEC_range ~ TREATMENT + (1|TANK_NUM), data=chem_reframe_clean)
-check_model(NEC_range_model)
-summary(NEC_range_model)
-anova(NEC_range_model) 
 
 ## NEC DAY vs NEC NIGHT ##
 # NEC day
@@ -1267,7 +1120,7 @@ anova(range_DOC_model)
 #### Look at NEP vs pH and DOC
 Clean_Chem_all<- chem_reframe_NIGHT_clean %>% 
   bind_rows(chem_reframe_DAY_clean) %>%
-  filter(NEP<4) # remove the one outlier with really high NEP at night
+  filter(NEP < 4) # remove the one outlier with really high NEP at night
 
 # ANCOVA with pH~NEP*Treament and accounting for tankID
 mod_pH<-lm(pH ~ NEP * TREATMENT, data = Clean_Chem_all)
