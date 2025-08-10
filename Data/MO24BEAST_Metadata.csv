@@ -94,7 +94,7 @@ CORAL_NUM,GENOTYPE,TREATMENT,TANK_NUM,CORAL_TANK_NUM
 139,T,Rubble_Dom,12,24
 140,V,Coral_Dom,9,18
 141,T,Algae_Dom,4,8
-143,Q,Control,3,6
+143,Q,Rubble_Dom,5,10
 144,V,Pre,NA,NA
 145,D,Rubble_Dom,5,10
 146,O,Control,11,21

@@ -42,16 +42,19 @@ afdw_data_full <- afdw_sa2 %>%
             mean_tissue_biomass = mean(tissue_biomass),
             mean_blastate = mean(`BLASTATE VOL (ML)`)) # mean AFDW and tissue biomass PER coral 
 
-#afdw_initial <- afdw_sa3 %>%
- # filter(TREATMENT == "Pre") %>%
-  #group_by(GENOTYPE, mean_tissue_biomass) %>%
-  #select(-c(CORAL_NUM, TREATMENT, mean_AFDW)) %>%
-  #rename(initial_biomass = mean_tissue_biomass)
+afdw_initial <- afdw_data_full %>%
+  filter(TREATMENT == "Pre") %>%
+  group_by(GENOTYPE, mean_tissue_biomass) %>%
+  select(-c(CORAL_NUM, TREATMENT, mean_AFDW)) %>%
+  rename(initial_biomass = mean_tissue_biomass) %>%
+  drop_na() %>%
+  ungroup() %>%
+  select(GENOTYPE, initial_biomass)
 
-#afdw_data_full <- afdw_sa3 %>%
-#  full_join(afdw_initial) %>%
- # filter(TREATMENT != "Pre") %>%
-  #filter(mean_tissue_biomass < 40) # two values wrong 
+afdw_data_full <- afdw_data_full %>%
+  full_join(afdw_initial) %>%
+  filter(TREATMENT != "Pre") %>%
+  filter(mean_tissue_biomass < 40) # two values wrong 
 
 ggplot(afdw_data_full) +
   geom_point(aes(x = initial_biomass, y = mean_tissue_biomass, color = TREATMENT))

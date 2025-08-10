@@ -252,7 +252,12 @@ full_respo_data <-  final_respo %>%
 ggplot(full_respo_data) +
   geom_point(aes(x = initial_GP, y = GP, color = GENOTYPE))
 
-#write_csv(full_respo_data, here("Data", "RespoFiles", "full_respo_data.csv"))
+final_respo <- final_respo %>%
+  filter(CORAL_NUM != 8 | DATE != "6/27/24") %>%
+  filter(CORAL_NUM != "BLANK") %>%
+  mutate(CORAL_NUM = as.numeric(CORAL_NUM))
+
+write_csv(final_respo, here("Data", "RespoFiles", "full_respo_data.csv"))
 
 
 ###############################################################################################

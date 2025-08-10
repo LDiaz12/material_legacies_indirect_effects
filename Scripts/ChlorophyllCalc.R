@@ -22,6 +22,8 @@ library(ggplot2)
 library(ggpubr)
 
 ### read in plate data ###
+metadata <- read_csv(here("Data", "MO24BEAST_Metadata.csv"))
+
 PlateData1<-read_csv(here("Data","Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_Chl_Run1_Plate1.csv"), skip = 39) #skips first 39 lines
 PlateData2<-read_csv(here("Data","Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_Chl_Run1_Plate2.csv"), skip = 39)
 PlateData2 <- PlateData2[-(24:96),] # deleting the rows with empty wells
@@ -42,9 +44,11 @@ sa <- read_csv(here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated
 
 
 plate_comb_full <- plates_comb %>%
+  select(-c(CORAL_TANK_NUM, TANK_NUM, TREATMENT, GENOTYPE)) %>%
   mutate(CORAL_NUM = as.numeric(CORAL_NUM)) %>%
-  full_join(sa) %>%
-  drop_na(TREATMENT)
+  full_join(sa %>%
+              select(CORAL_NUM, SA_cm_2)) %>%
+  drop_na(CORAL_NUM, WELL)
 
 
 ##### Analysis #####
@@ -59,7 +63,8 @@ full_data <- plate_comb_full %>%
   mutate(chla_ug = Chla_ug_ml * BLASTATE_ML, # normalize to blastate volume
          chlc_ug = Chlc_ug_ml * BLASTATE_ML) %>%
   mutate(chla_ug_cm2 = chla_ug/SA_cm_2, # normalize to surface area 
-         chlc_ug_cm2 = chlc_ug/SA_cm_2)
+         chlc_ug_cm2 = chlc_ug/SA_cm_2) %>%
+  full_join(metadata)
 
 ### Chl a notes ###
 # 11.43 is the extinction coefficient of chla at wavelength 663
@@ -82,16 +87,19 @@ chl_initial <- full_data %>%
   rename(initial_chla = chla_ug_cm2)
 
 chl_data_full <- full_data %>%
-  left_join(chl_initial)
+  filter(TREATMENT != "Pre") %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, chla_ug_cm2) %>%
+  full_join(chl_initial)
 
 
 chl_full_filtered <- chl_data_full %>%
-  select(CORAL_NUM, TANK_NUM, TREATMENT, GENOTYPE, chla_ug_cm2, initial_chla) %>%
+  select(CORAL_NUM, GENOTYPE, TREATMENT, chla_ug_cm2, initial_chla) %>%
   filter(chla_ug_cm2 < 7) %>% # three corals > 7 that are clear outliers 
-  filter(chla_ug_cm2 > 0) %>% # two negative corals 
-  filter(TREATMENT != "Pre")
+  filter(chla_ug_cm2 > 0) # two negative corals 
+
 
 ## PLOTS ## 
+
 chl_full_filtered$TREATMENT <- factor(chl_full_filtered$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
 chl_total_plot <- ggplot(chl_full_filtered, aes(x=TREATMENT, y=chla_ug_cm2, fill=TREATMENT)) + 
@@ -147,7 +155,7 @@ chl_a_plot
 #ggsave(plot = chl_a_plot, filename = here("Output", "chl_a_plot.png"), width = 9, height = 6)
 
 # ANOVA for Chl a content and treatment type #
-chla_gen_trtmt_model <- lmer(chla_ug_cm2 ~ TREATMENT + (1|GENOTYPE) +(1|TANK_NUM), data=chl_full_filtered)
+chla_gen_trtmt_model <- lmer(chla_ug_cm2 ~ TREATMENT + (1|GENOTYPE), data=chl_full_filtered)
 check_model(chla_gen_trtmt_model)
 summary(chla_gen_trtmt_model)
 anova(chla_gen_trtmt_model) # treatment not significant for explaining any variance seen in chla content
