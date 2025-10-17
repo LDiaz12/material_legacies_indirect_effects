@@ -46,8 +46,8 @@ metadata_raw_chem_means <- metadata %>%
          deltapH = mean(deltapH_mean, na.rm = TRUE),
          deltaDOC = mean(deltaDOC_mean, na.rm = TRUE),
          mean_NEP = mean(NEP_mean, na.rm = TRUE)) %>%
-  left_join(raw_chem) %>%
-  left_join(daily_min_max)
+  left_join(raw_chem) 
+ # left_join(daily_min_max)
 
 ##last thing - check daily max and average 
 
@@ -66,6 +66,7 @@ endos_plot <- metadata %>%
   geom_point(data = metadata, aes(x = TREATMENT, y = endo_per_cm2), alpha = 0.25) +
   stat_summary(fun.y = mean, geom = "point", size = 3) + 
   stat_summary(fun.data = mean_sdl, geom = "errorbar", fun.args = list(mult = 1), width = 0.1) +
+  coord_trans(y = "log")+
   theme_bw() +
   theme(axis.text.x = element_text(size = 13, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 13),
@@ -74,10 +75,10 @@ endos_plot <- metadata %>%
 endos_plot
 ggsave(plot = endos_plot, filename = here("Output", "Biogeochem_Physio", "endos_plot.png"), width = 14, height = 10)
 
-endos_model <- lmer(endo_per_cm2 ~ TREATMENT + (1|GENOTYPE), data= metadata)
+endos_model <- lmer(log(endo_per_cm2) ~ TREATMENT + (1|GENOTYPE), data= metadata)
 check_model(endos_model)
 summary(endos_model)
-anova(endos_model) # non significant. p = 0.62
+anova(endos_model) # non significant. p = 0.246
 
 # CHL A #
 chla_plot <- metadata %>% 
@@ -90,6 +91,7 @@ chla_plot <- metadata %>%
   geom_point(data = metadata, aes(x = TREATMENT, y = chla_ug_cm2), alpha = 0.25) +
   stat_summary(fun.y = mean, geom = "point", size = 3) + 
   stat_summary(fun.data = mean_sdl, geom = "errorbar", fun.args = list(mult = 1), width = 0.1) +
+  coord_trans(y = "log")+
   theme_bw() +
   theme(axis.text.x = element_text(size = 13, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 13),
@@ -98,10 +100,10 @@ chla_plot <- metadata %>%
 chla_plot
 ggsave(plot = chla_plot, filename = here("Output", "Biogeochem_Physio", "chla_plot.png"), width = 14, height = 10)
 
-chla_model <- lmer(chla_ug_cm2 ~ TREATMENT + (1|GENOTYPE), data = metadata)
+chla_model <- lmer(log(chla_ug_cm2) ~ TREATMENT + (1|GENOTYPE), data = metadata)
 check_model(chla_model)
 summary(chla_model)
-anova(chla_model) 
+anova(chla_model) # non significant. p = 0.259
 
 
 # MEAN TISSUE BIOMASS # 
@@ -115,6 +117,7 @@ tissuebiomass_plot <- metadata %>%
   geom_point(data = metadata, aes(x = TREATMENT, y = mean_tissue_biomass), alpha = 0.25) +
   stat_summary(fun.y = mean, geom = "point", size = 3) + 
   stat_summary(fun.data = mean_sdl, geom = "errorbar", fun.args = list(mult = 1), width = 0.1) +
+  coord_trans(y = "log")+
   theme_bw() +
   theme(axis.text.x = element_text(size = 13, angle = 30, hjust = 1),
         axis.text.y = element_text(size = 13),
@@ -123,10 +126,10 @@ tissuebiomass_plot <- metadata %>%
 tissuebiomass_plot
 ggsave(plot = tissuebiomass_plot, filename = here("Output", "Biogeochem_Physio", "tissuebiomass_plot.png"), width = 14, height = 10)
 
-tissuebiomass_model <- lmer(mean_tissue_biomass ~ TREATMENT + (1|GENOTYPE), data = metadata)
+tissuebiomass_model <- lmer(log(mean_tissue_biomass) ~ TREATMENT + (1|GENOTYPE), data = metadata)
 check_model(tissuebiomass_model)
 summary(tissuebiomass_model)
-anova(tissuebiomass_model) 
+anova(tissuebiomass_model) #p = 0.147
 
 
 # R #
@@ -176,7 +179,7 @@ ggsave(plot = GP_plot, filename = here("Output", "Biogeochem_Physio", "GP_plot.p
 GP_model <- lmer(GP ~ TREATMENT + (1|GENOTYPE), data=metadata)
 check_model(GP_model)
 summary(GP_model)
-anova(GP_model) # significant. p < 0.05. p = 0.013
+anova(GP_model) # s. p = 0.61
 
 physio_params_patch <- (endos_plot + chla_plot + tissuebiomass_plot)/(R_plot + GP_plot) + plot_annotation(tag_levels = "a")
 physio_params_patch
@@ -190,7 +193,8 @@ chla_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_chl)) + 
   geom_point(aes(color = TREATMENT)) + 
   geom_smooth(method = "lm", formula = y~x, color = "black") + 
-  labs(x = expression("pH"[T]), y = expression("Chlorophyll-a Content" ~ (µg ~ cm^-2))) +
+  labs(x = expression("pH"[T]), y = expression("Chlorophyll a Content " ~ (µg ~ cm^-2))) +
+  coord_trans(y = "log")+
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
@@ -212,7 +216,8 @@ summary(chla_meanpH_model)
 chla_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_chl)) + 
   geom_point(aes(color = TREATMENT)) +  
-  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Chlorophyll-a Content" ~ (µg ~ cm^-2))) +
+  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Chlorophyll a Content " ~ (µg ~ cm^-2))) +
+  coord_trans(y = "log")+
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
@@ -235,7 +240,8 @@ anova(chla_meanDOC_model)
 endo_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_endos)) + 
   geom_point(aes(color = TREATMENT)) + 
-  labs(x = expression("pH"[T]), y = expression("Endosymbiont Density" ~ (cells ~ 10^6 ~ cm^-2))) +
+  labs(x = expression("pH"[T]), y = expression("Endosymbiont Density " ~ (cells ~ 10^6 ~ cm^-2))) +
+  coord_trans(y = "log")+
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
@@ -256,7 +262,8 @@ anova(endo_meanpH_model)
 endo_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_endos)) + 
   geom_point(aes(color = TREATMENT)) +  
-  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Endosymbiont Density" ~ (cells ~ 10^6 ~ cm^-2))) +
+  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Endosymbiont Density " ~ (cells ~ 10^6 ~ cm^-2))) +
+  coord_trans(y = "log")+
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
@@ -279,7 +286,8 @@ anova(endo_meanDOC_model)
 biomass_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_biomass)) + 
   geom_point(aes(color = TREATMENT)) + 
-  labs(x = expression("pH"[T]), y = expression("Mean Tissue Biomass" ~ (mg ~ cm^-2))) +
+  labs(x = expression("pH"[T]), y = expression("Mean Tissue Biomass " ~ (mg ~ cm^-2))) +
+  coord_trans(y = "log")+
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
@@ -300,7 +308,8 @@ anova(biomass_meanpH_model)
 biomass_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_biomass)) + 
   geom_point(aes(color = TREATMENT)) + 
-  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Mean Tissue Biomass" ~ (mg ~ cm^-2))) +
+  coord_trans(y = "log")+
+  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Mean Tissue Biomass " ~ (mg ~ cm^-2))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
@@ -324,7 +333,7 @@ R_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_R)) + 
   geom_point(aes(color = TREATMENT)) + 
   geom_smooth(method = "lm", formula = y~x, color = "black") + 
-  labs(x = expression("pH"[T]), y = expression("Respiration Rate" ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
+  labs(x = expression("pH"[T]), y = expression("Respiration Rate " ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
@@ -347,7 +356,7 @@ anova(R_meanpH_model)
 R_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_R)) + 
   geom_point(aes(color = TREATMENT)) + 
-  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Respiration Rate" ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
+  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Respiration Rate " ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
@@ -452,7 +461,7 @@ NP_rangeDOC_plot
 GP_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_GP)) + 
   geom_point(aes(color = TREATMENT)) + 
-  labs(x = expression("pH"[T]), y = expression("Gross Photosynthesis" ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
+  labs(x = expression("pH"[T]), y = expression("Gross Photosynthesis " ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15, hjust = 1),
         axis.text.y = element_text(size = 15),
@@ -473,7 +482,7 @@ anova(GP_meanpH_model)
 GP_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_GP)) + 
   geom_point(aes(color = TREATMENT)) + 
-  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Gross Photosynthesis" ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
+  labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Gross Photosynthesis " ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15, hjust = 1),
         axis.text.y = element_text(size = 15),
