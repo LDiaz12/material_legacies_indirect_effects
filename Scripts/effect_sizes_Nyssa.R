@@ -58,19 +58,11 @@ metadata_scaled<-metadata %>%
 
 endo_scale <- lmer(endo_per_cm2 ~ pH_mean +DOC_mean  +(1|GENOTYPE), data = metadata_scaled)
 anova(endo_scale)
-a <- coef(summary(endo_scale)) %>%
-  as_tibble()%>%
-  mutate(Chem = rownames(coef(summary(endo_scale))))%>%
-  mutate(Parameter = "Endo_per_cm2")
 
 a <-tibble(model_parameters(endo_scale)[1:3,])%>%
   mutate(Phys = "Endo_per_cm2")
 
 chla_scale <- lmer(chla_ug_cm2 ~ pH_mean +DOC_mean  +(1|GENOTYPE), data = metadata_scaled)
-b <- coef(summary(chla_scale)) %>%
-  as_tibble()%>%
-  mutate(Chem = rownames(coef(summary(chla_scale)))) %>%
-mutate(Parameter = "Chla_ug_cm2")
 
 b <- tibble(model_parameters(chla_scale)[1:3,])%>%
   mutate(Phys = "Chla_ug_cm2")
@@ -78,10 +70,6 @@ b <- tibble(model_parameters(chla_scale)[1:3,])%>%
 anova(chla_scale)
 
 biomass_scale <- lmer(mean_tissue_biomass ~ pH_mean +DOC_mean  +(1|GENOTYPE), data = metadata_scaled)
-c <- coef(summary(biomass_scale)) %>%
-  as_tibble()%>%
-  mutate(Chem = rownames(coef(summary(biomass_scale)))) %>%
-  mutate(Parameter = "Mean_Tissue_Biomass")
 
 c <- tibble(model_parameters(biomass_scale)[1:3,])%>%
   mutate(Phys = "Mean_Tissue_Biomass")
@@ -90,10 +78,6 @@ anova(biomass_scale)
 #  breaks = c("Endo_per_cm2", "Chla_ug_cm2", "Mean_Tissue_Biomass", "R", "GP", "NP"),
 
 R_scale <- lmer(R ~ pH_mean +DOC_mean  +(1|GENOTYPE), data = metadata_scaled)
-d <- coef(summary(R_scale)) %>%
-  as_tibble()%>%
-  mutate(Chem = rownames(coef(summary(R_scale)))) %>%
-  mutate(Parameter = "R")
 
 d <- tibble(model_parameters(R_scale)[1:3,])%>%
   mutate(Phys = "R")
@@ -101,10 +85,6 @@ d <- tibble(model_parameters(R_scale)[1:3,])%>%
 anova(R_scale)
 
 GP_scale <- lmer(GP ~ pH_mean +DOC_mean  +(1|GENOTYPE), data = metadata_scaled)
-e<-coef(summary(GP_scale)) %>%
-  as_tibble()%>%
-  mutate(Chem = rownames(coef(summary(GP_scale)))) %>%
-  mutate(Parameter = "GP")
 
 e <- tibble(model_parameters(GP_scale)[1:3,])%>%
   mutate(Phys = "GP")
