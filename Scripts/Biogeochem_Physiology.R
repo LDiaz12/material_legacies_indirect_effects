@@ -46,10 +46,7 @@ metadata_raw_chem_means <- metadata %>%
          deltapH = mean(deltapH_mean, na.rm = TRUE),
          deltaDOC = mean(deltaDOC_mean, na.rm = TRUE),
          mean_NEP = mean(NEP_mean, na.rm = TRUE)) %>%
-  left_join(raw_chem) %>%
-  left_join(daily_min_max)
-
-##last thing - check daily max and average 
+  left_join(raw_chem)
 
 
 ####### ANOVAS OF PHYSIO PARAMS PER TREATMENT #######
@@ -188,14 +185,14 @@ metadata_raw_chem_means$TREATMENT <- factor(metadata_raw_chem_means$TREATMENT, l
 # regression of chl-a and mean pH # 
 chla_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_chl)) + 
-  geom_point(aes(color = TREATMENT)) + 
+  geom_point(aes(color = TREATMENT), size = 4) + 
   geom_smooth(method = "lm", formula = y~x, color = "black") + 
   labs(x = expression("pH"[T]), y = expression("Chlorophyll-a Content" ~ (µg ~ cm^-2))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") +
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -207,17 +204,17 @@ chla_meanpH_model <- lm(mean_chl ~ grand_mean_pH, data = metadata_raw_chem_means
 check_model(chla_meanpH_model)
 anova(chla_meanpH_model)
 summary(chla_meanpH_model)
-
+####################
 # regression of chl-a and mean DOC # 
 chla_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_chl)) + 
-  geom_point(aes(color = TREATMENT)) +  
+  geom_point(aes(color = TREATMENT), size = 4) +  
   labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Chlorophyll-a Content" ~ (µg ~ cm^-2))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") + 
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -228,19 +225,20 @@ ggsave(plot = chla_meanDOC_plot, filename = here("Output", "Biogeochem_Physio", 
 chla_meanDOC_model <- lm(mean_chl ~ grand_mean_DOC, data = metadata_raw_chem_means)
 check_model(chla_meanDOC_model)
 anova(chla_meanDOC_model) 
+##################
 
 ######## BIOGEOCHEM IMPACTS ON ENDO DENSITY #######
 
 # regression of endos and mean pH #
 endo_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_endos)) + 
-  geom_point(aes(color = TREATMENT)) + 
+  geom_point(aes(color = TREATMENT), size = 4) + 
   labs(x = expression("pH"[T]), y = expression("Endosymbiont Density" ~ (cells ~ 10^6 ~ cm^-2))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"), 
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") + 
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -252,16 +250,17 @@ endo_meanpH_model <- lm(mean_endos ~ grand_mean_pH, data = metadata_raw_chem_mea
 check_model(endo_meanpH_model)
 anova(endo_meanpH_model)
 
+####################
 # regression of endos and mean DOC #
 endo_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_endos)) + 
-  geom_point(aes(color = TREATMENT)) +  
+  geom_point(aes(color = TREATMENT), size = 4) +  
   labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Endosymbiont Density" ~ (cells ~ 10^6 ~ cm^-2))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") +
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -272,19 +271,20 @@ ggsave(plot = endo_meanDOC_plot, filename = here("Output", "Biogeochem_Physio", 
 endo_meanDOC_model <- lm(mean_endos ~ grand_mean_DOC, data = metadata_raw_chem_means)
 check_model(endo_meanDOC_model)
 anova(endo_meanDOC_model)
+#######################
 
 ####### BIOGEOCHEM IMPACTS ON TISSUE BIOMASS ### #####
 
 # regression of tissue biomass and mean pH # 
 biomass_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_biomass)) + 
-  geom_point(aes(color = TREATMENT)) + 
+  geom_point(aes(color = TREATMENT), size = 4) + 
   labs(x = expression("pH"[T]), y = expression("Mean Tissue Biomass" ~ (mg ~ cm^-2))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") +  
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -296,16 +296,17 @@ biomass_meanpH_model <- lm(mean_biomass ~ grand_mean_pH, data = metadata_raw_che
 check_model(biomass_meanpH_model)
 anova(biomass_meanpH_model)
 
+###############################
 # regression of tissue biomass and mean DOC # 
 biomass_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_biomass)) + 
-  geom_point(aes(color = TREATMENT)) + 
+  geom_point(aes(color = TREATMENT), size = 4) + 
   labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Mean Tissue Biomass" ~ (mg ~ cm^-2))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") + 
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -316,20 +317,21 @@ ggsave(plot = biomass_meanDOC_plot, filename = here("Output", "Biogeochem_Physio
 biomass_meanDOC_model <- lm(mean_biomass ~ grand_mean_DOC, data = metadata_raw_chem_means)
 check_model(biomass_meanDOC_model)
 anova(biomass_meanDOC_model)
+#################################
 
 ##### BIOGEOCHEM IMPACTS ON RESPIRATION RATE #####
 
 # R and mean pH #
 R_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_R)) + 
-  geom_point(aes(color = TREATMENT)) + 
+  geom_point(aes(color = TREATMENT), size = 4) + 
   geom_smooth(method = "lm", formula = y~x, color = "black") + 
   labs(x = expression("pH"[T]), y = expression("Respiration Rate" ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") +  
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -342,17 +344,17 @@ check_model(R_meanpH_model)
 summary(R_meanpH_model)
 anova(R_meanpH_model)
 
-
+############################
 # R and mean DOC # 
 R_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_R)) + 
-  geom_point(aes(color = TREATMENT)) + 
+  geom_point(aes(color = TREATMENT), size = 4) + 
   labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Respiration Rate" ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") + 
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -363,6 +365,7 @@ ggsave(plot = R_meanDOC_plot, filename = here("Output", "Biogeochem_Physio", "R_
 R_meanDOC_model <- lm(mean_R ~ grand_mean_DOC, data = metadata_raw_chem_means)
 check_model(R_meanDOC_model)
 anova(R_meanDOC_model)
+#########################
 
 ##### BIOGEOCHEM IMPACTS ON NET PHOTOSYNTHESIS ##### 
 
@@ -451,13 +454,13 @@ NP_rangeDOC_plot
 # GP and mean pH # 
 GP_meanpH_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_pH, y = mean_GP)) + 
-  geom_point(aes(color = TREATMENT)) + 
+  geom_point(aes(color = TREATMENT), size = 4) + 
   labs(x = expression("pH"[T]), y = expression("Gross Photosynthesis" ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15, hjust = 1),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") +  
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -469,16 +472,17 @@ GP_meanpH_model <- lm(mean_GP ~ grand_mean_pH, data = metadata_raw_chem_means)
 check_model(GP_meanpH_model)
 anova(GP_meanpH_model)
 
+##############################
 # GP and mean DOC # 
 GP_meanDOC_plot <- metadata_raw_chem_means %>%
   ggplot(aes(x = grand_mean_DOC, y = mean_GP)) + 
-  geom_point(aes(color = TREATMENT)) + 
+  geom_point(aes(color = TREATMENT), size = 4) + 
   labs(x = expression("DOC ("~mu~"mol L"^-1~")"), y = expression("Gross Photosynthesis" ~ (µmol ~ O[2] ~ cm^-2 ~ hr^-1))) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 15, hjust = 1),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),  
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 15),
         legend.title = element_blank(), 
         legend.position = "bottom") +  
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", "Rubble/CCA-Dominated"),
@@ -489,16 +493,17 @@ ggsave(plot = GP_meanDOC_plot, filename = here("Output", "Biogeochem_Physio", "G
 GP_meanDOC_model <- lm(mean_GP ~ grand_mean_DOC, data = metadata_raw_chem_means)
 check_model(GP_meanDOC_model)
 anova(GP_meanDOC_model)
+##############################
 
 meanpH_physio_patch <- (chla_meanpH_plot + endo_meanpH_plot + biomass_meanpH_plot)/(R_meanpH_plot + GP_meanpH_plot) + plot_annotation(tag_levels = "a") +
   plot_layout(guides = "collect") & theme(legend.position = "bottom") 
 meanpH_physio_patch
-ggsave(plot = meanpH_physio_patch, filename = here("Output", "Biogeochem_Physio", "meanpH_physio_patch.png"), width = 15, height = 11)
+ggsave(plot = meanpH_physio_patch, filename = here("Output", "Biogeochem_Physio", "meanpH_physio_patch.png"), width = 15, height = 15)
 
 meanDOC_physio_patch <- (chla_meanDOC_plot + endo_meanDOC_plot + biomass_meanDOC_plot)/(R_meanDOC_plot + GP_meanDOC_plot) + plot_annotation(tag_levels = "a") + 
   plot_layout(guides = "collect") & theme(legend.position = "bottom")
 meanDOC_physio_patch
-ggsave(plot = meanDOC_physio_patch, filename = here("Output", "Biogeochem_Physio", "meanDOC_physio_patch.png"), width = 15, height = 11)
+ggsave(plot = meanDOC_physio_patch, filename = here("Output", "Biogeochem_Physio", "meanDOC_physio_patch.png"), width = 15, height = 15)
 
 
 

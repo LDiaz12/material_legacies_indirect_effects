@@ -14,29 +14,25 @@ library(lubridate)
 library(chron)
 
 ### Load data ###################################################
-#set the path to all of the raw oxygen datasheets
-path.p<-here("Short_term",
-             "Data_Raw",
-             "PR",
-             "PI_curve",
-             "PI_curve_2021_08_07",
-             "RawO2Files") #the location of all your respirometry files
+#set the path to raw oxygen datasheets
+path.p<-here("Data",
+             "RespoFiles",
+             "PRUS_PI_CURVE_O2.csv") #location of PI curve
 
-file.names<-basename(list.files(path = path.p, pattern = "csv$", recursive = TRUE)) #list all csv file names in the folder and subfolders
+#file.names<-basename(list.files(path = path.p, pattern = "csv$", recursive = TRUE)) #list all csv file names in the folder and subfolders
 
 
 #basename above removes the subdirectory name from the file
 #add file names that include the subdirectory name (note, these are the same for this example, but I often have lots of subfolders for different Runs)
-file.names.full<-list.files(path = path.p, pattern = "csv$", recursive = TRUE) #list all csv file names in the folder and subfolders
+#file.names.full<-list.files(path = path.p, pattern = "csv$", recursive = TRUE) #list all csv file names in the folder and subfolders
 
 #generate an empty 3 column dataframe with specific column names
-Photo.R <- data.frame(matrix(NA, nrow=length(file.names), ncol=5))
-colnames(Photo.R) <- c("fragment.ID.full","Intercept", "umol.L.sec","Temp.C","Light_Dark") # name the columns
+Photo.R <- data.frame(matrix(NA, nrow=length(file.names), ncol=3))
+colnames(Photo.R) <- c("Intercept", "umol.L.sec","Temp.C") # name the columns
 
 
 #Load Sample Info
-Sample.Info <- read_csv(here("Short_term", "Data_Raw", "PR", "PI_curve", 
-                             "PI_curve_2021_08_07", "Metadata", "pi_metadata.csv")) %>%
+Sample.Info <- read_csv(here("Data", "RespoFiles", "PRUS_PI_CURVE_O2.csv")) %>%
   mutate(new = "PI_Ch") %>%
   unite("fragment.ID.full", c(new, chamber.channel), sep = "", remove = FALSE) %>%
   unite("fragment.ID.full", c(fragment.ID.full, run, fragment.ID), sep = "_", remove = FALSE)
