@@ -2,7 +2,7 @@
 
 Journal: _Limnology and Oceanography_
 
-Laurel C Diaz<sup>1</sup>*, Keanu Rochette-Yu Tsuen<sup>2</sup>, Kiran Reed<sup>1</sup>, Craig E Nelson<sup>2</sup>, Nyssa J Silbiger<sup>3</sup>*
+Laurel C Diaz<sup>1</sup> *, Keanu Rochette-Yu Tsuen<sup>2</sup>, Kiran Reed<sup>1</sup>, Craig E Nelson<sup>2</sup>, Nyssa J Silbiger<sup>3</sup> *
 
 <sup>1</sup>Department of Biology, California State University, Northridge, CA, USA
 
