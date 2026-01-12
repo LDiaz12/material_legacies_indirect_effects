@@ -549,10 +549,56 @@ metadata_newnames <- metadata %>%
 physio <- metadata_newnames %>%
   select(TissueBiomass, R, GP, Endosymbionts, Chlorophyll)
 
+# create custom function to only plot regression lines for significant p values # 
+only_sig <- function(data, mapping, ...) {
+  x <- eval_data_col(data, mapping$x)
+  y <- eval_data_col(data, mapping$y)
+  
+  cor_test <- cor.test(x, y)
+  p_value <- cor_test$p.value
+  
+  p <- ggplot(data, mapping) + 
+    geom_point(color = "coral", alpha = 0.5) 
+  
+  if(p_value < 0.05) {
+    p <- p + geom_smooth(method = "lm", se = FALSE, color = "black", alpha = 0.3)
+  }
+  return(p)
+}  
+
+# need to create a custom function in order to get rid of the word "Corr" in the plot
+custom_corr <- function(data, mapping, method, ...) {
+  x <- eval_data_col(data, mapping$x)
+  y <- eval_data_col(data, mapping$y) 
+  
+  corr <- cor(x, y, method = method, use = "complete.obs")
+  
+  ggally_text(label = as.character(round(corr, 2)),
+              mapping = aes(),
+              xP = 0.5, vP = 0.5,
+              color = "black",
+              size = 8,
+              ...
+              )
+}
+corr_plot <- ggpairs(data = physio,
+                     upper = list(continuous = wrap(custom_corr, method = "pearson")),
+                     lower = list(continuous = wrap(only_sig)),
+                     diag = list(continuous = wrap("densityDiag", fill = "lightblue"))) + 
+  theme_minimal()
+corr_plot <- corr_plot + 
+  theme(axis.text.x = element_text(size = 12),
+         axis.text.y = element_text(size = 12))
+corr_plot
+ggsave(plot = corr_plot, filename = here("Output", "physio_corr_coeff_plot.png"))
+
+#this also creates the plot but with the "Corr" kept in 
 corr_coeff_plot <- ggpairs(data = physio,
         upper = list(continuous = wrap("cor", method = "pearson", size = 6, color = "black")), 
         lower = list(continuous = wrap("smooth", color = "coral"), alpha = 0.3),
-        diag = list(continuous = wrap("densityDiag", fill = "lightblue")))
+        diag = list(continuous = wrap("densityDiag", fill = "lightblue"))) +
+  theme_minimal()
+
 corr_coeff_plot
 
-ggsave(plot = corr_coeff_plot, filename = here("Output", "physio_corr_coeff_plot.png"))
+#ggsave(plot = corr_coeff_plot, filename = here("Output", "physio_corr_coeff_plot.png"))

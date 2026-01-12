@@ -121,14 +121,6 @@ Data<-pHSlope2 %>%
 # temp, flow, salinity, pH, light, DIC, pH inflow, TA inflow, DIC inflow, 
 # delta pH, delta TA, delta DIC, NEC, NEP, DOC 
 
-Data %>%
-  summarize(total_mean_light = mean(LIGHT_NM, na.rm = TRUE))
-
-gump_light <- read_csv(here("Data","Gump_light.csv"))
-
-gump_light_filtered <- gump_light %>%
-  summarize(gump_mean_light = mean(PAR_µmol_m2_s))
-
 raw_chem_data <- Data %>%
   filter(TIME %in% c("12:00:00", "21:00:00")) %>%
   group_by(TREATMENT, TANK_NUM) %>% 
@@ -142,24 +134,11 @@ raw_chem_data <- Data %>%
             grand_min_DOC = min(NPOC_uM, na.rm = TRUE))%>%
   drop_na()
 
-daily_min_max <- Data %>%
-  filter(TIME %in% c("12:00:00", "21:00:00")) %>%
-  group_by(TREATMENT) %>%
-  summarize(daily_max_pH = max(pH, na.rm = TRUE), 
-            daily_min_pH = min(pH, na.rm = TRUE))
-
 write_csv(raw_chem_data, here("Data", "Chemistry", "Raw_Chem_Data.csv"))
-write_csv(daily_min_max, here("Data", "Chemistry", "Daily_Min_Max_Data.csv"))
 
 write_csv(Data, here("Data", "Chemistry", "Full_Carb_Chem_Data.csv"))
 full_carb_chem_data <- read_csv(here("Data", "Chemistry", "Full_Carb_Chem_Data.csv"))
 full_carb_chem_data$INFLOW_TABLE <- as.factor(full_carb_chem_data$INFLOW_TABLE)
-
-#checking for outliers in inflow data per inflow table for TA, pH, and DOC 
-ggplot(full_carb_chem_data) + 
-  geom_point(aes(x = DATETIME, y = DOC_inflow, color = INFLOW_TABLE)) + 
-  facet_wrap(~DATE)
-# 06/06/2024 looks like it was a bad date for each of the parameters. it was raining all day and overcast
 
 tank_residence_time <- Data %>%
   group_by(TANK_NUM) %>%
@@ -171,12 +150,10 @@ tank_residence_time <- Data %>%
 tank_residence_time
 write_csv(tank_residence_time, here("Data", "Chemistry", "Tank_Residence_Time.csv"))
 
-
 avg_total_flow <- Data %>%
   summarize(avg_total_flow = mean(flowrate, na.rm = TRUE),
             flow_error = sd(flowrate, na.rm = TRUE)/sqrt(n()))
 avg_total_flow
-
 
 ## create one summary data frame with means and ranges for TA, pH, and DOC ##
 # start by isolating 12:00 and 21:00 time periods #
@@ -249,7 +226,6 @@ chem_reframe_NIGHT_plots <- chem_reframe_NIGHT %>%
   facet_wrap(~name, scales = "free")
 chem_reframe_NIGHT_plots
 
-
 # clean up outliers 
 chem_reframe_NIGHT_clean <- chem_reframe_NIGHT %>%
   mutate(deltaDOC = ifelse(deltaDOC > 300, NA, deltaDOC),
@@ -261,7 +237,6 @@ chem_reframe_NIGHT_clean <- chem_reframe_NIGHT %>%
          NEP = ifelse(NEP > 2, NA, NEP), 
          NEP = ifelse(TREATMENT == "Control" & NEP > 1, NA, NEP),
          TA = ifelse(TA < 2250, NA, TA))
-
 
 # make summary data of tanks at night # 
 chem_summary_data_NIGHT <- chem_reframe_NIGHT_clean %>%
@@ -393,7 +368,6 @@ chem_summary_data <- chem_reframe_clean %>%
 
         
 #write_csv(chem_summary_data, here("Data", "Chemistry", "chem_summary_data.csv"))
-#write_csv(chem_summary_data_2, here("Data", "Chemistry", "chem_summary_data_dateremoved.csv"))
 
 tank_chem_means <- chem_reframe_clean %>%
   group_by(TANK_NUM) %>%
@@ -495,8 +469,8 @@ NEC_day_mean_plot <- NEC_data_day %>%
   ggplot(aes(x = TREATMENT, y = NEC_day_mean, color = TREATMENT)) +
   geom_hline(yintercept = 0, lty = 2) +
   labs(x = "", y = expression(bold("NCC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1)))) +
-  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
-                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble/CCA-Dominated")) +
+  scale_x_discrete(labels=c("Algae_Dom" = "Macroalgae-Enriched", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Enriched", "Rubble_Dom" = "CCA-Enriched")) +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan")) +
   geom_point(data = NEC_data_day, aes(x = TREATMENT, y = NEC_day_mean), size = 3, alpha = 0.25) +
@@ -537,8 +511,8 @@ NEC_night_mean_plot <- NEC_data_night %>%
   ggplot(aes(x = TREATMENT, y = NEC_night_mean, color = TREATMENT)) +
   geom_hline(yintercept = 0, lty=2) +
   labs(x = "", y = "") +
-  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
-                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble/CCA-Dominated")) +
+  scale_x_discrete(labels=c("Algae_Dom" = "Macroalgae-Enriched", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Enriched", "Rubble_Dom" = "CCA-Enriched")) +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan")) +
   geom_point(data = NEC_data_night, aes(x = TREATMENT, y = NEC_night_mean), size = 3, alpha = 0.25) +
@@ -586,8 +560,8 @@ NEP_day_mean_plot <- NEP_data_day %>%
   geom_hline(yintercept = 0, lty =2) +
   ylim(c(-3,5)) +
   labs(x = "", y = expression(bold("NCP" ~ (mmol ~ C ~ m^2 ~ h^-1)))) +
-  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
-                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble/CCA-Dominated")) +
+  scale_x_discrete(labels=c("Algae_Dom" = "Macroalgae-Enriched", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Enriched", "Rubble_Dom" = "CCA-Enriched")) +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan")) +
   geom_point(data = NEP_data_day, aes(x = TREATMENT, y = NEP_day_mean), size = 3, alpha = 0.25) +
@@ -633,8 +607,8 @@ NEP_night_mean_plot <- NEP_data_night %>%
   geom_hline(yintercept = 0, lty = 2) +
   ylim(c(-2,2)) +
   labs(x = "", y = "") +
-  scale_x_discrete(labels=c("Algae_Dom" = "Algae-Dominated", "Control" = "Control",
-                            "Coral_Dom" = "Coral-Dominated", "Rubble_Dom" = "Rubble/CCA-Dominated")) +
+  scale_x_discrete(labels=c("Algae_Dom" = "Macroalgae-Enriched", "Control" = "Control",
+                            "Coral_Dom" = "Coral-Enriched", "Rubble_Dom" = "CCA-Enriched")) +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
                                 "Rubble_Dom" = "tan")) +
   geom_point(data = NEP_data_night, aes(x = TREATMENT, y = NEP_night_mean), size = 3, alpha = 0.25) +
@@ -674,10 +648,6 @@ Clean_Chem_all<- chem_reframe_NIGHT_clean %>%
 Clean_Chem_all2 <- Clean_Chem_all %>%
   mutate(DATE = ymd(paste(DATE)))
 
-mod_pH<-lm(pH ~ NEP * TREATMENT + (1|DATE), data = Clean_Chem_all2)
-anova(mod_pH)
-summary(mod_pH)
-
 clean_chem_all_sum <- Clean_Chem_all %>%
   group_by(TREATMENT) %>%
   summarise(Count = n())
@@ -710,8 +680,8 @@ chem_plot_all_pH<-Clean_Chem_all %>%
         axis.text.y = element_text(size = 14),
         axis.title = element_text(size = 16, face = "bold"),
         legend.position = "none") +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated",
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"), guide = FALSE)
+  scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched",
+                                "CCA-Enriched"), values = c("blue", "darkgreen", "coral", "tan"), guide = FALSE)
 chem_plot_all_pH
 
 
@@ -728,8 +698,8 @@ chem_plot_all_DOC <- Clean_Chem_all %>%
         axis.title = element_text(size = 16, face = "bold"),
         legend.position = "bottom",
         legend.text = element_text(size = 14)) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated",
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+  scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched",
+                                "CCA-Enriched"), values = c("blue", "darkgreen", "coral", "tan"))
 
 chem_plot_all_DOC
 
@@ -746,8 +716,8 @@ chem_plot_all_pH_NEC<-Clean_Chem_all %>%
         axis.text.y = element_text(size = 14),
         axis.title = element_text(size = 16, face = "bold"),
         legend.position = "none") +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated",
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"), guide = FALSE)
+  scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched",
+                                "CCA-Enriched"), values = c("blue", "darkgreen", "coral", "tan"), guide = FALSE)
 chem_plot_all_pH_NEC
 
 chem_plot_all_DOC_NEC<-Clean_Chem_all %>%
@@ -762,8 +732,8 @@ chem_plot_all_DOC_NEC<-Clean_Chem_all %>%
         axis.title = element_text(size = 16, face = "bold"),
         legend.position = "bottom",
         legend.text = element_text(size = 14)) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated",
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
+  scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched",
+                                "CCA-Enriched"), values = c("blue", "darkgreen", "coral", "tan"))
 chem_plot_all_DOC_NEC
 
 ncp_pH_DOC_patch <- (chem_plot_all_pH+chem_plot_all_pH_NEC)/(chem_plot_all_DOC+chem_plot_all_DOC_NEC)  +
@@ -771,968 +741,3 @@ ncp_pH_DOC_patch <- (chem_plot_all_pH+chem_plot_all_pH_NEC)/(chem_plot_all_DOC+c
 ncp_pH_DOC_patch
 
 ggsave(plot = ncp_pH_DOC_patch, filename = here("Output", "ncp_pH_DOC_patch.png"), width = 12, height = 12)
-
-##### NEP and pH #####
-Data1 <- Data %>%
-  filter(!NEP < -4) %>%
-  filter(!TA > 2700) %>%
-  filter(!pH < 7.8)
-
-chem_reframe_clean1$TREATMENT <- factor(chem_reframe_clean1$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
-chem_reframe_clean <- chem_reframe_clean %>%
-  filter(!deltapH_dailymean > 0.2,
-         !deltapH_dailymean < -0.1,
-         !pH_dailymean < 7.99,
-         !pH_dailymean > 8.2)
-
-NEP_deltapH_plot <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEP_dailymean, y = deltapH_dailymean)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1, label.y = 0.15, size = 5) + 
-  stat_cor(label.x = 1, label.y = 0.125, size = 5)
-NEP_deltapH_plot
-#ggsave(plot = NEP_deltapH_plot, filename = here("Output", "NEP_Plots", "NEP_deltapH.png"), width = 12, height = 9)
-
-NEP_deltapH_model <- lmer(deltapH_dailymean ~ NEP_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_clean1)
-check_model(NEP_deltapH_model)
-summary(NEP_deltapH_model)
-
-##### NEC and pH ##### 
-
-NEC_deltapH_plot <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEC_dailymean, y = deltapH_dailymean)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "∆ pH") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -1, label.y = 0.15, size = 5) + 
-  stat_cor(label.x = -1, label.y = 0.125, size = 5) 
-NEC_deltapH_plot
-#ggsave(plot = NEC_deltapH_plot, filename = here("Output", "TA_NECPlots", "NEC_deltapH.png"), width = 12, height = 9)
-
-NEC_deltapH_model <- lmer(deltapH_dailymean ~ NEC_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_clean1)
-check_model(NEC_deltapH_model)
-summary(NEC_deltapH_model)
-
-######################################################
-NEC_deltapH_plot2 <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEC_dailymean, y = deltapH_dailymean)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "NEC", y = "∆ pH") +
-  facet_wrap(~TREATMENT) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -1, label.y = 0.15, size = 5) + 
-  stat_cor(label.x = -1, label.y = 0.125, size = 5) 
-NEC_deltapH_plot2
-#ggsave(plot = NEC_deltapH_plot2, filename = here("Output", "TA_NECPlots", "NEC_deltapH_facet.png"), width = 12, height = 9)
-
-#################################################################
-##### NEC and DIC ##### 
-NEC_DIC_plot <- Data1 %>%
-  ggplot(aes(x = NEC, y = DIC_µmol_kg)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "DIC (µmol/kg)") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1, label.y = 2100, size = 5) + 
-  stat_cor(label.x = 1, label.y = 2070, size = 5)
-NEC_DIC_plot
-#ggsave(plot = NEC_DIC_plot, filename = here("Output", "TA_NECPlots", "NEC_DIC.png"), width = 12, height = 9)
-
-
-#######################################
-##### NEC AND TA #####
-NEC_TA_plot <- Data1 %>%
-  ggplot(aes(x = NEC, y = TA)) +
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "NEC", y = "TA") +
-  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = 2.5, label.y = 2390, size = 5) + 
-  stat_cor(label.x = 2.5, label.y = 2375, size = 5) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
-NEC_TA_plot
-#ggsave(plot = NEC_TA_plot, filename = here("Output", "TA_NECPlots", "NEC_TA.png"), width = 12, height = 9)
-
-NEC_TA_model <- lmer(TA ~ NEC + (1|TANK_NUM), data = Data1)
-check_model(NEC_TA_model)
-summary(NEC_TA_model)
-
-NEC_TA_facetplot <- Data1 %>%
-  ggplot(aes(x = NEC, y = TA)) +
-  geom_point(aes(color = TREATMENT)) + 
-  geom_smooth(method = "lm", formula = y~x) +
-  facet_wrap(~ TREATMENT) +
-  labs(x = "NEC", y = "TA") +
-  theme(axis.text.x = element_text(size = 15, angle = 30, hjust = 1),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "bottom",
-        legend.text = element_text(size = 15),
-        panel.background = element_rect(fill = "white"),
-        panel.grid.major = element_line(color = "gray")) +
-  stat_regline_equation(label.x = 1, label.y = 2420, size = 5) + 
-  stat_cor(label.x = 1, label.y = 2390, size = 5) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
-NEC_TA_facetplot
-#ggsave(plot = NEC_TA_facetplot, filename = here("Output", "TA_NECPlots", "NEC_TA_treatments.png"), width = 14, height = 9)
-
-##### NEC and DOC ##### 
-NEC_deltaDOC_plot <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEC_dailymean, y = log(deltaDOC_dailymean))) + # log scaled to improve normality
-  geom_point(aes(color = TREATMENT)) + 
-  xlim(c(-1,4)) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1))), y = expression(bold("∆ DOC"))) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1.5, label.y = 0.75, size = 5) + 
-  stat_cor(label.x = 1.5, label.y = 0, size = 5)
-NEC_deltaDOC_plot
-#ggsave(plot = NEC_deltaDOC_plot, filename = here("Output", "TA_NECPlots", "NEC_deltaDOC.png"), width = 14, height = 10)
-
-NEC_deltaDOC_model <- lmer(log(deltaDOC_dailymean) ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean1)
-check_model(NEC_deltaDOC_model)
-summary(NEC_deltaDOC_model) 
-
-#################################################
-NEC_deltaDOC_plot2 <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEC_dailymean, y = log(deltaDOC_dailymean))) + # log scaled to improve normality
-  geom_point(aes(color = TREATMENT)) + 
-  xlim(c(-1,4)) +
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1))), y = expression(bold("∆ DOC"))) +
-  facet_wrap(~TREATMENT) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1.5, label.y = 0.75, size = 5) + 
-  stat_cor(label.x = 1.5, label.y = 0, size = 5)
-NEC_deltaDOC_plot2
-#ggsave(plot = NEC_deltaDOC_plot2, filename = here("Output", "TA_NECPlots", "NEC_deltaDOC_facet.png"), width = 14, height = 10)
-#######################################################
-
-
-##### NEP and DOC ##### 
-NEP_deltaDOC_plot <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEP_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1.5, label.y = 1, size = 5) + 
-  stat_cor(label.x = 1.5, label.y = 0.55, size = 5)
-NEP_deltaDOC_plot
-#ggsave(plot = NEP_deltaDOC_plot, filename = here("Output", "NEP_Plots", "NEP_deltaDOC.png"), width = 14, height = 10)
-
-NEP_deltaDOC_model <- lmer(log(deltaDOC_dailymean) ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean)
-check_model(NEP_deltaDOC_model)
-summary(NEP_deltaDOC_model)
-
-##############################################
-NEP_deltaDOC_plot2 <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEP_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  facet_wrap(~TREATMENT) +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1.5, label.y = 1, size = 5) + 
-  stat_cor(label.x = 1.5, label.y = 0.55, size = 5)
-NEP_deltaDOC_plot2
-#ggsave(plot = NEP_deltaDOC_plot2, filename = here("Output", "NEP_Plots", "NEP_deltaDOC_facet.png"), width = 14, height = 10)
-###########################################
-
-NEC_NEP_biogeochem <- (NEC_deltapH_plot + NEP_deltapH_plot)/(NEC_deltaDOC_plot + NEP_deltaDOC_plot) + plot_annotation(tag_levels = "a")
-NEC_NEP_biogeochem
-#ggsave(plot = NEC_NEP_biogeochem, filename = here("Output", "NEC_NEP_biogeochem_patch.png"), width = 15, height = 15)
-
-### NEP and NEC vs DIC and DOC ### 
-NEC_NEP_deltapH_DOC <- (NEC_deltapH_plot + NEP_deltapH_plot)/(NEC_deltaDOC_plot + NEP_deltaDOC_plot) + plot_annotation(tag_levels = "a")
-NEC_NEP_deltapH_DOC
-#ggsave(plot = NEC_NEP_deltapH_DOC, filename = here("Output", "NEC_NEP_deltapH_DOC_patch.png"), width = 15, height = 15)
-
-############### nep and nec with raw data ############
-# NEP and pH plot - raw data # 
-chem_reframe_clean1 <- chem_reframe_clean %>%
-  filter(!pH_dailymean > 8.2,
-         !NEP_dailymean > 4.0, 
-         !NEP_dailymean < -2)
-
-
-NEP_pH_plot <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEP_dailymean, y = pH_dailymean)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1.5, label.y = 8.12, size = 5) + 
-  stat_cor(label.x = 1.5, label.y = 8.10, size = 5)
-NEP_pH_plot
-#ggsave(plot = NEP_pH_plot, filename = here("Output", "NEP_Plots", "NEP_pH.png"), width = 12, height = 9)
-
-NEP_pH_plot_model <- lmer(pH_dailymean ~ NEP_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_clean)
-check_model(NEP_pH_plot_model)
-plot(fitted(NEP_pH_plot_model), residuals(NEP_pH_plot_model),
-     xlab = "Fitted", ylab = "Residuals")
-abline(h = 0, col = "red", lty = 2)
-summary(NEP_pH_plot_model)
-
-###########################################
-NEP_pH_plot2 <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEP_dailymean, y = pH_dailymean)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  facet_wrap(~TREATMENT) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1.5, label.y = 8.12, size = 5) + 
-  stat_cor(label.x = 1.5, label.y = 8.10, size = 5)
-NEP_pH_plot2
-#ggsave(plot = NEP_pH_plot2, filename = here("Output", "NEP_pH_facet.png"), width = 12, height = 9)
-#########################################
-
-# NEC and pH plot - raw data #
-NEC_pH_plot <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEC_dailymean, y = pH_dailymean)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "Mean pH") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -3, label.y = 8.10, size = 5) + 
-  stat_cor(label.x = -3, label.y = 8.08, size = 5) 
-NEC_pH_plot
-#ggsave(plot = NEC_pH_plot, filename = here("Output", "TA_NECPlots", "NEC_pH.png"), width = 12, height = 9)
-
-NEC_pH_model <- lmer(pH_dailymean ~ NEC_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_clean)
-check_model(NEC_pH_model)
-plot(fitted(NEC_pH_model), residuals(NEC_pH_model),
-     xlab = "Fitted", ylab = "Residuals")
-abline(h = 0, col = "red", lty = 2)
-summary(NEC_pH_model) 
-
-############################################
-NEC_pH_plot2 <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEC_dailymean, y = pH_dailymean)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "Mean pH") +
-  facet_wrap(~TREATMENT) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -3, label.y = 8.10, size = 5) + 
-  stat_cor(label.x = -3, label.y = 8.08, size = 5) 
-NEC_pH_plot2
-#ggsave(plot = NEC_pH_plot2, filename = here("Output", "NEC_pH_facet.png"), width = 12, height = 9)
-############################################
-
-# NEC and DOC plot - raw data #
-NEC_DOC_plot <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEC_dailymean, y = log(DOC_dailymean))) + # log scaled to improve normality
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NCC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1))), y = expression(bold("Mean DOC" ~ (log[10])))) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -3, label.y = 5.5, size = 5) + 
-  stat_cor(label.x = -3, label.y = 5.3, size = 5)
-NEC_DOC_plot
-#ggsave(plot = NEC_DOC_plot, filename = here("Output", "TA_NECPlots", "NEC_DOC.png"), width = 14, height = 10)
-
-NEC_DOC_model <- lmer(log(DOC_dailymean) ~ NEC_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_clean)
-check_model(NEC_DOC_model)
-summary(NEC_DOC_model) # p = 0.096
-
-##########################################
-NEC_DOC_plot2 <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEC_dailymean, y = log(DOC_dailymean))) + # log scaled to improve normality
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NCC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1))), y = expression(bold("Mean DOC" ~ (log[10])))) +
-  facet_wrap(~TREATMENT) + 
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -3, label.y = 5.5, size = 5) + 
-  stat_cor(label.x = -3, label.y = 5.3, size = 5)
-NEC_DOC_plot2
-#ggsave(plot = NEC_DOC_plot2, filename = here("Output", "NEC_DOC_facet.png"), width = 14, height = 10)
-##########################################
-
-# NEP and DOC plot - raw data # 
-NEP_DOC_plot <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEP_dailymean, y = log(DOC_dailymean))) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NCP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1, label.y = 5.8, size = 5) + 
-  stat_cor(label.x = 1, label.y = 5.6, size = 5)
-NEP_DOC_plot
-#ggsave(plot = NEP_DOC_plot, filename = here("Output", "NEP_Plots", "NEP_DOC.png"), width = 14, height = 10)
-
-NEP_DOC_model <- lmer(log(DOC_dailymean) ~ NEP_dailymean * TREATMENT + (1|TANK_NUM), data = chem_reframe_clean)
-check_model(NEP_DOC_model)
-summary(NEP_DOC_model) # sig effect of NEP on mean DOC. p = 0.00684.
-
-##########################################
-NEP_DOC_plot2 <- chem_reframe_clean1 %>%
-  ggplot(aes(x = NEP_dailymean, y = log(DOC_dailymean))) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NCP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  facet_wrap(~TREATMENT) + 
-  theme_bw() +
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1, label.y = 5.8, size = 5) + 
-  stat_cor(label.x = 1, label.y = 5.6, size = 5)
-NEP_DOC_plot2
-#ggsave(plot = NEP_DOC_plot2, filename = here("Output", "NEP_DOC_facet.png"), width = 14, height = 10)
-
-
-# patchwork plot of daily mean NEC and NEP on daily mean pH and DOC #
-NEC_NEP_raw_biogeochem <- (NEC_pH_plot + NEP_pH_plot)/(NEC_DOC_plot + NEP_DOC_plot) + plot_annotation(tag_levels = "a")
-NEC_NEP_raw_biogeochem
-#ggsave(plot = NEC_NEP_raw_biogeochem, filename = here("Output", "NEC_NEP_raw_biogeochem_patch.png"), width = 15, height = 15)
-
-## NEP/NEC and biogeochem ancova ## 
-chem_reframe_clean$TREATMENT <- as.factor(chem_reframe_clean$TREATMENT)
-
-pH_nep_aov <- aov(NEP_dailymean ~ TREATMENT, data = chem_reframe_clean)
-summary(pH_nep_aov) # p < 0.05, means that the covariate (NEP daily mean) and TREATMENT are NOT independent
-leveneTest(pH_dailymean ~ TREATMENT, data = chem_reframe_clean) # p > 0.05 means that the variances between groups are equal (homogeneity of variance)
-
-pH_nep_ancova <- lm(pH_dailymean ~ TREATMENT + NEP_dailymean, data = chem_reframe_clean)
-check_model(pH_nep_ancova)
-plot(pH_dailymean ~ NEP_dailymean, data = chem_reframe_clean)
-anova(pH_nep_ancova)
-
-pH_nec_aov <- aov(NEC_dailymean ~ TREATMENT, data = chem_reframe_clean)
-summary(pH_nec_aov) # p < 0.05, means that the covariate (NEC daily mean) and TREATMENT are NOT independent
-
-pH_nec_ancova <- lm(pH_dailymean ~ TREATMENT + NEC_dailymean, data = chem_reframe_clean)
-check_model(pH_nec_ancova)
-plot(pH_dailymean ~ NEC_dailymean, data = chem_reframe_clean)
-anova(pH_nec_ancova)
-
-leveneTest(DOC_dailymean ~ TREATMENT, data = chem_reframe_clean) # homogeneity of variances 
-
-doc_nep_ancova <- lm(log(DOC_dailymean) ~ TREATMENT + NEP_dailymean, data = chem_reframe_clean)
-check_model(doc_nep_ancova)
-plot(log(DOC_dailymean) ~ NEP_dailymean, data = chem_reframe_clean) 
-anova(doc_nep_ancova) ## sig effect of TREATMENT p = 0.036149, and NEP daily mean p = 0.004326. 
-
-doc_nec_ancova <- lm(log(DOC_dailymean) ~ TREATMENT + NEC_dailymean, data = chem_reframe_clean)
-check_model(doc_nec_ancova)
-plot(log(DOC_dailymean) ~ NEC_dailymean, data = chem_reframe_clean) 
-anova(doc_nec_ancova) ## sig effect of TREATMENT p = 0.04775
-
-
-##### NEC and NEP v delta pH and delta DOC PER TREATMENT #####
-### ALGAE DOM ###
-# NEP v delta pH #
-chem_reframe_clean_ALGAE <- chem_reframe_clean1 %>%
-  filter(TREATMENT == "Algae_Dom") %>%
-  select(TANK_NUM, TA_range:NEP_dailymean)
-chem_reframe_clean_ALGAE
-
-chem_reframe_clean_CORAL <- chem_reframe_clean1 %>%
-  filter(TREATMENT == "Coral_Dom") %>%
-  select(TANK_NUM, TA_range:NEP_dailymean)
-chem_reframe_clean_CORAL
-
-chem_reframe_clean_RUBBLECCA <- chem_reframe_clean1 %>%
-  filter(TREATMENT == "Rubble_Dom") %>%
-  select(TANK_NUM, TA_range:NEP_dailymean)
-chem_reframe_clean_RUBBLECCA
-
-chem_reframe_clean_CONTROL <- chem_reframe_clean1 %>%
-  filter(TREATMENT == "Control") %>%
-  select(TANK_NUM, TA_range:NEP_dailymean)
-chem_reframe_clean_CONTROL
-
-NEP_deltapH_algae <- chem_reframe_clean_ALGAE %>%
-  ggplot(aes(x = NEP_dailymean, y = deltapH_dailymean)) +
-  geom_point(color = "darkgreen") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1, label.y = -0.01, size = 5) + 
-  stat_cor(label.x = 1, label.y = -0.02, size = 5)
-NEP_deltapH_algae
-
-NEP_deltapH_algae_model <- lmer(deltapH_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean_ALGAE)
-check_model(NEP_deltapH_algae_model)
-summary(NEP_deltapH_algae_model) # p = 0.05
-
-# NEP v delta DOC #
-NEP_deltaDOC_algae <- chem_reframe_clean_ALGAE %>%
-  ggplot(aes(x = NEP_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(color = "darkgreen") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1.5, label.y = 2, size = 5) + 
-  stat_cor(label.x = 1.5, label.y = 1.5, size = 5)
-NEP_deltaDOC_algae
-
-NEP_deltaDOC_algae_model <- lmer(log(deltaDOC_dailymean) ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean_ALGAE)
-check_model(NEP_deltaDOC_algae_model)
-summary(NEP_deltaDOC_algae_model)
-
-# NEC v delta pH # 
-NEC_deltapH_algae <- chem_reframe_clean_ALGAE %>%
-  ggplot(aes(x = NEC_dailymean, y = deltapH_dailymean)) +
-  geom_point(color = "darkgreen") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "∆ pH") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -1.5, label.y = -0.025, size = 5) + 
-  stat_cor(label.x = -1.5, label.y = -0.030, size = 5)
-NEC_deltapH_algae
-
-NEC_deltapH_algae_model <- lmer(deltapH_dailymean ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean_ALGAE)
-check_model(NEC_deltapH_algae_model)
-summary(NEC_deltapH_algae_model)
-
-# NEC v delta DOC # 
-NEC_deltaDOC_algae <- chem_reframe_clean_ALGAE %>%
-  ggplot(aes(x = NEC_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(color = "darkgreen") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1))), y = expression(bold("∆ DOC"))) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -1.5, label.y = 2, size = 5) + 
-  stat_cor(label.x = -1.5, label.y = 1.5, size = 5)
-NEC_deltaDOC_algae
-
-NEC_deltaDOC_algae_model <- lmer(log(deltaDOC_dailymean) ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean_ALGAE)
-check_model(NEC_deltaDOC_algae_model)
-summary(NEC_deltaDOC_algae_model)
-
-## plot for ALGAE ##
-NEC_NEP_pH_DOC_ALGAE <- (NEC_deltapH_algae + NEP_deltapH_algae)/(NEC_deltaDOC_algae + NEP_deltaDOC_algae) + plot_annotation(tag_levels = "a")
-NEC_NEP_pH_DOC_ALGAE
-#ggsave(plot = NEC_NEP_pH_DOC_ALGAE, filename = here("Output", "NEC_NEP_pH_DOC_ALGAEpatch.png"), width = 15, height = 15)
-
-### CORAL DOM ###
-# NEP v delta pH #
-NEP_deltapH_coral <- chem_reframe_clean_CORAL %>%
-  ggplot(aes(x = NEP_dailymean, y = deltapH_dailymean)) +
-  geom_point(color = "coral") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
- stat_regline_equation(label.x = -0.5, label.y = -0.02, size = 5) + 
- stat_cor(label.x = -0.5, label.y = -0.03, size = 5)
-NEP_deltapH_coral
-
-NEP_deltapH_coral_model <- lmer(deltapH_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean_CORAL)
-check_model(NEP_deltapH_coral_model)
-summary(NEP_deltapH_coral_model)
-
-# NEP v delta DOC #
-NEP_deltaDOC_coral <- chem_reframe_clean_CORAL %>%
-  ggplot(aes(x = NEP_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(color = "coral") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
- stat_regline_equation(label.x = -1, label.y = 0.5, size = 5) + 
- stat_cor(label.x = -1, label.y = 0.25, size = 5)
-NEP_deltaDOC_coral
-
-NEP_deltaDOC_coral_model <- lmer(log(deltaDOC_dailymean) ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean_CORAL)
-check_model(NEP_deltaDOC_coral_model)
-summary(NEP_deltaDOC_coral_model)
-
-# NEC v delta pH # 
-NEC_deltapH_coral <- chem_reframe_clean_CORAL %>%
-  ggplot(aes(x = NEC_dailymean, y = deltapH_dailymean)) +
-  geom_point(color = "coral") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "∆ pH") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
- stat_regline_equation(label.x = -1, label.y = -0.02, size = 5) + 
- stat_cor(label.x = -1, label.y = -0.03, size = 5)
-NEC_deltapH_coral
-
-NEC_deltapH_coral_model <- lmer(deltapH_dailymean ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean_CORAL)
-check_model(NEC_deltapH_coral_model)
-summary(NEC_deltapH_coral_model)
-
-# NEC v delta DOC # 
-NEC_deltaDOC_coral <- chem_reframe_clean_CORAL %>%
-  ggplot(aes(x = NEC_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(color = "coral") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1))), y = expression(bold("∆ DOC"))) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
- stat_regline_equation(label.x = -1, label.y = 1, size = 5) + 
- stat_cor(label.x = -1, label.y = 0.5, size = 5)
-NEC_deltaDOC_coral
-
-NEC_deltaDOC_coral_model <- lmer(log(deltaDOC_dailymean) ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean_CORAL)
-check_model(NEC_deltaDOC_coral_model)
-summary(NEC_deltaDOC_coral_model)
-
-## plot for CORAL ##
-NEC_NEP_pH_DOC_CORAL <- (NEC_deltapH_coral + NEP_deltapH_coral)/(NEC_deltaDOC_coral + NEP_deltaDOC_coral) + plot_annotation(tag_levels = "a")
-NEC_NEP_pH_DOC_CORAL
-#ggsave(plot = NEC_NEP_pH_DOC_CORAL, filename = here("Output", "NEC_NEP_pH_DOC_CORALpatch.png"), width = 15, height = 15)
-
-### CONTROL ###
-# NEP v delta pH #
-NEP_deltapH_control <- chem_reframe_clean_CONTROL %>%
-  ggplot(aes(x = NEP_dailymean, y = deltapH_dailymean)) +
-  geom_point(color = "blue") + 
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
- stat_regline_equation(label.x = 0.5, label.y = 0, size = 5) + 
- stat_cor(label.x = 0.5, label.y = -0.003, size = 5)
-NEP_deltapH_control
-
-NEP_deltapH_control_model <- lmer(deltapH_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean_CONTROL)
-check_model(NEP_deltapH_control_model)
-summary(NEP_deltapH_control_model) # p = 0.0017
-
-# NEP v delta DOC #
-NEP_deltaDOC_control <- chem_reframe_clean_CONTROL %>%
-  ggplot(aes(x = NEP_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(color = "blue") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
- stat_regline_equation(label.x = 0.5, label.y = 3.5, size = 5) + 
- stat_cor(label.x = 0.5, label.y = 3.25, size = 5)
-NEP_deltaDOC_control
-
-NEP_deltaDOC_control_model <- lmer(log(deltaDOC_dailymean) ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean_CONTROL)
-check_model(NEP_deltaDOC_control_model)
-summary(NEP_deltaDOC_control_model)
-
-# NEC v delta pH # 
-NEC_deltapH_control <- chem_reframe_clean_CONTROL %>%
-  ggplot(aes(x = NEC_dailymean, y = deltapH_dailymean)) +
-  geom_point(color = "blue") + 
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "∆ pH") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
- stat_regline_equation(label.x = -0.8, label.y = 0.005, size = 5) + 
- stat_cor(label.x = -0.8, label.y = 0, size = 5)
-NEC_deltapH_control
-
-NEC_deltapH_control_model <- lmer(deltapH_dailymean ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean_CONTROL)
-check_model(NEC_deltapH_control_model)
-summary(NEC_deltapH_control_model) # p = 0.000116
-
-# NEC v delta DOC # 
-NEC_deltaDOC_control <- chem_reframe_clean_CONTROL %>%
-  ggplot(aes(x = NEC_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(color = "blue") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1))), y = expression(bold("∆ DOC"))) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
- stat_regline_equation(label.x = -0.5, label.y = 3.5, size = 5) + 
- stat_cor(label.x = -0.5, label.y = 3.25, size = 5)
-NEC_deltaDOC_control
-
-NEC_deltaDOC_control_model <- lmer(log(deltaDOC_dailymean) ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean_CONTROL)
-check_model(NEC_deltaDOC_control_model)
-summary(NEC_deltaDOC_control_model)
-
-## plot for control ##
-NEC_NEP_pH_DOC_CONTROL <- (NEC_deltapH_control + NEP_deltapH_control)/(NEC_deltaDOC_control + NEP_deltaDOC_control) + plot_annotation(tag_levels = "a")
-NEC_NEP_pH_DOC_CONTROL
-#ggsave(plot = NEC_NEP_pH_DOC_CONTROL, filename = here("Output", "NEC_NEP_pH_DOC_CONTROLpatch.png"), width = 15, height = 15)
-
-### RUBBLE/CCA DOM ###
-# NEP v delta pH #
-NEP_deltapH_rubble <- chem_reframe_clean_RUBBLECCA %>%
-  ggplot(aes(x = NEP_dailymean, y = deltapH_dailymean)) +
-  geom_point(color = "tan") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1, label.y = 0.05, size = 5) + 
-  stat_cor(label.x = 1, label.y = 0.045, size = 5)
-NEP_deltapH_rubble
-
-NEP_deltapH_rubble_model <- lmer(deltapH_dailymean ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean_RUBBLECCA)
-check_model(NEP_deltapH_rubble_model)
-summary(NEP_deltapH_rubble_model)
-
-# NEP v delta DOC #
-NEP_deltaDOC_rubble <- chem_reframe_clean_RUBBLECCA %>%
-  ggplot(aes(x = NEP_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(color = "tan") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1, label.y = 4.25, size = 5) + 
-  stat_cor(label.x = 1, label.y = 4, size = 5)
-NEP_deltaDOC_rubble
-
-NEP_deltaDOC_rubble_model <- lmer(log(deltaDOC_dailymean) ~ NEP_dailymean + (1|TANK_NUM), data = chem_reframe_clean_RUBBLECCA)
-check_model(NEP_deltaDOC_rubble_model)
-summary(NEP_deltaDOC_rubble_model)
-
-# NEC v delta pH # 
-NEC_deltapH_rubble <- chem_reframe_clean_RUBBLECCA %>%
-  ggplot(aes(x = NEC_dailymean, y = deltapH_dailymean)) +
-  geom_point(color = "tan") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "∆ pH") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 0.5, label.y = 0.05, size = 5) + 
-  stat_cor(label.x = 0.5, label.y = 0.045, size = 5)
-NEC_deltapH_rubble
-
-NEC_deltapH_rubble_model <- lmer(deltapH_dailymean ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean_RUBBLECCA)
-check_model(NEC_deltapH_rubble_model)
-summary(NEC_deltapH_rubble_model)
-
-# NEC v delta DOC # 
-NEC_deltaDOC_rubble <- chem_reframe_clean_RUBBLECCA %>%
-  ggplot(aes(x = NEC_dailymean, y = log(deltaDOC_dailymean))) +
-  geom_point(color = "tan") + 
-  #geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1))), y = expression(bold("∆ DOC"))) +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 0.5, label.y = 4, size = 5) + 
-  stat_cor(label.x = 0.5, label.y = 3.75, size = 5)
-NEC_deltaDOC_rubble
-
-NEC_deltaDOC_rubble_model <- lmer(log(deltaDOC_dailymean) ~ NEC_dailymean + (1|TANK_NUM), data = chem_reframe_clean_RUBBLECCA)
-check_model(NEC_deltaDOC_rubble_model)
-summary(NEC_deltaDOC_rubble_model)
-
-## plot for RUBBLE/CCA ##
-NEC_NEP_pH_DOC_RUBBLECCA <- (NEC_deltapH_rubble + NEP_deltapH_rubble)/(NEC_deltaDOC_rubble + NEP_deltaDOC_rubble) + plot_annotation(tag_levels = "a")
-NEC_NEP_pH_DOC_RUBBLECCA
-#ggsave(plot = NEC_NEP_pH_DOC_RUBBLECCA, filename = here("Output", "NEC_NEP_pH_DOC_RUBBLECCApatch.png"), width = 15, height = 15)
-
-### NEC AND NEP V DELTA PH AND DELTA DOC DAY ###
-
-## NEP v pH DAY ## 
-NEP_deltapH_DAY_plot <- chem_reframe_DAY_clean %>%
-  ggplot(aes(x = NEP, y = deltapH)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 1, label.y = 0.35, size = 5) + 
-  stat_cor(label.x = 1, label.y = 0.3, size = 5) 
-NEP_deltapH_DAY_plot
-#ggsave(plot = NEP_deltapH_DAY_plot, filename = here("Output", "NEP_Plots", "NEP_deltapH_DAY_plot.png"), width = 10, height = 10)
-
-## NEP v DOC DAY ##
-NEP_deltaDOC_DAY_plot <- chem_reframe_DAY_clean %>%
-  ggplot(aes(x = NEP, y = log(deltaDOC))) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 2, label.y = 1.75, size = 5) + 
-  stat_cor(label.x = 2, label.y = 1.25, size = 5) 
-NEP_deltaDOC_DAY_plot
-#ggsave(plot = NEP_deltaDOC_DAY_plot, filename = here("Output", "NEP_Plots", "NEP_deltaDOC_DAY_plot.png"), width = 10, height = 10)
-
-## NEC v pH DAY ## 
-NEC_deltapH_DAY_plot <- chem_reframe_DAY_clean %>%
-  ggplot(aes(x = NEC, y = deltapH)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "∆ pH") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 0, label.y = 0.35, size = 5) + 
-  stat_cor(label.x = 0, label.y = 0.275, size = 5) 
-NEC_deltapH_DAY_plot
-#ggsave(plot = NEC_deltapH_DAY_plot, filename = here("Output", "TA_NECPlots", "NEC_deltapH_DAY_plot.png"), width = 10, height = 10)
-
-## NEC v DOC DAY ##
-NEC_deltaDOC_DAY_plot <- chem_reframe_DAY_clean %>%
-  ggplot(aes(x = NEC, y = log(deltaDOC))) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEC" ~ mmol ~ CaCO[3] ~ m^2 ~ h^-1)), y = "∆ DOC") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -1, label.y = 0.75, size = 5) + 
-  stat_cor(label.x = -1, label.y = 0.4, size = 5) 
-NEC_deltaDOC_DAY_plot
-#ggsave(plot = NEC_deltaDOC_DAY_plot, filename = here("Output", "TA_NECPlots", "NEC_deltaDOC_DAY_plot.png"), width = 10, height = 10)
-
-## NEC and NEP v delta pH and delta DOC daytime patchwork plot ##
-NEC_NEP_pH_DOC_DAY <- (NEC_deltapH_DAY_plot + NEP_deltapH_DAY_plot)/(NEC_deltaDOC_DAY_plot + NEP_deltaDOC_DAY_plot) + plot_annotation(tag_levels = "a")
-NEC_NEP_pH_DOC_DAY
-#ggsave(plot = NEC_NEP_pH_DOC_DAY, filename = here("Output", "NEC_NEP_deltapH_DOC_DAY_patchwork.png"), width = 15, height = 15)
-
-### NEC AND NEP V DELTA PH AND DELTA DOC NIGHT ###
-
-## NEP v pH NIGHT ## 
-NEP_deltapH_NIGHT_plot <- chem_reframe_NIGHT_clean %>%
-  ggplot(aes(x = NEP, y = deltapH)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = -0.5, label.y = -0.15, size = 5) + 
-  stat_cor(label.x = -0.5, label.y = -0.2, size = 5) 
-NEP_deltapH_NIGHT_plot
-#ggsave(plot = NEP_deltapH_NIGHT_plot, filename = here("Output", "NEP_Plots", "NEP_deltapH_NIGHT_plot.png"), width = 10, height = 10)
-
-## NEP v DOC NIGHT ##
-NEP_deltaDOC_NIGHT_plot <- chem_reframe_NIGHT_clean %>%
-  ggplot(aes(x = NEP, y = log(deltaDOC))) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEP" ~ (mmol ~ C ~ m^2 ~ h^-1))), y = "") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 0, label.y = 2, size = 5) + 
-  stat_cor(label.x = 0, label.y = 1.75, size = 5) 
-NEP_deltaDOC_NIGHT_plot
-#ggsave(plot = NEP_deltaDOC_NIGHT_plot, filename = here("Output", "NEP_Plots", "NEP_deltaDOC_NIGHT_plot.png"), width = 10, height = 10)
-
-## NEC v pH NIGHT ## 
-NEC_deltapH_NIGHT_plot <- chem_reframe_NIGHT_clean %>%
-  ggplot(aes(x = NEC, y = deltapH)) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = "", y = "∆ pH") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 0.1, label.y = -0.15, size = 5) + 
-  stat_cor(label.x = 0.1, label.y = -0.175, size = 5) 
-NEC_deltapH_NIGHT_plot
-#ggsave(plot = NEC_deltapH_NIGHT_plot, filename = here("Output", "TA_NECPlots", "NEC_deltapH_NIGHT_plot.png"), width = 10, height = 10)
-
-## NEC v DOC NIGHT ##
-NEC_deltaDOC_NIGHT_plot <- chem_reframe_NIGHT_clean %>%
-  ggplot(aes(x = NEC, y = log(deltaDOC))) +
-  geom_point(aes(color = TREATMENT)) + 
-  scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
-                                "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan")) +
-  geom_smooth(method = "lm", formula = y~x) +
-  labs(x = expression(bold("NEC" ~ mmol ~ CaCO[3] ~ m^2 ~ h^-1)), y = "∆ DOC") +
-  theme_bw() + 
-  theme(axis.text.x = element_text(size = 15),
-        axis.text.y = element_text(size = 15),
-        axis.title = element_text(size = 18, face = "bold"),
-        legend.position = "none") +
-  stat_regline_equation(label.x = 0.1, label.y = 2, size = 5) + 
-  stat_cor(label.x = 0.1, label.y = 1.75, size = 5) 
-NEC_deltaDOC_NIGHT_plot
-#ggsave(plot = NEC_deltaDOC_NIGHT_plot, filename = here("Output", "TA_NECPlots", "NEC_deltaDOC_NIGHT_plot.png"), width = 10, height = 10)
-
-## NEC and NEP v delta pH and delta DOC nighttime patchwork plot ##
-NEC_NEP_pH_DOC_NIGHT <- (NEC_deltapH_NIGHT_plot + NEP_deltapH_NIGHT_plot)/(NEC_deltaDOC_NIGHT_plot + NEP_deltaDOC_NIGHT_plot) + plot_annotation(tag_levels = "a")
-NEC_NEP_pH_DOC_NIGHT
-#ggsave(plot = NEC_NEP_pH_DOC_NIGHT, filename = here("Output", "NEC_NEP_deltapH_DOC_NIGHT_patchwork.png"), width = 15, height = 15)
-
-
