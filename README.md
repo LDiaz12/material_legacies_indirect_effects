@@ -20,4 +20,4 @@ Abstract: Coral reefs are among the world’s most diverse ecosystems and contri
 [Data](https://github.com/LDiaz12/material_legacies_indirect_effects/tree/main/Data)
 
 [Output](https://github.com/LDiaz12/material_legacies_indirect_effects/tree/main/Output)
-* Figures and models used within the publication
+* Figures and models used within the publication 
