@@ -468,7 +468,7 @@ NEC_data_day$TREATMENT <- factor(NEC_data_day$TREATMENT, levels = c("Control", "
 NEC_day_mean_plot <- NEC_data_day %>%
   ggplot(aes(x = TREATMENT, y = NEC_day_mean, color = TREATMENT)) +
   geom_hline(yintercept = 0, lty = 2) +
-  labs(x = "", y = expression(bold("NCC" ~ (mmol ~ CaCO[3] ~ m^2 ~ h^-1)))) +
+  labs(x = "", y = expression(bold("NCC" ~ (mmol ~ CaCO[3] ~ m^-2 ~ h^-1)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Macroalgae-Enriched", "Control" = "Control",
                             "Coral_Dom" = "Coral-Enriched", "Rubble_Dom" = "CCA-Enriched")) +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
@@ -482,7 +482,7 @@ NEC_day_mean_plot <- NEC_data_day %>%
         axis.title = element_text(size = 14, face = "bold"),
         legend.position = "none")
 NEC_day_mean_plot
-ggsave(plot = NEC_day_mean_plot, filename = here("Output", "TA_NECPlots", "NEC_day_mean_plot.png"), width = 9, height = 9)
+#ggsave(plot = NEC_day_mean_plot, filename = here("Output", "TA_NECPlots", "NEC_day_mean_plot.png"), width = 9, height = 9)
 
 NEC_daytime_model <- lmer(NEC_day_mean ~ TREATMENT + (1|TANK_NUM), data=NEC_data_day)
 check_model(NEC_daytime_model)
@@ -524,7 +524,7 @@ NEC_night_mean_plot <- NEC_data_night %>%
         axis.title = element_text(size = 14, face = "bold"),
         legend.position = "none")
 NEC_night_mean_plot
-ggsave(plot = NEC_night_mean_plot, filename = here("Output", "TA_NECPlots", "NEC_night_mean_plot.png"), width = 9, height = 9)
+#ggsave(plot = NEC_night_mean_plot, filename = here("Output", "TA_NECPlots", "NEC_night_mean_plot.png"), width = 9, height = 9)
 
 NEC_data_night$TREATMENT <- factor(NEC_data_night$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
@@ -559,7 +559,7 @@ NEP_day_mean_plot <- NEP_data_day %>%
   ggtitle("Daytime Mean") +
   geom_hline(yintercept = 0, lty =2) +
   ylim(c(-3,5)) +
-  labs(x = "", y = expression(bold("NCP" ~ (mmol ~ C ~ m^2 ~ h^-1)))) +
+  labs(x = "", y = expression(bold("NCP" ~ (mmol ~ C ~ m^-2 ~ h^-1)))) +
   scale_x_discrete(labels=c("Algae_Dom" = "Macroalgae-Enriched", "Control" = "Control",
                             "Coral_Dom" = "Coral-Enriched", "Rubble_Dom" = "CCA-Enriched")) +
   scale_color_manual(values = c("Algae_Dom" = "darkgreen", "Control" = "blue", "Coral_Dom" = "coral",
@@ -574,7 +574,7 @@ NEP_day_mean_plot <- NEP_data_day %>%
         plot.title = element_text(size = 14, hjust = 0.5), 
         legend.position = "none")
 NEP_day_mean_plot
-ggsave(plot = NEP_day_mean_plot, filename = here("Output", "NEP_Plots", "NEP_day_mean_plot.png"), width = 9, height = 9)
+#ggsave(plot = NEP_day_mean_plot, filename = here("Output", "NEP_Plots", "NEP_day_mean_plot.png"), width = 9, height = 9)
 
 NEP_data_day$TREATMENT <- factor(NEP_data_day$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
@@ -621,7 +621,7 @@ NEP_night_mean_plot <- NEP_data_night %>%
         plot.title = element_text(size = 14, hjust = 0.5),
         legend.position = "none")
 NEP_night_mean_plot
-ggsave(plot = NEP_night_mean_plot, filename = here("Output", "NEP_Plots", "NEP_night_mean_plot.png"), width = 9, height = 12)
+#ggsave(plot = NEP_night_mean_plot, filename = here("Output", "NEP_Plots", "NEP_night_mean_plot.png"), width = 9, height = 12)
 
 NEP_data_night$TREATMENT <- factor(NEP_data_night$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
@@ -634,7 +634,7 @@ anova(NEP_night_mean_model) # non sig effect of community on nighttime nep. p = 
 ## create patchwork plot
 NEP_v_NEC_patchwork <- (NEP_day_mean_plot + NEP_night_mean_plot)/(NEC_day_mean_plot + NEC_night_mean_plot) + plot_annotation(tag_levels = "a")
 NEP_v_NEC_patchwork
-ggsave(plot = NEP_v_NEC_patchwork, filename = here("Output", "NEP_v_NEC_patchwork.png"), width = 12, height = 10)
+ggsave(plot = NEP_v_NEC_patchwork, filename = here("Output", "Fig_2.png"), width = 12, height = 10)
 
 ############# NEP DATA ############
 
@@ -674,7 +674,7 @@ chem_plot_all_pH<-Clean_Chem_all %>%
   geom_smooth(method = "lm", color = "black")+
   labs(color = "",
        y = expression("pH"[T]),
-       x = expression("NCP (mmol C m"^2~"hr"^-1~")"))+
+       x = expression("NCP (mmol C m"^-2~"hr"^-1~")"))+
   theme_bw() + 
   theme(axis.text.x = element_text(size = 14),
         axis.text.y = element_text(size = 14),
@@ -690,7 +690,7 @@ chem_plot_all_DOC <- Clean_Chem_all %>%
   geom_point(aes(color = TREATMENT), size = 3, alpha = 0.5)+
   geom_smooth(method = "lm", color = "black")+
   labs(color = "",
-       x = expression("NCP (mmol C m"^2~"hr"^-1~")"),
+       x = expression("NCP (mmol C m"^-2~"hr"^-1~")"),
        y = expression("DOC ("~mu~"mol L"^-1~")")) +
   theme_bw() + 
   theme(axis.text.x = element_text(size = 14),
@@ -709,7 +709,7 @@ chem_plot_all_pH_NEC<-Clean_Chem_all %>%
   geom_point(aes(color = TREATMENT), size = 3, alpha = 0.5)+
   geom_smooth(method = "lm", color = "black")+
   labs(color = "",
-       y = expression("NCC (mmol C m"^2~" hr"^-1~")"),
+       y = expression("NCC (mmol C m"^-2~" hr"^-1~")"),
        x = expression("pH"[T]))+
   theme_bw() +
   theme(axis.text.x = element_text(size = 14),
@@ -725,7 +725,7 @@ chem_plot_all_DOC_NEC<-Clean_Chem_all %>%
   geom_point(aes(color = TREATMENT), size = 3, alpha = 0.5)+
   labs(color = "",
        y = expression("DOC ("~mu~"mol L"^-1~")"),
-       x = expression("NCC (mmol C m"^2~" hr"^-1~")"))+
+       x = expression("NCC (mmol C m"^-2~" hr"^-1~")"))+
   theme_bw() +
   theme(axis.text.x = element_text(size = 14),
         axis.text.y = element_text(size = 14),
@@ -740,4 +740,4 @@ ncp_pH_DOC_patch <- (chem_plot_all_pH+chem_plot_all_pH_NEC)/(chem_plot_all_DOC+c
   plot_annotation(tag_levels = "a") + plot_layout(guides = "collect") & theme(legend.position = 'bottom') 
 ncp_pH_DOC_patch
 
-ggsave(plot = ncp_pH_DOC_patch, filename = here("Output", "ncp_pH_DOC_patch.png"), width = 12, height = 12)
+ggsave(plot = ncp_pH_DOC_patch, filename = here("Output", "Fig_3.png"), width = 12, height = 12)

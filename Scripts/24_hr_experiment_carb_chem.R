@@ -111,7 +111,7 @@ tank_pH_diffs <- tank_pH_diffs_data %>%
   scale_color_manual(labels = c("Control", "Algae-Dominated", "Coral-Dominated", 
                                 "Rubble/CCA-Dominated"), values = c("blue", "darkgreen", "coral", "tan"))
 tank_pH_diffs
-#ggsave(plot = tank_pH_diffs, filename = here("Output", "24hrPlots", "tankpHdiffs.png"))
+#ggsave(plot = tank_pH_diffs, filename = here("Output", "Supp_Fig_1.png"))
 
 
 ## AVERAGE pH diffs per treatment in 24 hr experiment ##
