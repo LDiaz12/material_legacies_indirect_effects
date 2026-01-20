@@ -1,0 +1,29 @@
+﻿Variable,Units,Description
+TANK_NUM,N/A,Community treatment tank number; Inflow 1 and 2 refers to the inflow pipes 
+TREATMENT,N/A,"Community treatment; algae-dominated, rubble-dominated, coral-dominated, or control"
+TEMPINLAB,℃,Temperature inside the lab measured in degrees celcius
+FLOW_LEFT,mL,Flow from the left valve from the community treatment tank to the coral only response tank
+FLOW_RIGHT,mL,Flow from the right valve from the community treatment tank to the coral only response tank
+TEMPINSITU,℃,Temperature measured in situ in the community treatment tanks
+SALINITY,psu,Salinity of the community treatment tanks measured in practical salinity unit
+DO_MG_L,milligrams per liter,Concentration of dissolved oxygen measured in milligrams per liter in the community treatment tanks
+LIGHT_NM,μmol/m2/s,Light flux measured directly above the community treatment tanks
+TA,μmol/kg,Total alkalinity in the community treatment tanks measured in μmol per kilogram
+pH,N/A,Calculated pH in treatment tanks  from mV
+DIC_µmol_kg,μmol/kg,Dissolved inorganic carbon
+NPOC_uM,μMolar,Non-purgeable organic carbon 
+TN_uM,μMolar,Total nitrogen 
+INFLOW_TABLE,N/A,"Inflow table numbered 1 or 2, indicating the overhead inflow pipe either from table 1 or 2"
+pH_inflow,N/A,Measured pH from the inflow pipes
+TA_inflow,μmol/kg,Measured total alkalinity from the inflow pipes
+DIC_inflow,μmol/kg,Measured dissolved inorganic carbon from the inflow pipes
+DOC_inflow,μmol/L,Measured dissolved organic carbon from the inflow pipes
+deltapH,N/A,Change in pH value from the inflow pipe to the treatment tanks
+deltaDOC,μmol/L,Change in dissolved organic carbon value from the inflow pipe to the treatment tanks
+totalflow,mL,Combined flow from left and right valves
+residence_time,Hours,Residence time within treatment tanks
+flowrate,mL/min,Flow rate from treatment tanks
+deltaTA,μmol/kg,Change in total alkalinity value from the inflow pipe to the treatment tanks
+deltaDIC,μmol/kg,Change in dissolved inorganic carbon value from the inflow pipe to the treatment tanks
+NEC,mmol CaCO3 m2/hr,Calculated net ecosystem calcification
+NEP,mmol C m2/hr,Calculated net ecosystem production

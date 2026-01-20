@@ -1,0 +1,30 @@
+﻿Variable,Units,Description
+CORAL_NUM,N/A,Unique identifier for individual coral fragment
+TREATMENT,N/A,"Treatments of experiment: macroalgae-enriched, coral-enriched, CCA-enriched, control"
+TANK_NUM,N/A,Unique tank number of treatment tanks (1-16)
+CORAL_TANK_NUM,N/A,Unique coral-only tank number (1-32)
+endo_per_cm2,cells 10^6/cm^2,endosymbionts per centimeters squared
+initial_endo,cells 10^6/cm^2,endosymbiont density of corals before treatment exposure
+chla_ug_cm2,μg/cm^2,Chlorophyll a content measured in micrograms per cm^2
+initial_chla,μg/cm^2,Chlorophyll a content of initial corals measured in micrograms per cm^2
+mean_tissue_biomass,mg/c^2,Mean tissue biomass of coral (holobiont and coral)
+initial_biomass,mg/c^2,Mean tissue biomass of initial corals (holobiont and coral)
+GP,μmol O2/cm^2/hr,Gross photosynthesis rate 
+R,μmol O2/cm^2/hr,Respiration rate
+TA_rangemean,μmol/kg,Mean range of total alkalinity across the experiment
+TA_rangese,N/A,Standard error of total alkalinity range across the experiment
+TA_mean,μmol/kg,Mean total alkalinity across experiment
+TA_se,N/A,Standard error total alkalinity across experiment
+deltaTA_rangemean,μmol/kg,Change in the range mean of total alkalinity from the inflow pipe and treatment tanks
+deltaTA_rangese,N/A,Change in the range standard error of total alkalinity from the inflow pipe and treatment tanks
+deltaTA_mean,μmol/kg,Change in the mean of total alkalinity from the inflow pipe and treatment tanks
+deltaTA_se,N/A,Change in the standard error of total alkalinity from the inflow pipe and treatment tanks
+pH_rangemean,N/A,Mean range of pH across the experiment
+pH_rangese,N/A,Standard error range of pH range across the experiment
+pH_mean,N/A,Mean of pH across experiment
+pH_se,N/A,Standard error of pH across experiment
+deltapH_rangemean,N/A,Change in the range mean of pH from the inflow pipe and treatment tanks
+deltapH_rangese,N/A,Change in the range standard error of pH from the inflow pipe and treatment tanks
+deltapH_mean,N/A,Change in the mean of pH from the inflow pipe and treatment tanks
+deltapH_se,N/A,Change in the standard error of pH from the inflow pipe and treatment tanks
+DOC_rangemean,μmol/L,Mean range of DOC across experiment

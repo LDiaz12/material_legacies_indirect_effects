@@ -703,13 +703,12 @@ chem_plot_all_DOC <- Clean_Chem_all %>%
 
 chem_plot_all_DOC
 
-
 chem_plot_all_pH_NEC<-Clean_Chem_all %>%
   ggplot(aes(x = pH, y = NEC))+
   geom_point(aes(color = TREATMENT), size = 3, alpha = 0.5)+
   geom_smooth(method = "lm", color = "black")+
   labs(color = "",
-       y = expression("NCC (mmol C m"^-2~" hr"^-1~")"),
+       y = expression("NCC" ~ (mmol ~ CaCO[3] ~ m^-2 ~ hr^-1)),
        x = expression("pH"[T]))+
   theme_bw() +
   theme(axis.text.x = element_text(size = 14),
@@ -725,7 +724,7 @@ chem_plot_all_DOC_NEC<-Clean_Chem_all %>%
   geom_point(aes(color = TREATMENT), size = 3, alpha = 0.5)+
   labs(color = "",
        y = expression("DOC ("~mu~"mol L"^-1~")"),
-       x = expression("NCC (mmol C m"^-2~" hr"^-1~")"))+
+       x = expression("NCC" ~ (mmol ~ CaCO[3] ~ m^-2 ~ hr^-1))) +
   theme_bw() +
   theme(axis.text.x = element_text(size = 14),
         axis.text.y = element_text(size = 14),
@@ -740,4 +739,4 @@ ncp_pH_DOC_patch <- (chem_plot_all_pH+chem_plot_all_pH_NEC)/(chem_plot_all_DOC+c
   plot_annotation(tag_levels = "a") + plot_layout(guides = "collect") & theme(legend.position = 'bottom') 
 ncp_pH_DOC_patch
 
-ggsave(plot = ncp_pH_DOC_patch, filename = here("Output", "Fig_3.png"), width = 12, height = 12)
+#ggsave(plot = ncp_pH_DOC_patch, filename = here("Output", "Fig_3.png"), width = 12, height = 12)

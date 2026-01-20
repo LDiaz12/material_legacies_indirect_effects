@@ -1,0 +1,15 @@
+﻿Variable,Units,Description
+TANK_NUM,N/A,Community treatment tank number; Inflow 1 and 2 refers to the inflow pipes 
+TREATMENT,N/A,"Community treatment; algae-dominated, rubble-dominated, coral-dominated, or control"
+mV,millivolts,Voltage generated proportional to hydrogen ion concentration measured by pH probe
+TEMPINLAB,℃,Temperature inside the lab measured in degrees celcius
+FLOW_LEFT,,Flow from the left valve from the community treatment tank to the coral only response tank
+FLOW_RIGHT,,Flow from the right valve from the community treatment tank to the coral only response tank
+TEMPINSITU,℃,Temperature measured in situ in the community treatment tanks
+SALINITY,psu,Salinity of the community treatment tanks measured in practical salinity unit
+DO_MG_L,milligrams per liter,Concentration of dissolved oxygen measured in milligrams per liter in the community treatment tanks
+LIGHT_NM,nanometers,Light flux measured in nanometers directly above the community treatment tanks
+TA,μmol/kg,Total alkalinity in the community treatment tanks measured in μmol per kilogram
+TrisCalDate,N/A,Date that a calibration for the probes measuring temperature and pH was conducted using a Tris standard
+TTris,℃,Temperature of tris in tube measured in degrees celcius
+mVTris,mV,mV reading of tris in tube 
