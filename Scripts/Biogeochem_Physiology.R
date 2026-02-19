@@ -27,31 +27,6 @@ metadata <- metadata %>%
   mutate(mean_tissue_biomass = ifelse(mean_tissue_biomass > 30, NA, mean_tissue_biomass))
 raw_chem <- read_csv(here("Data", "Chemistry", "Raw_Chem_Data.csv"))
 
-metadata_raw_chem_means <- metadata %>%
-  group_by(TANK_NUM, TREATMENT) %>%
-  summarize(mean_endos = mean(endo_per_cm2, na.rm = TRUE),
-            se_endos = sd(endo_per_cm2, na.rm = TRUE)/sqrt(n()),
-         mean_chl = mean(chla_ug_cm2, na.rm = TRUE), 
-         se_chl = sd(chla_ug_cm2, na.rm = TRUE)/sqrt(n()),
-         mean_biomass = mean(mean_tissue_biomass, na.rm = TRUE),
-         se_biomass = sd(mean_tissue_biomass, na.rm = TRUE)/sqrt(n()),
-         mean_GP = mean(GP, na.rm = TRUE),
-         se_GP = sd(GP, na.rm = TRUE)/sqrt(n()),
-         mean_R = mean(R, na.rm = TRUE),
-         se_R = sd(R, na.rm = TRUE)/sqrt(n()),
-         mean_pH = mean(pH_mean, na.rm = TRUE), 
-         se_pH = sd(pH_mean, na.rm = TRUE)/sqrt(n()),
-         mean_DOC = mean(DOC_mean, na.rm = TRUE),
-         se_DOC = sd(DOC_mean, na.rm = TRUE)/sqrt(n()),
-         deltapH = mean(deltapH_mean, na.rm = TRUE),
-         deltaDOC = mean(deltaDOC_mean, na.rm = TRUE),
-         mean_NEP = mean(NEP_mean, na.rm = TRUE)) %>%
-  left_join(raw_chem) 
- # left_join(daily_min_max)
-
-##last thing - check daily max and average 
-
-
 ####### ANOVAS OF PHYSIO PARAMS PER TREATMENT #######
 metadata$TREATMENT <- factor(metadata$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
@@ -183,7 +158,7 @@ anova(GP_model) # s. p = 0.61
 
 physio_params_patch <- (endos_plot + chla_plot + tissuebiomass_plot)/(R_plot + GP_plot) + plot_annotation(tag_levels = "a")
 physio_params_patch
-ggsave(plot = physio_params_patch, filename = here("Output", "Supp_Fig_2.png"), width = 11, height = 11)
+#ggsave(plot = physio_params_patch, filename = here("Output", "Supp_Fig_2.png"), width = 11, height = 11)
 
 ######## BIOGEOCHEM IMPACTS ON CHL-A ########
 metadata_raw_chem_means$TREATMENT <- factor(metadata_raw_chem_means$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
@@ -199,7 +174,7 @@ chla_meanpH_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") +
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -222,7 +197,7 @@ chla_meanDOC_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") + 
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -246,7 +221,7 @@ endo_meanpH_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"), 
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") + 
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -268,7 +243,7 @@ endo_meanDOC_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") +
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -292,7 +267,7 @@ biomass_meanpH_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") +  
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -314,7 +289,7 @@ biomass_meanDOC_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") + 
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -338,7 +313,7 @@ R_meanpH_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") +  
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -361,7 +336,7 @@ R_meanDOC_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") + 
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -384,7 +359,7 @@ GP_meanpH_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15, hjust = 1),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") +  
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -405,7 +380,7 @@ GP_meanDOC_plot <- metadata_raw_chem_means %>%
   theme(axis.text.x = element_text(size = 15, hjust = 1),
         axis.text.y = element_text(size = 15),
         axis.title = element_text(size = 18, face = "bold"),  
-        legend.text = element_text(size = 12),
+        legend.text = element_text(size = 18),
         legend.title = element_blank(), 
         legend.position = "bottom") +  
   scale_color_manual(labels = c("Control", "Macroalgae-Enriched", "Coral-Enriched", "CCA-Enriched"),
@@ -420,184 +395,9 @@ anova(GP_meanDOC_model)
 meanpH_physio_patch <- (chla_meanpH_plot + endo_meanpH_plot + biomass_meanpH_plot)/(R_meanpH_plot + GP_meanpH_plot) + plot_annotation(tag_levels = "a") +
   plot_layout(guides = "collect") & theme(legend.position = "bottom") 
 meanpH_physio_patch
-ggsave(plot = meanpH_physio_patch, filename = here("Output", "Supp_Fig_3.png"), width = 15, height = 11)
+#ggsave(plot = meanpH_physio_patch, filename = here("Output", "Supp_Fig_3.png"), width = 15, height = 11)
 
 meanDOC_physio_patch <- (chla_meanDOC_plot + endo_meanDOC_plot + biomass_meanDOC_plot)/(R_meanDOC_plot + GP_meanDOC_plot) + plot_annotation(tag_levels = "a") + 
   plot_layout(guides = "collect") & theme(legend.position = "bottom")
 meanDOC_physio_patch
-ggsave(plot = meanDOC_physio_patch, filename = here("Output", "Supp_Fig_4.png"), width = 15, height = 11)
-
-
-##### CALCULATE AVERAGE CORAL PHYSIO PARAMETERS PER TREATMENT #####
-
-coral_physio_params_treatment <- metadata %>%
-  group_by(TREATMENT) %>%
-  summarize(avg_endos = mean(endo_per_cm2, na.rm = TRUE),
-            endo_error = sd(endo_per_cm2, na.rm = TRUE)/sqrt(n()),
-            avg_chl = mean(chla_ug_cm2, na.rm = TRUE),
-            chl_error = sd(chla_ug_cm2, na.rm = TRUE)/sqrt(n()),
-            avg_biomass = mean(mean_tissue_biomass, na.rm = TRUE), 
-            biomass_error = sd(mean_tissue_biomass, na.rm = TRUE)/sqrt(n()),
-            avg_R = mean(R, na.rm = TRUE), 
-            R_error = sd(R, na.rm = TRUE)/sqrt(n()),
-            avg_GP = mean(GP, na.rm = TRUE),
-            GP_error = sd(GP, na.rm = TRUE)/sqrt(n()),
-            avg_NEC = mean(NEC_mean, na.rm = TRUE), 
-            NEC_error = sd(NEC_mean, na.rm = TRUE)/sqrt(n()),
-            avg_NEP = mean(NEP_mean, na.rm = TRUE),
-            NEP_error = sd(NEP_mean, na.rm = TRUE)/sqrt(n()))
-
-#write_csv(coral_physio_params_treatment, here("Data", "Summary_Files", "coral_physio_params_treatment.csv"))
-
-metadata$TREATMENT <- factor(metadata$TREATMENT, levels = c("Control", "Algae_Dom", 
-                                                            "Coral_Dom", "Rubble_Dom"))
-
-endos_treatment <- lmer(endo_per_cm2 ~ TREATMENT + (1|GENOTYPE), data = metadata)
-summary(endos_treatment)
-anova(endos_treatment)
-
-coral_physio_params_treatment$TREATMENT <- factor(coral_physio_params_treatment$TREATMENT, levels = c("Control", "Algae_Dom",
-                                                                                                      "Coral_Dom", "Rubble_Dom"))
-avg_endos_plot <- coral_physio_params_treatment %>%
-  ggplot(aes(x = TREATMENT, y = avg_endos, color = TREATMENT)) + 
-  geom_point(data = metadata, aes(x = TREATMENT, y = endo_per_cm2), alpha = 0.25) + 
-  stat_summary(fun.data = mean_sdl, geom = "errorbar", fun.args = list(mult = 1), width = 0.1, color = "black") +
-  stat_summary(fun.y = mean, geom = "point", size = 3, color = "black") +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_endos_plot
-
-avg_chl_plot <- coral_physio_params_treatment %>%
-  ggplot(aes(x = TREATMENT, y = avg_chl, color = TREATMENT)) + 
-  geom_point() +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_chl_plot
-
-avg_biomass_plot <- coral_physio_params_treatment %>%
-  ggplot(aes(x = TREATMENT, y = avg_biomass, color = TREATMENT)) + 
-  geom_point() +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_biomass_plot
-
-avg_R_plot <- coral_physio_params_treatment %>%
-  ggplot(aes(x = TREATMENT, y = avg_R, color = TREATMENT)) + 
-  geom_point() +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_R_plot
-
-avg_GP_plot <- coral_physio_params_treatment %>%
-  ggplot(aes(x = TREATMENT, y = avg_GP, color = TREATMENT)) + 
-  geom_point() +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_GP_plot
-
-##### CALCULATE AVERAGE CORAL PHYSIO PARAMS PER TANK ##### 
-coral_physio_params_tank <- metadata %>%
-  group_by(TANK_NUM, TREATMENT) %>%
-  summarize(avg_endos = mean(endo_per_cm2, na.rm = TRUE),
-            avg_chl = mean(chla_ug_cm2, na.rm = TRUE), 
-            avg_biomass = mean(mean_tissue_biomass, na.rm = TRUE), 
-            avg_R = mean(R, na.rm = TRUE), 
-            avg_GP = mean(GP, na.rm = TRUE),
-            avg_NEC = mean(NEC_mean, na.rm = TRUE), 
-            avg_NEP = mean(NEP_mean, na.rm = TRUE))
-coral_physio_params_tank
-write_csv(coral_physio_params_tank, here("Data", "Summary_Files", "coral_physio_params_tank.csv"))
-
-coral_physio_params_tank$TREATMENT <- factor(coral_physio_params_tank$TREATMENT, levels = c("Control", "Algae_Dom",
-                                                                                                      "Coral_Dom", "Rubble_Dom"))
-avg_endos_plot <- coral_physio_params_tank %>%
-  ggplot(aes(x = TREATMENT, y = avg_endos, color = TREATMENT)) + 
-  geom_boxplot() + 
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_endos_plot
-
-avg_chl_plot <- coral_physio_params_tank %>%
-  ggplot(aes(x = TREATMENT, y = avg_chl, color = TREATMENT)) + 
-  geom_boxplot() +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_chl_plot
-
-avg_biomass_plot <- coral_physio_params_tank %>%
-  ggplot(aes(x = TREATMENT, y = avg_biomass, color = TREATMENT)) + 
-  geom_boxplot() +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_biomass_plot
-
-avg_R_plot <- coral_physio_params_tank %>%
-  ggplot(aes(x = TREATMENT, y = avg_R, color = TREATMENT)) + 
-  geom_boxplot() +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_R_plot
-
-avg_GP_plot <- coral_physio_params_tank %>%
-  ggplot(aes(x = TREATMENT, y = avg_GP, color = TREATMENT)) + 
-  geom_boxplot() +
-  scale_color_manual(values = c("blue", "darkgreen", "coral", "tan"))
-avg_GP_plot
-
-
-## create correlation coefficient plot ### 
-
-cor.test(metadata$GP, metadata$mean_tissue_biomass)
-
-metadata_newnames <- metadata %>%
-  rename(TissueBiomass = mean_tissue_biomass,
-         Endosymbionts = endo_per_cm2,
-         Chlorophyll = chla_ug_cm2)
-
-physio <- metadata_newnames %>%
-  select(TissueBiomass, R, GP, Endosymbionts, Chlorophyll)
-
-# create custom function to only plot regression lines for significant p values # 
-only_sig <- function(data, mapping, ...) {
-  x <- eval_data_col(data, mapping$x)
-  y <- eval_data_col(data, mapping$y)
-  
-  cor_test <- cor.test(x, y)
-  p_value <- cor_test$p.value
-  
-  p <- ggplot(data, mapping) + 
-    geom_point(color = "coral", alpha = 0.5) 
-  
-  if(p_value < 0.05) {
-    p <- p + geom_smooth(method = "lm", se = FALSE, color = "black", alpha = 0.3)
-  }
-  return(p)
-}  
-
-# need to create a custom function in order to get rid of the word "Corr" in the plot
-custom_corr <- function(data, mapping, method, ...) {
-  x <- eval_data_col(data, mapping$x)
-  y <- eval_data_col(data, mapping$y) 
-  
-  corr <- cor(x, y, method = method, use = "complete.obs")
-  
-  ggally_text(label = as.character(round(corr, 2)),
-              mapping = aes(),
-              xP = 0.5, vP = 0.5,
-              color = "black",
-              size = 8,
-              ...
-              )
-}
-corr_plot <- ggpairs(data = physio,
-                     upper = list(continuous = wrap(custom_corr, method = "pearson")),
-                     lower = list(continuous = wrap(only_sig)),
-                     diag = list(continuous = wrap("densityDiag", fill = "lightblue"))) + 
-  theme_minimal()
-corr_plot <- corr_plot + 
-  theme(axis.text.x = element_text(size = 12),
-         axis.text.y = element_text(size = 12))
-corr_plot
-ggsave(plot = corr_plot, filename = here("Output", "physio_corr_coeff_plot.png"))
-
-#this also creates the plot but with the "Corr" kept in 
-corr_coeff_plot <- ggpairs(data = physio,
-        upper = list(continuous = wrap("cor", method = "pearson", size = 6, color = "black")), 
-        lower = list(continuous = wrap("smooth", color = "coral"), alpha = 0.3),
-        diag = list(continuous = wrap("densityDiag", fill = "lightblue"))) +
-  theme_minimal()
-
-corr_coeff_plot
-
-#ggsave(plot = corr_coeff_plot, filename = here("Output", "physio_corr_coeff_plot.png"))
+#ggsave(plot = meanDOC_physio_patch, filename = here("Output", "Supp_Fig_4.png"), width = 15, height = 11)

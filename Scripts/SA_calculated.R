@@ -28,7 +28,4 @@ slope <- curve_model$coefficients[2] # extracts slope from coefficients
 surface_area_data <- surface_area_data %>%
   mutate(SA_cm_2 = slope*weight_of_wax_g + intercept)
 
-write_csv(surface_area_data, here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))
-
-# cm2 = slope(waxweight)+intercept
-
+#write_csv(surface_area_data, here("Data", "Data_Raw", "Growth", "SA", "MO24BEAST_SA_calculated.csv"))

@@ -15,17 +15,17 @@ surface_area <- surface_area %>%
 # afdw final data sheet 
 afdw_metadata <- read_csv(here("Data", "Data_Raw", "Growth", "coral_mean_biomass_calculated.csv"))
 afdw <- afdw_metadata %>%
-  select(CORAL_NUM, mean_tissue_biomass, initial_biomass)
+  select(CORAL_NUM, mean_tissue_biomass)
 
 # endosymbiont final data sheet 
 endos <- read_csv(here("Data", "Endosymbionts", "endo_data_calculated.csv"))
 endos <- endos %>%
-  select(CORAL_NUM, endo_per_cm2, initial_endo)
+  select(CORAL_NUM, endo_per_cm2)
 
 # chlorophyll final data sheet 
 chlorophyll <- read_csv(here("Data", "Data_Raw", "Chl_Content", "Chl_Files", "MO24BEAST_chl_full_data.csv"))
 chl <- chlorophyll %>%
-  select(CORAL_NUM, chla_ug_cm2, initial_chla)
+  select(CORAL_NUM, chla_ug_cm2)
 
 # DOC, pH, TA, NEP, and NEC data per tank and treatment 
 chem_summary_data <- read_csv(here("Data", "Chemistry", "chem_summary_data.csv"))
@@ -51,7 +51,7 @@ metadata_physio_full <- metadata %>%
   full_join(final_respo_data)
 
 
-write_csv(metadata_physio_full, here("Data", "MO24BEAST_physio_metadata.csv"))
+#write_csv(metadata_physio_full, here("Data", "MO24BEAST_physio_metadata.csv"))
 
 physio_metadata <- read_csv(here("Data", "MO24BEAST_physio_metadata.csv"))
 
@@ -60,20 +60,4 @@ chem_metadata <- chem_summary_data
 metadata_full <- metadata_physio_full %>%
   full_join(chem_metadata) 
 
-write_csv(metadata_full, here("Data", "MO24BEAST_Metadata_FULL.csv"))
-
-# write separate metadata files for DAY and NIGHT # 
-# DAY #
-chem_summary_data_DAY <- read_csv(here("Data", "Chemistry", "chem_summary_data_DAY.csv"))
-metadata_full_DAY <- physio_metadata %>%
-  full_join(chem_summary_data_DAY) %>%
-  filter(!TREATMENT == "Pre")
-#write_csv(metadata_full_DAY, here("Data", "metadata_full_DAY.csv"))
-
-# NIGHT #
-chem_summary_data_NIGHT <- read_csv(here("Data", "Chemistry", "chem_summary_data_NIGHT.csv"))
-metadata_full_NIGHT <- physio_metadata %>%
-  full_join(chem_summary_data_NIGHT) %>%
-  filter(!TREATMENT == "Pre")
-#write_csv(metadata_full_NIGHT, here("Data", "metadata_full_NIGHT.csv"))
-
+#write_csv(metadata_full, here("Data", "MO24BEAST_Metadata_FULL.csv"))

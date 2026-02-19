@@ -166,4 +166,4 @@ ggsave(plot = chem.effect.plot2, filename = here("Output", "effect_size_plot_DOC
 
 effect_size_patch <- (chem.effect.plot1 + chem.effect.plot2) + plot_annotation(tag_levels = "a")
 effect_size_patch
-ggsave(plot = effect_size_patch, filename = here("Output", "effect_size_patch.png"), width = 9, height = 9)
+#ggsave(plot = effect_size_patch, filename = here("Output", "effect_size_patch.png"), width = 9, height = 9)

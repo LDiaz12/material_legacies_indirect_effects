@@ -134,9 +134,9 @@ raw_chem_data <- Data %>%
             grand_min_DOC = min(NPOC_uM, na.rm = TRUE))%>%
   drop_na()
 
-write_csv(raw_chem_data, here("Data", "Chemistry", "Raw_Chem_Data.csv"))
+#write_csv(raw_chem_data, here("Data", "Chemistry", "Raw_Chem_Data.csv"))
 
-write_csv(Data, here("Data", "Chemistry", "Full_Carb_Chem_Data.csv"))
+#write_csv(Data, here("Data", "Chemistry", "Full_Carb_Chem_Data.csv"))
 full_carb_chem_data <- read_csv(here("Data", "Chemistry", "Full_Carb_Chem_Data.csv"))
 full_carb_chem_data$INFLOW_TABLE <- as.factor(full_carb_chem_data$INFLOW_TABLE)
 
@@ -148,7 +148,7 @@ tank_residence_time <- Data %>%
             flow_error = sd(flowrate, na.rm = TRUE)/sqrt(n())) %>%
   drop_na()
 tank_residence_time
-write_csv(tank_residence_time, here("Data", "Chemistry", "Tank_Residence_Time.csv"))
+#write_csv(tank_residence_time, here("Data", "Chemistry", "Tank_Residence_Time.csv"))
 
 avg_total_flow <- Data %>%
   summarize(avg_total_flow = mean(flowrate, na.rm = TRUE),
@@ -311,26 +311,6 @@ chem_reframe_clean %>%
   geom_point() + 
   facet_wrap(~name, scales = "free")
 
-chem_reframe_clean_ALGAE <- chem_reframe_clean %>%
-  filter(TREATMENT == "Algae_Dom") %>%
-  select(TANK_NUM, TA_range:NEP_dailymean)
-chem_reframe_clean_ALGAE
-
-chem_reframe_clean_CORAL <- chem_reframe_clean %>%
-  filter(TREATMENT == "Coral_Dom") %>%
-  select(TANK_NUM, TA_range:NEP_dailymean)
-chem_reframe_clean_CORAL
-
-chem_reframe_clean_RUBBLECCA <- chem_reframe_clean %>%
-  filter(TREATMENT == "Rubble_Dom") %>%
-  select(TANK_NUM, TA_range:NEP_dailymean)
-chem_reframe_clean_RUBBLECCA
-
-chem_reframe_clean_CONTROL <- chem_reframe_clean %>%
-  filter(TREATMENT == "Control") %>%
-  select(TANK_NUM, TA_range:NEP_dailymean)
-chem_reframe_clean_CONTROL
-
 chem_summary_data <- chem_reframe_clean %>%
   group_by(TREATMENT, TANK_NUM) %>%
   summarize(TA_rangemean = mean(TA_range, na.rm = TRUE), 
@@ -365,7 +345,6 @@ chem_summary_data <- chem_reframe_clean %>%
             NEP_rangese = sd(NEP_range, na.rm = TRUE)/sqrt(n()),
             NEP_mean = mean(NEP_dailymean, na.rm = TRUE),
             NEP_se = sd(NEP_dailymean, na.rm = TRUE)/sqrt(n()))
-
         
 #write_csv(chem_summary_data, here("Data", "Chemistry", "chem_summary_data.csv"))
 
@@ -382,70 +361,6 @@ tank_chem_means <- chem_reframe_clean %>%
             avg_DOC = mean(DOC_dailymean, na.rm = TRUE), 
             DOC_error = sd(DOC_dailymean, na.rm = TRUE)/sqrt(n()))
 tank_chem_means
-
-########## create geom rect ############
-## create rect intervals for the NEC plot below for light vs dark times ##
-rect_intervals <- tibble::tibble(
-  xmin = as.POSIXct(c("2024-06-02 06:00:00", "2024-06-02 18:00:00", 
-                      "2024-06-03 06:00:00", "2024-06-03 18:00:00", 
-                      "2024-06-04 06:00:00", "2024-06-04 18:00:00",
-                      "2024-06-05 06:00:00", "2024-06-05 18:00:00",
-                      "2024-06-06 06:00:00", "2024-06-06 18:00:00",
-                      "2024-06-07 06:00:00", "2024-06-07 18:00:00",
-                      "2024-06-08 06:00:00", "2024-06-08 18:00:00",
-                      "2024-06-09 06:00:00", "2024-06-09 18:00:00",
-                      "2024-06-10 06:00:00", "2024-06-10 18:00:00",
-                      "2024-06-11 06:00:00", "2024-06-11 18:00:00",
-                      "2024-06-12 06:00:00", "2024-06-12 18:00:00",
-                      "2024-06-13 06:00:00", "2024-06-13 18:00:00",
-                      "2024-06-14 06:00:00", "2024-06-14 18:00:00",
-                      "2024-06-15 06:00:00", "2024-06-15 18:00:00",
-                      "2024-06-16 06:00:00", "2024-06-16 18:00:00",
-                      "2024-06-17 06:00:00", "2024-06-17 18:00:00",
-                      "2024-06-18 06:00:00", "2024-06-18 18:00:00",
-                      "2024-06-19 06:00:00", "2024-06-19 18:00:00",
-                      "2024-06-20 06:00:00", "2024-06-20 18:00:00",
-                      "2024-06-21 06:00:00", "2024-06-21 18:00:00",
-                      "2024-06-22 06:00:00", "2024-06-22 18:00:00",
-                      "2024-06-23 06:00:00", "2024-06-23 18:00:00",
-                      "2024-06-24 06:00:00", "2024-06-24 18:00:00",
-                      "2024-06-25 06:00:00", "2024-06-25 18:00:00",
-                      "2024-06-26 06:00:00", "2024-06-26 18:00:00")),
-  xmax = as.POSIXct(c("2024-06-02 18:00:00", "2024-06-03 06:00:00", 
-                      "2024-06-03 18:00:00", "2024-06-04 06:00:00", 
-                      "2024-06-04 18:00:00", "2024-06-05 06:00:00",
-                      "2024-06-05 18:00:00", "2024-06-06 06:00:00",
-                      "2024-06-06 18:00:00", "2024-06-07 06:00:00",
-                      "2024-06-07 18:00:00", "2024-06-08 06:00:00",
-                      "2024-06-08 18:00:00", "2024-06-09 06:00:00",
-                      "2024-06-09 18:00:00", "2024-06-10 06:00:00",
-                      "2024-06-10 18:00:00", "2024-06-11 06:00:00",
-                      "2024-06-11 18:00:00", "2024-06-12 06:00:00",
-                      "2024-06-12 18:00:00", "2024-06-13 06:00:00",
-                      "2024-06-13 18:00:00", "2024-06-14 06:00:00",
-                      "2024-06-14 18:00:00", "2024-06-15 06:00:00",
-                      "2024-06-15 18:00:00", "2024-06-16 06:00:00",
-                      "2024-06-16 18:00:00", "2024-06-17 06:00:00",
-                      "2024-06-17 18:00:00", "2024-06-18 06:00:00",
-                      "2024-06-18 18:00:00", "2024-06-19 06:00:00",
-                      "2024-06-19 18:00:00", "2024-06-20 06:00:00",
-                      "2024-06-20 18:00:00", "2024-06-21 06:00:00",
-                      "2024-06-21 18:00:00", "2024-06-22 06:00:00",
-                      "2024-06-22 18:00:00", "2024-06-23 06:00:00",
-                      "2024-06-23 18:00:00", "2024-06-24 06:00:00",
-                      "2024-06-24 18:00:00", "2024-06-25 06:00:00",
-                      "2024-06-25 18:00:00", "2024-06-26 06:00:00",
-                      "2024-06-26 18:00:00", "2024-06-27 06:00:00")),
-  fill = c("lightyellow", "lightgrey", "lightyellow", "lightgrey", "lightyellow",
-           "lightgrey", "lightyellow", "lightgrey", "lightyellow", "lightgrey", 
-           "lightyellow", "lightgrey", "lightyellow","lightgrey", "lightyellow", 
-           "lightgrey", "lightyellow","lightgrey", "lightyellow", "lightgrey", 
-           "lightyellow","lightgrey", "lightyellow", "lightgrey", "lightyellow",
-           "lightgrey", "lightyellow", "lightgrey", "lightyellow","lightgrey", 
-           "lightyellow", "lightgrey", "lightyellow","lightgrey", "lightyellow", 
-           "lightgrey", "lightyellow","lightgrey", "lightyellow", "lightgrey", 
-           "lightyellow", "lightgrey", "lightyellow", "lightgrey", "lightyellow",
-           "lightgrey", "lightyellow","lightgrey", "lightyellow", "lightgrey"))
 
 ###################################
 ### NEC DATA ### 
@@ -482,7 +397,6 @@ NEC_day_mean_plot <- NEC_data_day %>%
         axis.title = element_text(size = 14, face = "bold"),
         legend.position = "none")
 NEC_day_mean_plot
-#ggsave(plot = NEC_day_mean_plot, filename = here("Output", "TA_NECPlots", "NEC_day_mean_plot.png"), width = 9, height = 9)
 
 NEC_daytime_model <- lmer(NEC_day_mean ~ TREATMENT + (1|TANK_NUM), data=NEC_data_day)
 check_model(NEC_daytime_model)
@@ -524,7 +438,6 @@ NEC_night_mean_plot <- NEC_data_night %>%
         axis.title = element_text(size = 14, face = "bold"),
         legend.position = "none")
 NEC_night_mean_plot
-#ggsave(plot = NEC_night_mean_plot, filename = here("Output", "TA_NECPlots", "NEC_night_mean_plot.png"), width = 9, height = 9)
 
 NEC_data_night$TREATMENT <- factor(NEC_data_night$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
@@ -574,7 +487,6 @@ NEP_day_mean_plot <- NEP_data_day %>%
         plot.title = element_text(size = 14, hjust = 0.5), 
         legend.position = "none")
 NEP_day_mean_plot
-#ggsave(plot = NEP_day_mean_plot, filename = here("Output", "NEP_Plots", "NEP_day_mean_plot.png"), width = 9, height = 9)
 
 NEP_data_day$TREATMENT <- factor(NEP_data_day$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
@@ -621,7 +533,6 @@ NEP_night_mean_plot <- NEP_data_night %>%
         plot.title = element_text(size = 14, hjust = 0.5),
         legend.position = "none")
 NEP_night_mean_plot
-#ggsave(plot = NEP_night_mean_plot, filename = here("Output", "NEP_Plots", "NEP_night_mean_plot.png"), width = 9, height = 12)
 
 NEP_data_night$TREATMENT <- factor(NEP_data_night$TREATMENT, levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom"))
 
@@ -643,7 +554,7 @@ Clean_Chem_all<- chem_reframe_NIGHT_clean %>%
   bind_rows(chem_reframe_DAY_clean) %>%
   filter(NEP < 4)
 
-# ANCOVA with pH~NEP*Treament and accounting for tankID
+# ANCOVA with pH~NEP*Treatment and accounting for tankID
 
 Clean_Chem_all2 <- Clean_Chem_all %>%
   mutate(DATE = ymd(paste(DATE)))
