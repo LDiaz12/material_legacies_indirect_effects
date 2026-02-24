@@ -22,7 +22,7 @@ deltapH,N/A,Change in pH value from the inflow pipe to the treatment tanks
 deltaDOC,μmol/L,Change in dissolved organic carbon value from the inflow pipe to the treatment tanks
 totalflow,mL,Combined flow from left and right valves
 residence_time,Hours,Residence time within treatment tanks
-flowrate,mL/min,Flow rate from treatment tanks
+flowrate,mL/sec,Flow rate from treatment tanks
 deltaTA,μmol/kg,Change in total alkalinity value from the inflow pipe to the treatment tanks
 deltaDIC,μmol/kg,Change in dissolved inorganic carbon value from the inflow pipe to the treatment tanks
 NEC,mmol CaCO3 m2/hr,Calculated net ecosystem calcification
