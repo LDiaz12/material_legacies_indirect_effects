@@ -1,12 +1,12 @@
 TANK_NUM,INFLOW_TABLE,TREATMENT
-1,1,Algae_Dom
+1,2,Algae_Dom
 2,2,Rubble_Dom
 3,2,Control
 4,2,Algae_Dom
 5,2,Rubble_Dom
 6,2,Coral_Dom
 7,2,Coral_Dom
-8,1,Control
+8,2,Control
 9,1,Coral_Dom
 10,1,Rubble_Dom
 11,1,Control
