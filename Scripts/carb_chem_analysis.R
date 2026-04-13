@@ -56,13 +56,13 @@ DIC_Data_calc <- pHSlope %>%
 #Seacarb is not tidy so need to use DIC_Data_calc$parameter in order to call them in 
 carb_chem_table <- carb(flag = 8, var1 = DIC_Data_calc$pH, var2 = DIC_Data_calc$TA_mol_kg, S = DIC_Data_calc$SALINITY, T = DIC_Data_calc$TEMPINSITU, P = 0, Patm = 0, Pt = 0, Sit = 0, 
                         pHscale = "T", kf = "dg", k1k2 = "m10", ks = "d")
-
+carb_chem_table
 #write_csv(carb_chem_table, here("Data", "Chemistry", "carb_chem_table.csv"))
 
 #Remove just DIC column from carb chem table 
 DIC_column <- carb_chem_table %>%
   select(DIC) %>%
-  mutate(DIC_µmol_kg = (DIC*1e6)) 
+  mutate(DIC_umol_kg = (DIC*1e6)) 
 
 #Join the DIC column back into the DIC_Data_calc data frame 
 DIC_Data_calc2 <- DIC_Data_calc %>%
@@ -84,7 +84,7 @@ InflowData <- pHSlope2 %>%
   select(-c(FLOW_LEFT, FLOW_RIGHT, Notes, DO_MG_L, SALINITY, TEMPINSITU))  %>%
   rename(pH_inflow = pH,
          TA_inflow = TA,
-         DIC_inflow = DIC_µmol_kg,
+         DIC_inflow = DIC_umol_kg,
          DOC_inflow = NPOC_uM) %>%
   mutate(INFLOW_TABLE = ifelse(TANK_NUM == "Inflow1",1,2)) %>% # give them inflow numbers to pair easily with the TankID 
   ungroup()%>%
@@ -112,7 +112,7 @@ Data<-pHSlope2 %>%
          residence_time = (1/totalflow)*(10000/60),# convert ml/min to hours by multiplying by the volume of water in ml (10L tank; 10,000mL) and divide by 60 mins
          flowrate = (totalflow/60), # convert mL/min to mL/sec
          deltaTA = TA_inflow - TA, # calculate the difference between in and outflow
-         deltaDIC = DIC_inflow - DIC_µmol_kg, # calculate delta DIC to calculate NEP 
+         deltaDIC = DIC_inflow - DIC_umol_kg, # calculate delta DIC to calculate NEP 
          NEC = (deltaTA/2)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea), ### for a real rate should probably normalize the delta TA to the delta control just like in respo
          NEP = ((deltaDIC)*(1.025)*(10)*(1/residence_time)*(1/SurfaceArea)) - NEC)
 
@@ -162,7 +162,7 @@ avg_total_flow
 chem_reframe <- Data %>% 
   filter(TIME %in% c("12:00:00","21:00:00")) %>% 
   group_by(TREATMENT, DATE, TANK_NUM) %>%
-  select(DATE, TIME, TANK_NUM, TREATMENT, TA, pH, DIC_µmol_kg, NPOC_uM, deltapH, deltaTA, deltaDOC, 
+  select(DATE, TIME, TANK_NUM, TREATMENT, TA, pH, DIC_umol_kg, NPOC_uM, deltapH, deltaTA, deltaDOC, 
          deltaDIC, NEC, NEP) %>%
   reframe(TA_range = TA[TIME == hms("12:00:00")] - TA[TIME == hms("21:00:00")],
           TA_dailymean = mean(TA, na.rm = TRUE),
@@ -185,7 +185,7 @@ chem_reframe <- Data %>%
 chem_reframe_DAY <- Data %>%
   filter(TIME %in% "12:00:00") %>%
   group_by(TREATMENT, DATE, TANK_NUM) %>%
-  select(DATE, TIME, TANK_NUM, TREATMENT, TA, pH, DIC_µmol_kg, NPOC_uM, deltapH, deltaTA, deltaDOC, 
+  select(DATE, TIME, TANK_NUM, TREATMENT, TA, pH, DIC_umol_kg, NPOC_uM, deltapH, deltaTA, deltaDOC, 
          deltaDIC, NEC, NEP) %>%
   rename(DOC = NPOC_uM)
 ## review chem reframe DAY and look for outliers 
@@ -201,7 +201,7 @@ chem_reframe_DAY_clean <- chem_reframe_DAY %>%
   mutate(deltaDIC = ifelse(deltaDIC < -250, NA, deltaDIC),
          deltaDOC = ifelse(deltaDOC > 200, NA, deltaDOC),
          deltaTA = ifelse(deltaTA < -400, NA, deltaTA), 
-         DIC_µmol_kg = ifelse(DIC_µmol_kg > 2250, NA, DIC_µmol_kg), 
+         DIC_umol_kg = ifelse(DIC_umol_kg > 2250, NA, DIC_umol_kg), 
          DOC = ifelse(DOC > 350, NA, DOC), 
          NEC = ifelse(NEC < -2, NA, NEC), 
          NEC = ifelse(TREATMENT == "Rubble_Dom" & NEC > 2, NA, NEC), 
@@ -214,7 +214,7 @@ chem_reframe_DAY_clean <- chem_reframe_DAY %>%
 chem_reframe_NIGHT <- Data %>%
   filter(TIME %in% "21:00:00") %>%
   group_by(TREATMENT, DATE, TANK_NUM) %>%
-  select(DATE, TIME, TANK_NUM, TREATMENT, TA, pH, DIC_µmol_kg, NPOC_uM, deltapH, deltaTA, deltaDOC, 
+  select(DATE, TIME, TANK_NUM, TREATMENT, TA, pH, DIC_umol_kg, NPOC_uM, deltapH, deltaTA, deltaDOC, 
          deltaDIC, NEC, NEP) %>%
   rename(DOC = NPOC_uM)
 # review chem reframe NIGHT for outliers and clean 
@@ -230,7 +230,7 @@ chem_reframe_NIGHT_plots
 chem_reframe_NIGHT_clean <- chem_reframe_NIGHT %>%
   mutate(deltaDOC = ifelse(deltaDOC > 300, NA, deltaDOC),
          deltaTA = ifelse(deltaTA > 100, NA, deltaTA), 
-         DIC_µmol_kg = ifelse(DIC_µmol_kg < 1900, NA, DIC_µmol_kg), 
+         DIC_umol_kg = ifelse(DIC_umol_kg < 1900, NA, DIC_umol_kg), 
          DOC = ifelse(DOC > 400, NA, DOC), 
          NEC = ifelse(NEC > 1, NA, NEC), 
          NEC = ifelse(NEC < -1, NA, NEC),
@@ -550,6 +550,7 @@ ggsave(plot = NEP_v_NEC_patchwork, filename = here("Output", "Fig_2.png"), width
 ############# NEP DATA ############
 
 #### Look at NEP vs pH and DOC
+### combine day and night clean data 
 Clean_Chem_all<- chem_reframe_NIGHT_clean %>% 
   bind_rows(chem_reframe_DAY_clean) %>%
   filter(NEP < 4)
