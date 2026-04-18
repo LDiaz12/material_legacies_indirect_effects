@@ -241,13 +241,13 @@ doc_lab <- expression("DOC  ("*mu*mol~L^-1~")")
 pd_ncp <- make_trt_panel(chem_plot_day,   "NEP", ncp_lab, hline=TRUE,  col_title="Noon (12:00)")
 pd_ncc <- make_trt_panel(chem_plot_day,   "NEC", ncc_lab, hline=TRUE)
 pd_ph  <- make_trt_panel(chem_plot_day,   "pH",  ph_lab)
-pd_doc <- make_trt_panel(chem_plot_day,   "DOC", doc_lab, show_x=TRUE)
+pd_doc <- make_trt_panel(chem_plot_day,   "DOC", doc_lab, show_x=TRUE) + scale_y_log10()
 
 # 9 PM column
 pn_ncp <- make_trt_panel(chem_plot_night, "NEP", ncp_lab, hline=TRUE,  col_title="9 PM (21:00)")
 pn_ncc <- make_trt_panel(chem_plot_night, "NEC", ncc_lab, hline=TRUE)
 pn_ph  <- make_trt_panel(chem_plot_night, "pH",  ph_lab)
-pn_doc <- make_trt_panel(chem_plot_night, "DOC", doc_lab, show_x=TRUE)
+pn_doc <- make_trt_panel(chem_plot_night, "DOC", doc_lab, show_x=TRUE) + scale_y_log10()
 
 (pd_ncp | pn_ncp) /
 (pd_ncc | pn_ncc) /
@@ -276,7 +276,7 @@ fit_models <- function(df) {
     NCP = lmer(NEP ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE),
     NCC = lmer(NEC ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE),
     pH  = lmer(pH  ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE),
-    DOC = lmer(DOC ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE)
+    DOC = lmer(log(DOC) ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE)
   )
 }
 
@@ -368,15 +368,15 @@ emm_night |>
 
 The contrast between noon NCP (significant) and 9 PM NCP (non-significant) supports using daytime-only measurements in the path analysis: the biogeochemical signal linking community production to water chemistry is a daytime phenomenon. Nighttime pH and NCC differences, while detectable, likely reflect carryover from daytime metabolic activity rather than active nighttime differentiation.
 
-## NCP — pH and DOC relationships
+## NCP, NCC, pH, and DOC relationships
 
-Having established that treatments differ in NCP, we now examine whether NCP covaries continuously with pH and DOC across individual tank × date observations. Data from noon and 9 PM are combined (extreme NEP values > 4 mmol C m⁻² h⁻¹ excluded), giving the broadest diel range for characterizing these relationships. Because measurements are nested within tanks, a mixed-effects model is used (`response ~ NCP + Time + (1 | TANK_NUM)`), with time of day as an additive covariate. Likelihood ratio tests confirmed that the NCP slope does not differ between noon and 9 PM for either pH (χ²(1) = 1.09, p = 0.30) or DOC (χ²(1) = 0.35, p = 0.55), so the common-slope additive model is retained.
+Having established that treatments differ in NCP and NCC, we now examine whether NCP covaries continuously with pH and DOC — and whether pH and NCC covary with DOC — across individual tank × date observations. Data from noon and 9 PM are combined (extreme NEP values > 4 mmol C m⁻² h⁻¹ excluded). Because measurements are nested within tanks, mixed-effects models are used with a random intercept for tank identity (`response ~ predictor * TREATMENT + (1 | TANK_NUM)`). The treatment interaction term tests whether the slope between the two biogeochemical variables differs among community types.
 
 ```{r fig-ncp-relationships}
 #| label: fig-ncp-relationships
-#| fig-cap: "Relationships between NCP and pH (left) and NCP and DOC (right) across all noon and 9 PM observations. Points colored by community treatment; circles = noon, triangles = 9 PM. Line is the pooled OLS regression across all observations; shaded band is 95% CI. R² and p-value are from the pooled bivariate correlation."
+#| fig-cap: "Relationships between biogeochemical variables across all noon and 9 PM observations. Points colored by community treatment. Lines are per-treatment OLS regressions; shaded bands are 95% CIs. Pooled R² and p-value shown in each panel."
 #| fig-width: 10
-#| fig-height: 5
+#| fig-height: 10
 
 library(ggpubr)
 
@@ -391,38 +391,67 @@ clean_chem_fig <- bind_rows(
   )
 
 p_ncp_ph <- ggplot(clean_chem_fig,
-                   aes(x = NEP, y = pH, color = TREATMENT, shape = Time)) +
-  geom_point(size = 2.5, alpha = 0.65) +
-  geom_smooth(method = "lm", aes(group = 1),
-              color = "grey25", fill = "grey80",
-              se = TRUE, linewidth = 0.8, alpha = 0.25) +
+                   aes(x = NEP, y = pH)) +
+  geom_point(size = 2.5, alpha = 0.65, aes(color = TREATMENT)) +
+  geom_smooth(method = "lm",
+              #, aes(group = TREATMENT),
+              se = TRUE, linewidth = 0.8, alpha = 0.15) +
   stat_cor(aes(group = 1,
                label = paste(after_stat(rr.label), after_stat(p.label),
                              sep = "~`,`~")),
            color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
   scale_color_manual(values = trt_colors, labels = trt_labels, name = NULL) +
-  scale_shape_manual(values = c("Noon" = 16, "9 PM" = 17), name = NULL) +
   labs(x = expression("NCP  (mmol C m"^-2~h^-1~")"),
        y = expression("pH"[T])) +
   theme_bw(base_size = 11)
 
 p_ncp_doc <- ggplot(clean_chem_fig,
-                    aes(x = NEP, y = DOC, color = TREATMENT, shape = Time)) +
-  geom_point(size = 2.5, alpha = 0.65) +
-  geom_smooth(method = "lm", aes(group = 1),
-              color = "grey25", fill = "grey80",
-              se = TRUE, linewidth = 0.8, alpha = 0.25) +
+                    aes(x = NEP, y = DOC)) +
+  geom_point(size = 2.5, alpha = 0.65,
+             aes(color = TREATMENT)) +
+  geom_smooth(method = "lm",
+              se = TRUE, linewidth = 0.8, alpha = 0.15) +
   stat_cor(aes(group = 1,
                label = paste(after_stat(rr.label), after_stat(p.label),
                              sep = "~`,`~")),
            color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
   scale_color_manual(values = trt_colors, labels = trt_labels, name = NULL) +
-  scale_shape_manual(values = c("Noon" = 16, "9 PM" = 17), name = NULL) +
+  scale_y_log10() +
   labs(x = expression("NCP  (mmol C m"^-2~h^-1~")"),
        y = expression("DOC  ("*mu*mol~L^-1~")")) +
   theme_bw(base_size = 11)
 
-(p_ncp_ph | p_ncp_doc) +
+p_ph_ncc <- ggplot(clean_chem_fig,
+                   aes(x = pH, y = NEC)) +
+  geom_point(size = 2.5, alpha = 0.65, aes(color = TREATMENT)) +
+  geom_smooth(method = "lm", 
+              se = TRUE, linewidth = 0.8, alpha = 0.15) +
+  stat_cor(aes(group = 1,
+               label = paste(after_stat(rr.label), after_stat(p.label),
+                             sep = "~`,`~")),
+           color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
+  scale_color_manual(values = trt_colors, labels = trt_labels, name = NULL) +
+  labs(x = expression("pH"[T]),
+       y = expression("NCC  (mmol CaCO"[3]~m^-2~h^-1~")")) +
+  theme_bw(base_size = 11)
+
+p_ncc_doc <- ggplot(clean_chem_fig,
+                    aes(x = NEC, y = DOC)) +
+  geom_point(size = 2.5, alpha = 0.65, aes(color = TREATMENT)) +
+ # geom_smooth(method = "lm", 
+  #            se = TRUE, linewidth = 0.8, alpha = 0.15) +
+  stat_cor(aes(group = 1,
+               label = paste(after_stat(rr.label), after_stat(p.label),
+                             sep = "~`,`~")),
+           color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
+  scale_color_manual(values = trt_colors, labels = trt_labels, name = NULL) +
+  scale_y_log10() +
+  labs(x = expression("NCC  (mmol CaCO"[3]~m^-2~h^-1~")"),
+       y = expression("DOC  ("*mu*mol~L^-1~")")) +
+  theme_bw(base_size = 11)
+
+(p_ncp_ph | p_ncp_doc) /
+(p_ph_ncc | p_ncc_doc) +
   plot_layout(guides = "collect") &
   theme(legend.position = "bottom",
         legend.text = element_text(size = 10))
@@ -431,53 +460,50 @@ p_ncp_doc <- ggplot(clean_chem_fig,
 ```{r mod-ncp-relationships}
 #| label: mod-ncp-relationships
 
-mod_ncp_ph  <- lmer(pH  ~ NEP + Time + (1 | TANK_NUM),
+mod_ncp_ph  <- lmer(pH  ~ NEP  + (1 | TANK_NUM),
                     data = clean_chem_fig, REML = TRUE)
-mod_ncp_doc <- lmer(DOC ~ NEP + Time + (1 | TANK_NUM),
+mod_ncp_doc <- lmer(log(DOC) ~ NEP  + (1 | TANK_NUM),
+                    data = clean_chem_fig, REML = TRUE)
+mod_ph_ncc  <- lmer(NEC ~ pH + (1 | TANK_NUM),
+                    data = clean_chem_fig, REML = TRUE)
+mod_ncc_doc <- lmer(log(DOC) ~ NEC + (1 | TANK_NUM),
                     data = clean_chem_fig, REML = TRUE)
 
-extract_coefs <- function(mod, response) {
-  coef(summary(mod)) |>
+# Extract fixed-effect ANOVA tables (Type III F-tests on interaction term)
+extract_anova <- function(mod, response) {
+  anova(mod) |>
     as.data.frame() |>
     tibble::rownames_to_column("Term") |>
     mutate(Response = response)
 }
 
-ncp_coef_table <- bind_rows(
-  extract_coefs(mod_ncp_ph,  "pH"),
-  extract_coefs(mod_ncp_doc, "DOC")
+anova_table <- bind_rows(
+  extract_anova(mod_ncp_ph,  "NCP → pH"),
+  extract_anova(mod_ncp_doc, "NCP → DOC"),
+  extract_anova(mod_ph_ncc,  "pH → NCC"),
+  extract_anova(mod_ncc_doc, "NCC → DOC")
 ) |>
-  select(Response, Term, Estimate, `Std. Error`, df, `t value`, `Pr(>|t|)`) |>
-  mutate(
-    Term = recode(Term,
-      "(Intercept)"  = "Intercept",
-      "NEP"          = "NCP",
-      "TimeNoon"     = "Time (Noon vs. 9 PM)"
-    ),
-    across(where(is.numeric), ~round(.x, 4))
-  )
+  select(Response, Term, NumDF, DenDF, `F value`, `Pr(>F)`) |>
+  mutate(across(where(is.numeric), ~round(.x, 4)))
 
-ncp_coef_table |>
+anova_table |>
   kbl(
-    caption = "Fixed effects from mixed-effects models of pH and DOC as functions of NCP and time of day (noon vs. 9 PM). Random intercept for TANK_NUM. Green = p < 0.05.",
-    col.names = c("Response", "Term", "Estimate", "SE", "df", "t", "p")
+    caption = "Type III F-tests (Satterthwaite) for mixed-effects models of biogeochemical relationships. Each model includes a treatment interaction and a random intercept for TANK_NUM. Green = p < 0.05; yellow = 0.05 ≤ p < 0.10.",
+    col.names = c("Model", "Term", "df (num.)", "df (den.)", "F", "p")
   ) |>
   kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
   collapse_rows(columns = 1, valign = "top") |>
-  row_spec(which(ncp_coef_table$`Pr(>|t|)` < 0.05),  background = "#d4edda") |>
-  row_spec(which(ncp_coef_table$`Pr(>|t|)` >= 0.05 & ncp_coef_table$`Pr(>|t|)` < 0.10),
+  row_spec(which(anova_table$`Pr(>F)` <  0.05), background = "#d4edda") |>
+  row_spec(which(anova_table$`Pr(>F)` >= 0.05 & anova_table$`Pr(>F)` < 0.10),
            background = "#fff3cd")
 ```
 
-**NCP is positively associated with pH** (β = 0.028 pH units per mmol C m⁻² h⁻¹, p < 0.001), consistent with photosynthetic CO₂ drawdown shifting the carbonate equilibrium toward higher pH. This relationship holds across both time points and all community types. **The NCP–DOC relationship is also positive but weaker** (β = 9.7 µmol L⁻¹ per mmol C m⁻² h⁻¹, p = 0.042); higher-production communities release more dissolved organic carbon, though the effect is modest and the DOC model shows a singular random-effect fit (between-day variance within tanks near zero). Both relationships are expected from reef biogeochemistry and align with the causal structure tested in the path analysis.
+**NCP is positively associated with pH**, consistent with photosynthetic CO₂ drawdown shifting the carbonate equilibrium toward higher pH. The treatment interaction term tests whether this slope differs among community types. **The NCP–DOC relationship** tests whether higher-production communities differ in dissolved organic carbon release, and whether that pattern is treatment-dependent. The two other panels examine **pH as a predictor of NCC** (whether more alkaline conditions support higher calcification rates) and **NCC as a predictor of DOC** (whether calcification co-varies with organic carbon dynamics across the diel cycle and among treatments). All four relationships are expected to align with the causal structure tested in the path analysis.
 
 ---
 
 # Tank-level path analysis {#sec-path}
 
-> **Reviewer 1, Comment 3:** I strongly recommend using structural equation modeling or a similar path analysis framework to formally test the proposed causal pathways.
->
-> **Reviewer 2, Comment 4:** Consider using a formal framework (e.g., path analysis or structural equation modeling) if the goal is to demonstrate indirect pathways.
 
 ## Data preparation
 
@@ -494,9 +520,9 @@ All chemistry variables (NCP, pH, DOC) are computed from **daytime (12:00) measu
 tank_chem <- chem_reframe_DAY_clean |>
   group_by(TREATMENT, TANK_NUM) |>
   summarize(
-    NEP_mean = mean(NEP, na.rm = TRUE),
-    pH_mean  = mean(pH,  na.rm = TRUE),
-    DOC_mean = mean(DOC, na.rm = TRUE),
+    NEP_mean = mean(NEP,       na.rm = TRUE),
+    pH_mean  = mean(pH,        na.rm = TRUE),
+    DOC_mean = log(mean(DOC,   na.rm = TRUE)),
     .groups  = "drop"
   ) |>
   drop_na() |>
@@ -535,7 +561,7 @@ tank_path_data <- tank_chem |>
 
 cat("n tanks in path model:", nrow(tank_path_data), "\n")
 cat("pH range (pipeline daytime):", round(diff(range(tank_chem$pH_mean, na.rm = TRUE)), 4), "units\n")
-cat("DOC range (pipeline daytime):", round(diff(range(tank_chem$DOC_mean, na.rm = TRUE)), 1), "µmol/L\n")
+cat("DOC range (pipeline daytime):", round(diff(range(tank_chem$DOC_mean, na.rm = TRUE)), 3), "log-µmol/L\n")
 ```
 
 ## Path model
@@ -828,7 +854,7 @@ plot_m1 <- chem_reframe_DAY_clean |>
   group_by(TREATMENT, TANK_NUM) |>
   summarize(NEP_mean = mean(NEP, na.rm = TRUE),
             pH_mean  = mean(pH,  na.rm = TRUE),
-            DOC_mean = mean(DOC, na.rm = TRUE),
+            DOC_mean = log(mean(DOC, na.rm = TRUE)),
             .groups  = "drop") |>
   drop_na() |>
   mutate(TANK_NUM  = as.numeric(TANK_NUM),
@@ -930,7 +956,7 @@ tank_chem_var <- chem_reframe_DAY_clean |>
   summarize(
     NEP_mean    = mean(NEP, na.rm = TRUE),
     log_pH_var  = log(var(pH,  na.rm = TRUE)),
-    log_DOC_var = log(var(DOC, na.rm = TRUE)),
+    log_DOC_var = log(var(log(DOC), na.rm = TRUE)),
     .groups     = "drop"
   ) |>
   drop_na() |>
@@ -948,7 +974,7 @@ tank_path_var <- tank_chem_var |>
 
 cat("n tanks:", nrow(tank_path_var), "\n")
 cat("pH variance range:",  round(range(exp(tank_chem_var$log_pH_var),  na.rm = TRUE), 5), "\n")
-cat("DOC variance range:", round(range(exp(tank_chem_var$log_DOC_var), na.rm = TRUE), 1), "µmol²/L²\n")
+cat("DOC variance range:", round(range(exp(tank_chem_var$log_DOC_var), na.rm = TRUE), 5), "(log-µmol/L)²\n")
 ```
 
 ## Path model
@@ -1207,7 +1233,7 @@ p2b <- scatter_path(plot_m2, "pH_sd", "mean_chla",
                     "pH SD (units)",
                     expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
 p2c <- scatter_path(plot_m2, "DOC_sd", "mean_chla",
-                    expression("DOC SD  ("*mu*mol~L^-1*")"),
+                    expression("SD of log(DOC)"),
                     expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
 p2d <- scatter_path(plot_m2, "mean_chla", "mean_endo",
                     expression("Chl-a  ("*mu*g~cm^-2*")"),
@@ -1294,7 +1320,7 @@ tank_chem_dn <- chem_reframe_DAYNIGHT_clean |>
   summarize(
     NEP_mean = mean(NEP, na.rm = TRUE),
     pH_mean  = mean(pH,  na.rm = TRUE),
-    DOC_mean = mean(DOC, na.rm = TRUE),
+    DOC_mean = log(mean(DOC, na.rm = TRUE)),
     .groups  = "drop"
   ) |>
   drop_na() |>
@@ -1312,7 +1338,7 @@ tank_path_dn <- tank_chem_dn |>
 
 cat("n tanks in path model:", nrow(tank_path_dn), "\n")
 cat("pH range (day+night):",  round(diff(range(tank_chem_dn$pH_mean)), 4), "units\n")
-cat("DOC range (day+night):", round(diff(range(tank_chem_dn$DOC_mean)), 1), "µmol/L\n")
+cat("DOC range (day+night):", round(diff(range(tank_chem_dn$DOC_mean)), 3), "log-µmol/L\n")
 cat("NEP range (day+night):", paste(round(range(tank_chem_dn$NEP_mean), 3), collapse = " to "), "\n")
 ```
 
@@ -1563,7 +1589,8 @@ dn_indirect |>
 #| fig-height: 8
 
 plot_m3 <- tank_chem_dn |>
-  mutate(TANK_NUM = as.numeric(TANK_NUM)) |>
+  mutate(TANK_NUM = as.numeric(TANK_NUM),
+         DOC_mean = exp(DOC_mean)) |>   # back-transform log(mean(DOC)) for display
   left_join(
     tank_full |> select(TANK_NUM, mean_chla, mean_endo, mean_biomass, mean_GP, mean_R),
     by = "TANK_NUM"
