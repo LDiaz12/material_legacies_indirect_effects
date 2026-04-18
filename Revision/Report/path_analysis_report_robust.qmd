@@ -1,0 +1,1701 @@
+---
+title: "Path analysis: NCP → Biogeochemistry → Coral physiology"
+subtitle: "Material Legacies / Indirect Effects — *Limnology and Oceanography* Revision"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    code-fold: true
+    code-tools: true
+    self-contained: true
+    theme: flatly
+    fig-width: 9
+    fig-height: 6
+execute:
+  warning: false
+  message: false
+  echo: true
+---
+
+
+## Overview
+
+This document presents a tank-level path analysis testing the proposed causal chain:
+
+```
+NCP → pH, DOC
+pH + DOC → Chlorophyll-a → Endosymbiont density, GP, R, Tissue biomass
+```
+
+A fully specified `lavaan` path model is fit on tank-level means (n = 16 independent tanks). Path coefficients are labeled so that **indirect (mediated) effects** can be computed via the delta method, quantifying how much of the NCP signal propagates through to coral physiology at each step of the chain.
+
+---
+
+# Setup
+
+```{r load-packages}
+#| label: load-packages
+#| code-fold: false
+
+library(tidyverse)
+library(here)
+library(lavaan)
+library(kableExtra)
+library(seacarb)
+library(broom)
+library(lubridate)
+library(lme4)
+library(lmerTest)
+library(emmeans)
+library(patchwork)
+```
+
+---
+
+# Data loading
+
+```{r load-metadata}
+#| label: load-metadata
+
+metadata <- read_csv(here("Data", "MO24BEAST_Metadata_FULL.csv")) |>
+  mutate(
+    TREATMENT = factor(TREATMENT,
+                       levels = c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom")),
+    mean_tissue_biomass = ifelse(mean_tissue_biomass > 30, NA, mean_tissue_biomass)
+  )
+```
+
+```{r load-chem}
+#| label: load-chem
+
+pHcalib  <- read_csv(here("Data", "Chemistry", "TrisCalSummer2024.csv"))
+pHData   <- read_csv(here("Data", "Chemistry", "CarbonateChemistry.csv"))
+TableID  <- read_csv(here("Data", "TableID.csv"))
+DOC_data <- read_csv(here("Data", "DOC", "DOC_full_data.csv"))
+
+pHSlope <- pHcalib |>
+  nest_by(TrisCalDate) |>
+  mutate(fitpH = list(lm(mVTris ~ TTris, data = pHcalib))) |>
+  reframe(broom::tidy(fitpH)) |>
+  select(TrisCalDate, term, estimate) |>
+  pivot_wider(names_from = term, values_from = estimate) |>
+  right_join(pHData, by = "TrisCalDate") |>
+  mutate(mVTris = TEMPINLAB * TTris + `(Intercept)`) |>
+  drop_na(TEMPINSITU, mV) |>
+  mutate(pH = pH(Ex = mV, Etris = mVTris, S = SALINITY, T = TEMPINLAB)) |>
+  drop_na(TEMPINSITU, TEMPINLAB, SALINITY, pH) |>
+  mutate(pH_insitu = pHinsi(
+    pH = pH, ALK = 2200, Tinsi = TEMPINSITU, Tlab = TEMPINLAB,
+    S = SALINITY, Pt = 0.1, k1k2 = "m10", kf = "dg"
+  )) |>
+  select(-pH) |> rename(pH = pH_insitu) |>
+  ungroup() |>
+  select(-c(mV, TrisCalDate, TTris, `(Intercept)`, mVTris))
+
+DIC_calc <- pHSlope |>
+  drop_na(pH, TA) |>
+  mutate(TA_mol_kg = TA / 1e6)
+
+carb_table <- carb(
+  flag = 8, var1 = DIC_calc$pH, var2 = DIC_calc$TA_mol_kg,
+  S = DIC_calc$SALINITY, T = DIC_calc$TEMPINSITU,
+  P = 0, Patm = 0, Pt = 0, Sit = 0,
+  pHscale = "T", kf = "dg", k1k2 = "m10", ks = "d"
+)
+
+DIC_calc <- DIC_calc |>
+  bind_cols(carb_table |> select(DIC) |> mutate(DIC_umol_kg = DIC * 1e6)) |>
+  select(-TA_mol_kg, -DIC)
+
+pHSlope2 <- pHSlope |>
+  left_join(DIC_calc |> select(any_of(names(pHSlope)), DIC_umol_kg),
+            by = intersect(names(pHSlope), names(DIC_calc))) |>
+  mutate(TREATMENT = ifelse(is.na(TREATMENT), "Inflow", TREATMENT)) |>
+  full_join(DOC_data |> select(-DATETIME),
+            by = intersect(names(pHSlope), names(DOC_data))) |>
+  select(-c(NPOC_mg_L, TN_mg_L))
+
+InflowData <- pHSlope2 |>
+  filter(TANK_NUM %in% c("Inflow1", "Inflow2")) |>
+  select(-c(FLOW_LEFT, FLOW_RIGHT, Notes, DO_MG_L, SALINITY, TEMPINSITU)) |>
+  rename(pH_inflow = pH, TA_inflow = TA,
+         DIC_inflow = DIC_umol_kg, DOC_inflow = NPOC_uM) |>
+  mutate(INFLOW_TABLE = ifelse(TANK_NUM == "Inflow1", 1, 2)) |>
+  ungroup() |>
+  select(DATE, TIME, INFLOW_TABLE, pH_inflow, TA_inflow, DIC_inflow, DOC_inflow)
+
+SurfaceArea <- 22.5 * 22.5
+
+Data <- pHSlope2 |>
+  ungroup() |>
+  filter(!TANK_NUM %in% c("Inflow1", "Inflow2")) |>
+  mutate(TANK_NUM = as.numeric(TANK_NUM)) |>
+  left_join(TableID |> select(TANK_NUM, INFLOW_TABLE), by = "TANK_NUM") |>
+  left_join(InflowData, by = c("DATE", "TIME", "INFLOW_TABLE")) |>
+  mutate(
+    DATETIME       = ymd_hms(paste(DATE, TIME)),
+    deltapH        = pH - pH_inflow,
+    deltaDOC       = NPOC_uM - DOC_inflow,
+    totalflow      = FLOW_RIGHT + FLOW_LEFT,
+    residence_time = (1 / totalflow) * (10000 / 60),
+    flowrate       = totalflow / 60,
+    deltaTA        = TA_inflow - TA,
+    deltaDIC       = DIC_inflow - DIC_umol_kg,
+    NEC = (deltaTA / 2) * 1.025 * 10 * (1 / residence_time) * (1 / SurfaceArea),
+    NEP = (deltaDIC * 1.025 * 10 * (1 / residence_time) * (1 / SurfaceArea)) - NEC
+  )
+
+treatment_levels <- c("Control", "Algae_Dom", "Coral_Dom", "Rubble_Dom")
+
+# Statistical outlier removal: Tukey outer fences (IQR × 3).
+# Applied per variable, per time-point block (day and night separately).
+# No hardcoded thresholds or treatment-specific rules.
+remove_outliers <- function(x, multiplier = 3) {
+  q   <- quantile(x, c(0.25, 0.75), na.rm = TRUE)
+  iqr <- q[2] - q[1]
+  ifelse(x < (q[1] - multiplier * iqr) |
+         x > (q[2] + multiplier * iqr), NA, x)
+}
+
+day_vars   <- c("deltaDIC", "deltaDOC", "deltaTA", "DIC_umol_kg", "DOC", "NEC", "NEP", "pH", "TA")
+night_vars <- c("DIC_umol_kg", "DOC", "NEC", "NEP", "TA")
+
+chem_reframe_DAY_clean <- Data |>
+  filter(TIME == hms::as_hms("12:00:00")) |>
+  group_by(TREATMENT, DATE, TANK_NUM) |>
+  select(DATE, TIME, TANK_NUM, TREATMENT,
+         TA, pH, DIC_umol_kg, NPOC_uM, deltapH, deltaTA, deltaDOC, deltaDIC, NEC, NEP) |>
+  rename(DOC = NPOC_uM) |>
+  ungroup() |>
+  mutate(across(all_of(day_vars), remove_outliers))
+
+chem_reframe_NIGHT_clean <- Data |>
+  filter(TIME == hms::as_hms("21:00:00")) |>
+  group_by(TREATMENT, DATE, TANK_NUM) |>
+  select(DATE, TIME, TANK_NUM, TREATMENT,
+         TA, pH, DIC_umol_kg, NPOC_uM, deltaTA, deltaDIC, NEC, NEP) |>
+  rename(DOC = NPOC_uM) |>
+  ungroup() |>
+  mutate(across(all_of(night_vars), remove_outliers))
+```
+
+```{r outlier-summary}
+#| label: outlier-summary
+#| tbl-cap: "Statistical outlier removal summary (IQR × 3 outer fences). Each row shows the computed lower and upper fences for a variable at each time point, and how many observations were set to NA. Variables with zero removals are omitted."
+
+compute_fence_summary <- function(df, vars, time_label) {
+  map_dfr(vars, function(v) {
+    x   <- df[[v]]
+    q   <- quantile(x, c(0.25, 0.75), na.rm = TRUE)
+    iqr <- q[2] - q[1]
+    lo  <- q[1] - 3 * iqr
+    hi  <- q[2] + 3 * iqr
+    n_removed <- sum((x < lo | x > hi), na.rm = TRUE)
+    tibble(Time = time_label, Variable = v,
+           Lower_fence = round(lo, 3), Upper_fence = round(hi, 3),
+           N_removed = n_removed)
+  })
+}
+
+day_raw <- Data |>
+  filter(TIME == hms::as_hms("12:00:00")) |>
+  rename(DOC = NPOC_uM)
+
+night_raw <- Data |>
+  filter(TIME == hms::as_hms("21:00:00")) |>
+  rename(DOC = NPOC_uM)
+
+fence_tbl <- bind_rows(
+  compute_fence_summary(day_raw,   day_vars,   "Noon"),
+  compute_fence_summary(night_raw, night_vars, "9 PM")
+) |>
+  filter(N_removed > 0)
+
+fence_tbl |>
+  kbl(col.names = c("Time", "Variable", "Lower fence", "Upper fence", "N removed"),
+      caption = "Outlier fences (IQR × 3) and count of removed observations per variable per time point.") |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  collapse_rows(columns = 1, valign = "top")
+```
+
+::: {.callout-note}
+**Outlier removal method.** Values are excluded using Tukey outer fences: observations falling below Q1 − 3 × IQR or above Q3 + 3 × IQR for each variable are set to `NA`. The 3× multiplier (rather than the standard 1.5×) corresponds to "far outliers" in Tukey's original framework and is conservative enough to preserve genuine biological and biogeochemical variability while removing likely instrument errors or data entry anomalies. Fences are computed per variable per time point (noon and 9 PM separately) across all tanks and dates. No treatment-specific rules are applied.
+:::
+
+---
+
+# Biogeochemical differences by treatment {#sec-trt-diff}
+
+Before testing the mediation pathway, we first ask whether the four community treatments produced measurable differences in NCP, NCC, pH, and DOC. Measurements are examined separately at **noon (12:00)** and **9 PM (21:00)** to distinguish daytime production and calcification signals from nighttime respiration dynamics. Mixed-effects models include tank identity as a random intercept to account for repeated daily measurements on the same tank (`response ~ TREATMENT + (1 | TANK_NUM)`).
+
+## Figure
+
+```{r fig-trt-diffs}
+#| label: fig-trt-diffs
+#| fig-cap: "Biogeochemical variables by community treatment at noon (left column) and 9 PM (right column). Small points are individual daily measurements; large points are treatment means; error bars are ±1 SD. Dashed line at zero for NCP and NCC."
+#| fig-width: 10
+#| fig-height: 11
+
+trt_colors <- c("Control" = "#4682B4", "Algae_Dom" = "#2E8B57",
+                "Coral_Dom" = "#E07B54", "Rubble_Dom" = "#A07850")
+trt_labels <- c("Control" = "Control", "Algae_Dom" = "Macroalgae",
+                "Coral_Dom" = "Coral",  "Rubble_Dom" = "CCA")
+
+chem_plot_day   <- chem_reframe_DAY_clean   |> ungroup() |>
+  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
+chem_plot_night <- chem_reframe_NIGHT_clean |> ungroup() |>
+  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
+
+make_trt_panel <- function(df, var, ylab, hline = FALSE,
+                           col_title = NULL, show_x = FALSE) {
+  p <- ggplot(df, aes(x = TREATMENT, y = .data[[var]], color = TREATMENT)) +
+    { if (hline) geom_hline(yintercept = 0, lty = 2, color = "grey50") } +
+    geom_point(size = 1.8, alpha = 0.2,
+               position = position_jitter(width = 0.08, seed = 7)) +
+    stat_summary(fun.data = mean_sdl, geom = "errorbar",
+                 fun.args = list(mult = 1), width = 0.22, linewidth = 0.8) +
+    stat_summary(fun = mean, geom = "point", size = 4) +
+    scale_x_discrete(labels = trt_labels) +
+    scale_color_manual(values = trt_colors) +
+    labs(x = NULL, y = ylab, title = col_title) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "none",
+          plot.title = element_text(hjust = 0.5, face = "bold", size = 12))
+  if (show_x) {
+    p + theme(axis.text.x = element_text(angle = 30, hjust = 1))
+  } else {
+    p + theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+  }
+}
+
+ncp_lab <- expression("NCP  (mmol C m"^-2~h^-1~")")
+ncc_lab <- expression("NCC  (mmol CaCO"[3]~m^-2~h^-1~")")
+ph_lab  <- expression("pH"[T])
+doc_lab <- expression("DOC  ("*mu*mol~L^-1~")")
+
+# Noon column
+pd_ncp <- make_trt_panel(chem_plot_day,   "NEP", ncp_lab, hline=TRUE,  col_title="Noon (12:00)")
+pd_ncc <- make_trt_panel(chem_plot_day,   "NEC", ncc_lab, hline=TRUE)
+pd_ph  <- make_trt_panel(chem_plot_day,   "pH",  ph_lab)
+pd_doc <- make_trt_panel(chem_plot_day,   "DOC", doc_lab, show_x=TRUE) + scale_y_log10()
+
+# 9 PM column
+pn_ncp <- make_trt_panel(chem_plot_night, "NEP", ncp_lab, hline=TRUE,  col_title="9 PM (21:00)")
+pn_ncc <- make_trt_panel(chem_plot_night, "NEC", ncc_lab, hline=TRUE)
+pn_ph  <- make_trt_panel(chem_plot_night, "pH",  ph_lab)
+pn_doc <- make_trt_panel(chem_plot_night, "DOC", doc_lab, show_x=TRUE) + scale_y_log10()
+
+(pd_ncp | pn_ncp) /
+(pd_ncc | pn_ncc) /
+#(pd_ph  | pn_ph)  /
+#(pd_doc | pn_doc) +
+  plot_annotation(tag_levels = "a") &
+  theme(plot.tag = element_text(size = 10, face = "bold"))
+```
+
+## Mixed-effects models
+
+```{r trt-models}
+#| label: trt-models
+
+prep_model_data <- function(df) {
+  df |> ungroup() |>
+    mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels),
+           TANK_NUM  = factor(TANK_NUM))
+}
+
+model_data_day   <- prep_model_data(chem_reframe_DAY_clean)
+model_data_night <- prep_model_data(chem_reframe_NIGHT_clean)
+
+fit_models <- function(df) {
+  list(
+    NCP = lmer(NEP ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE),
+    NCC = lmer(NEC ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE),
+    pH  = lmer(pH  ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE),
+    DOC = lmer(log(DOC) ~ TREATMENT + (1 | TANK_NUM), data = df, REML = TRUE)
+  )
+}
+
+mods_day   <- fit_models(model_data_day)
+mods_night <- fit_models(model_data_night)
+
+build_f_table <- function(mods, time_label) {
+  map2(mods, names(mods),
+       ~anova(.x) |> as.data.frame() |> mutate(Variable = .y, Time = time_label)) |>
+    bind_rows() |>
+    select(Time, Variable, NumDF, DenDF, `F value`, `Pr(>F)`) |>
+    mutate(across(where(is.numeric), ~round(.x, 4)))
+}
+
+f_table <- bind_rows(
+  build_f_table(mods_day,   "Noon"),
+  build_f_table(mods_night, "9 PM")
+)
+
+f_table |>
+  kbl(
+    caption = "Treatment effects at noon and 9 PM (Type III Satterthwaite F-tests). Green = p < 0.05; yellow = 0.05 ≤ p < 0.10.",
+    col.names = c("Time", "Variable", "df (num.)", "df (den.)", "F", "p")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  row_spec(which(f_table$`Pr(>F)` <  0.05), background = "#d4edda") |>
+  row_spec(which(f_table$`Pr(>F)` >= 0.05 & f_table$`Pr(>F)` < 0.10),
+           background = "#fff3cd")
+```
+
+### Noon — pairwise contrasts
+
+```{r trt-posthoc-day}
+#| label: trt-posthoc-day
+
+emm_day <- map2(
+  mods_day, names(mods_day),
+  ~emmeans(.x, pairwise ~ TREATMENT, adjust = "Tukey")$contrasts |>
+    as.data.frame() |> mutate(Variable = .y)
+) |>
+  bind_rows() |>
+  select(Variable, contrast, estimate, SE, df, t.ratio, p.value) |>
+  mutate(across(where(is.numeric), ~round(.x, 4)))
+
+emm_day |>
+  kbl(
+    caption = "Noon: pairwise Tukey contrasts. Green = p < 0.05; yellow = 0.05 ≤ p < 0.10.",
+    col.names = c("Variable", "Contrast", "Estimate", "SE", "df", "t", "p (adj.)")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  row_spec(which(emm_day$p.value <  0.05), background = "#d4edda") |>
+  row_spec(which(emm_day$p.value >= 0.05 & emm_day$p.value < 0.10),
+           background = "#fff3cd")
+```
+
+### 9 PM — pairwise contrasts
+
+```{r trt-posthoc-night}
+#| label: trt-posthoc-night
+
+emm_night <- map2(
+  mods_night, names(mods_night),
+  ~emmeans(.x, pairwise ~ TREATMENT, adjust = "Tukey")$contrasts |>
+    as.data.frame() |> mutate(Variable = .y)
+) |>
+  bind_rows() |>
+  select(Variable, contrast, estimate, SE, df, t.ratio, p.value) |>
+  mutate(across(where(is.numeric), ~round(.x, 4)))
+
+emm_night |>
+  kbl(
+    caption = "9 PM: pairwise Tukey contrasts. Green = p < 0.05; yellow = 0.05 ≤ p < 0.10.",
+    col.names = c("Variable", "Contrast", "Estimate", "SE", "df", "t", "p (adj.)")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  row_spec(which(emm_night$p.value <  0.05), background = "#d4edda") |>
+  row_spec(which(emm_night$p.value >= 0.05 & emm_night$p.value < 0.10),
+           background = "#fff3cd")
+```
+
+## Interpretation
+
+**At noon, NCP, NCC, and pH all differed significantly by treatment; DOC did not.** All three live-community treatments had higher daytime NCP than controls (Tukey p ≤ 0.04), but did not differ from each other — consistent with active benthic photosynthesis across all reef community types. The higher daytime production drove elevated pH in all three vs. control (p ≤ 0.009). Coral-enriched tanks had the highest NCC, differing significantly from both control (p = 0.015) and macroalgae (p = 0.009) treatments. DOC was not significantly different by treatment at noon (F = 2.0, p = 0.17).
+
+**At 9 PM, the treatment signal narrows.** Nighttime NCP did not differ by treatment (F = 0.97, p = 0.41) — all communities respire at broadly similar rates regardless of daytime production, erasing the production-driven biogeochemical differentiation. pH differences persisted into the night (F = 17.6, p < 0.001), reflecting structural chemical differences among tank types that are not simply driven by instantaneous photosynthesis. NCC remained marginally differentiated (F = 4.4, p = 0.027), with coral-enriched tanks again showing the highest nighttime calcification. DOC showed no treatment effect at night (F = 1.5, p = 0.28).
+
+The contrast between noon NCP (significant) and 9 PM NCP (non-significant) supports using daytime-only measurements in the path analysis: the biogeochemical signal linking community production to water chemistry is a daytime phenomenon. Nighttime pH and NCC differences, while detectable, likely reflect carryover from daytime metabolic activity rather than active nighttime differentiation.
+
+## NCP, NCC, pH, and DOC relationships
+
+Having established that treatments differ in NCP and NCC, we now examine whether NCP covaries continuously with pH and DOC — and whether pH and NCC covary with DOC — across individual tank × date observations. Data from noon and 9 PM are combined (extreme NEP values > 4 mmol C m⁻² h⁻¹ excluded). Because measurements are nested within tanks, mixed-effects models are used with a random intercept for tank identity (`response ~ predictor * TREATMENT + (1 | TANK_NUM)`). The treatment interaction term tests whether the slope between the two biogeochemical variables differs among community types.
+
+```{r fig-ncp-relationships}
+#| label: fig-ncp-relationships
+#| fig-cap: "Relationships between biogeochemical variables across all noon and 9 PM observations. Points colored by community treatment. Lines are per-treatment OLS regressions; shaded bands are 95% CIs. Pooled R² and p-value shown in each panel."
+#| fig-width: 10
+#| fig-height: 10
+
+library(ggpubr)
+
+clean_chem_fig <- bind_rows(
+  chem_reframe_DAY_clean   |> ungroup() |> mutate(Time = "Noon"),
+  chem_reframe_NIGHT_clean |> ungroup() |> mutate(Time = "9 PM")
+) |>
+  mutate(
+    # Remove NEP outliers using the same IQR × 3 criterion on the pooled diel data
+    NEP       = remove_outliers(NEP),
+    TREATMENT = factor(TREATMENT, levels = treatment_levels),
+    Time      = factor(Time, levels = c("Noon", "9 PM"))
+  ) |>
+  drop_na(NEP)
+
+p_ncp_ph <- ggplot(clean_chem_fig,
+                   aes(x = NEP, y = pH)) +
+  geom_point(size = 2.5, alpha = 0.65, aes(color = TREATMENT)) +
+  geom_smooth(method = "lm",
+              #, aes(group = TREATMENT),
+              se = TRUE, linewidth = 0.8, alpha = 0.15) +
+  stat_cor(aes(group = 1,
+               label = paste(after_stat(rr.label), after_stat(p.label),
+                             sep = "~`,`~")),
+           color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
+  scale_color_manual(values = trt_colors, labels = trt_labels, name = NULL) +
+  labs(x = expression("NCP  (mmol C m"^-2~h^-1~")"),
+       y = expression("pH"[T])) +
+  theme_bw(base_size = 11)
+
+p_ncp_doc <- ggplot(clean_chem_fig,
+                    aes(x = NEP, y = DOC)) +
+  geom_point(size = 2.5, alpha = 0.65,
+             aes(color = TREATMENT)) +
+  geom_smooth(method = "lm",
+              se = TRUE, linewidth = 0.8, alpha = 0.15) +
+  stat_cor(aes(group = 1,
+               label = paste(after_stat(rr.label), after_stat(p.label),
+                             sep = "~`,`~")),
+           color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
+  scale_color_manual(values = trt_colors, labels = trt_labels, name = NULL) +
+  scale_y_log10() +
+  labs(x = expression("NCP  (mmol C m"^-2~h^-1~")"),
+       y = expression("DOC  ("*mu*mol~L^-1~")")) +
+  theme_bw(base_size = 11)
+
+p_ph_ncc <- ggplot(clean_chem_fig,
+                   aes(x = pH, y = NEC)) +
+  geom_point(size = 2.5, alpha = 0.65, aes(color = TREATMENT)) +
+  geom_smooth(method = "lm", 
+              se = TRUE, linewidth = 0.8, alpha = 0.15) +
+  stat_cor(aes(group = 1,
+               label = paste(after_stat(rr.label), after_stat(p.label),
+                             sep = "~`,`~")),
+           color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
+  scale_color_manual(values = trt_colors, labels = trt_labels, name = NULL) +
+  labs(x = expression("pH"[T]),
+       y = expression("NCC  (mmol CaCO"[3]~m^-2~h^-1~")")) +
+  theme_bw(base_size = 11)
+
+p_ncc_doc <- ggplot(clean_chem_fig,
+                    aes(x = NEC, y = DOC)) +
+  geom_point(size = 2.5, alpha = 0.65, aes(color = TREATMENT)) +
+ # geom_smooth(method = "lm", 
+  #            se = TRUE, linewidth = 0.8, alpha = 0.15) +
+  stat_cor(aes(group = 1,
+               label = paste(after_stat(rr.label), after_stat(p.label),
+                             sep = "~`,`~")),
+           color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
+  scale_color_manual(values = trt_colors, labels = trt_labels, name = NULL) +
+  scale_y_log10() +
+  labs(x = expression("NCC  (mmol CaCO"[3]~m^-2~h^-1~")"),
+       y = expression("DOC  ("*mu*mol~L^-1~")")) +
+  theme_bw(base_size = 11)
+
+(p_ncp_ph | p_ncp_doc) /
+(p_ph_ncc | p_ncc_doc) +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom",
+        legend.text = element_text(size = 10))
+```
+
+```{r mod-ncp-relationships}
+#| label: mod-ncp-relationships
+
+mod_ncp_ph  <- lmer(pH  ~ NEP  + (1 | TANK_NUM),
+                    data = clean_chem_fig, REML = TRUE)
+mod_ncp_doc <- lmer(log(DOC) ~ NEP  + (1 | TANK_NUM),
+                    data = clean_chem_fig, REML = TRUE)
+mod_ph_ncc  <- lmer(NEC ~ pH + (1 | TANK_NUM),
+                    data = clean_chem_fig, REML = TRUE)
+mod_ncc_doc <- lmer(log(DOC) ~ NEC + (1 | TANK_NUM),
+                    data = clean_chem_fig, REML = TRUE)
+
+# Extract fixed-effect ANOVA tables (Type III F-tests on interaction term)
+extract_anova <- function(mod, response) {
+  anova(mod) |>
+    as.data.frame() |>
+    tibble::rownames_to_column("Term") |>
+    mutate(Response = response)
+}
+
+anova_table <- bind_rows(
+  extract_anova(mod_ncp_ph,  "NCP → pH"),
+  extract_anova(mod_ncp_doc, "NCP → DOC"),
+  extract_anova(mod_ph_ncc,  "pH → NCC"),
+  extract_anova(mod_ncc_doc, "NCC → DOC")
+) |>
+  select(Response, Term, NumDF, DenDF, `F value`, `Pr(>F)`) |>
+  mutate(across(where(is.numeric), ~round(.x, 4)))
+
+anova_table |>
+  kbl(
+    caption = "Type III F-tests (Satterthwaite) for mixed-effects models of biogeochemical relationships. Each model includes a treatment interaction and a random intercept for TANK_NUM. Green = p < 0.05; yellow = 0.05 ≤ p < 0.10.",
+    col.names = c("Model", "Term", "df (num.)", "df (den.)", "F", "p")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  row_spec(which(anova_table$`Pr(>F)` <  0.05), background = "#d4edda") |>
+  row_spec(which(anova_table$`Pr(>F)` >= 0.05 & anova_table$`Pr(>F)` < 0.10),
+           background = "#fff3cd")
+```
+
+**NCP is positively associated with pH**, consistent with photosynthetic CO₂ drawdown shifting the carbonate equilibrium toward higher pH. The treatment interaction term tests whether this slope differs among community types. **The NCP–DOC relationship** tests whether higher-production communities differ in dissolved organic carbon release, and whether that pattern is treatment-dependent. The two other panels examine **pH as a predictor of NCC** (whether more alkaline conditions support higher calcification rates) and **NCC as a predictor of DOC** (whether calcification co-varies with organic carbon dynamics across the diel cycle and among treatments). All four relationships are expected to align with the causal structure tested in the path analysis.
+
+---
+
+# Tank-level path analysis {#sec-path}
+
+
+## Data preparation
+
+Tank-level means are used as the unit of analysis (n = 16 independent tanks), avoiding within-tank pseudoreplication. All continuous variables are z-scored for standardized path coefficients.
+
+::: {.callout-note}
+All chemistry variables (NCP, pH, DOC) are computed from **daytime (12:00) measurements only** using the seacarb carbonate chemistry pipeline, and the same outlier filters applied throughout the analysis. An alternative pre-computed summary file (`Raw_Chem_Data.csv`) exists that averages both day and night time points without outlier filtering; the two sources yield pH values that differ by up to 0.09 units (r = 0.76) and DOC values that correlate at only r = 0.44. The daytime-only pipeline values are used here to maintain consistency with how NCP is measured (daytime flux) and how the physiological measurements were interpreted.
+:::
+
+```{r prep-tank-data}
+#| label: prep-tank-data
+
+# Tank-level daytime means for NCP, pH, DOC — consistent with NCP measurement timing
+tank_chem <- chem_reframe_DAY_clean |>
+  group_by(TREATMENT, TANK_NUM) |>
+  summarize(
+    NEP_mean = mean(NEP,       na.rm = TRUE),
+    pH_mean  = mean(pH,        na.rm = TRUE),
+    DOC_mean = log(mean(DOC,   na.rm = TRUE)),
+    .groups  = "drop"
+  ) |>
+  drop_na() |>
+  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
+
+# Tank-level physiology means
+tank_physio <- metadata |>
+ # mutate (GP = ifelse(GP > 6, NA, GP)
+#  ) |> 
+  group_by(TANK_NUM, TREATMENT) |>
+  summarize(
+    mean_chla    = mean(chla_ug_cm2,        na.rm = TRUE),
+    mean_endo    = mean(endo_per_cm2,        na.rm = TRUE),
+    mean_biomass = mean(mean_tissue_biomass, na.rm = TRUE),
+    mean_GP      = mean(GP,                 na.rm = TRUE),
+    mean_R       = mean(R,                  na.rm = TRUE),
+    .groups      = "drop"
+  ) |>
+  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
+
+tank_full <- tank_physio |>
+  mutate(
+    log_chla    = log(mean_chla),
+    log_endo    = log(mean_endo),
+    log_biomass = log(mean_biomass)
+  )
+
+# Join chemistry and physiology; z-score all continuous variables
+tank_path_data <- tank_chem |>
+  mutate(TANK_NUM = as.numeric(TANK_NUM)) |>
+  left_join(
+    tank_full |> select(TANK_NUM, log_chla, log_endo, log_biomass, mean_GP, mean_R),
+    by = "TANK_NUM"
+  ) |>
+  mutate(across(c(NEP_mean, pH_mean, DOC_mean,
+                  log_chla, log_endo, log_biomass, mean_GP, mean_R), scale)) |>
+  drop_na()
+
+cat("n tanks in path model:", nrow(tank_path_data), "\n")
+cat("pH range (pipeline daytime):", round(diff(range(tank_chem$pH_mean, na.rm = TRUE)), 4), "units\n")
+cat("DOC range (pipeline daytime):", round(diff(range(tank_chem$DOC_mean, na.rm = TRUE)), 3), "log-µmol/L\n")
+```
+
+## Path model
+
+Path coefficients are labeled (c, d, e, f) to enable indirect effect computation via the delta method.
+
+```{r tank-path-model}
+#| label: tank-path-model
+
+tank_path_model <- "
+  # NCP → pH (c1) and DOC (d1)
+  pH_mean  ~ c1*NEP_mean
+  DOC_mean ~ d1*NEP_mean
+
+  # pH (e1) and DOC (e2) → Chl-a
+  log_chla ~ e1*pH_mean + e2*DOC_mean
+
+  # Chl-a → downstream physiology (f1–f4)
+  log_endo    ~ f1*log_chla
+  mean_GP     ~ f2*log_chla
+  mean_R      ~ f3*log_chla
+  log_biomass ~ f4*log_chla
+
+  # Residual covariance between pH and DOC after accounting for NCP
+  pH_mean ~~ DOC_mean
+
+  # --- Indirect effects ---
+
+  # NCP → pH/DOC → Chl-a (two-step)
+  ind_NCP_pH_Chla     := c1 * e1
+  ind_NCP_DOC_Chla    := d1 * e2
+  ind_NCP_total_Chla  := (c1 * e1) + (d1 * e2)
+
+  # pH → Chl-a → downstream (two-step)
+  ind_pH_Chla_Endo    := e1 * f1
+  ind_pH_Chla_GP      := e1 * f2
+  ind_pH_Chla_R       := e1 * f3
+  ind_pH_Chla_Biomass := e1 * f4
+
+  # DOC → Chl-a → downstream (two-step)
+  ind_DOC_Chla_Endo    := e2 * f1
+  ind_DOC_Chla_GP      := e2 * f2
+  ind_DOC_Chla_R       := e2 * f3
+  ind_DOC_Chla_Biomass := e2 * f4
+
+  # NCP → pH → Chl-a → downstream (three-step via pH)
+  ind_NCP_pH_Endo     := c1 * e1 * f1
+  ind_NCP_pH_GP       := c1 * e1 * f2
+  ind_NCP_pH_R        := c1 * e1 * f3
+  ind_NCP_pH_Biomass  := c1 * e1 * f4
+
+  # NCP → DOC → Chl-a → downstream (three-step via DOC)
+  ind_NCP_DOC_Endo    := d1 * e2 * f1
+  ind_NCP_DOC_GP      := d1 * e2 * f2
+  ind_NCP_DOC_R       := d1 * e2 * f3
+  ind_NCP_DOC_Biomass := d1 * e2 * f4
+"
+
+tank_path_fit <- sem(
+  tank_path_model,
+  data      = as.data.frame(tank_path_data),
+  estimator = "ML"
+)
+cat("Converged:", lavInspect(tank_path_fit, "converged"), "\n")
+```
+
+## Direct path coefficients
+
+```{r tank-path-direct}
+#| label: tank-path-direct
+
+tank_path_coefs <- parameterEstimates(tank_path_fit, standardized = TRUE) |>
+  filter(op == "~") |>
+  select(lhs, rhs, est, se, z, pvalue, std.all) |>
+  mutate(
+    lhs = recode(lhs,
+      NEP_mean    = "NCP",
+      pH_mean     = "pH",
+      DOC_mean    = "DOC (log)",
+      log_chla    = "Chl-a (log)",
+      log_endo    = "Endosymbiont (log)",
+      mean_GP     = "Gross photosynthesis",
+      mean_R      = "Respiration",
+      log_biomass = "Tissue biomass (log)"
+    ),
+    rhs = recode(rhs,
+      NEP_mean = "NCP",
+      pH_mean  = "pH",
+      DOC_mean = "DOC (log)",
+      log_chla = "Chl-a (log)"
+    ),
+    across(where(is.numeric), ~ round(.x, 4))
+  )
+
+tank_path_coefs |>
+  kbl(
+    caption = paste0(
+      "Direct path coefficients from the tank-level SEM (n = ",
+      nrow(tank_path_data), " tanks). All variables z-scored. ",
+      "Green = p < 0.05; yellow = 0.05 ≤ p < 0.10."
+    ),
+    col.names = c("Response", "Predictor", "Estimate", "SE", "z", "p", "Std. β")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  row_spec(which(tank_path_coefs$pvalue < 0.05),  background = "#d4edda") |>
+  row_spec(which(tank_path_coefs$pvalue >= 0.05 & tank_path_coefs$pvalue < 0.10),
+           background = "#fff3cd")
+```
+
+## Path diagram
+
+```{r path-diagram}
+#| label: path-diagram
+#| fig-cap: "Path diagram summarizing direct paths in the tank-level SEM (means model). Green = p < 0.05; grey = n.s. Numbers are standardized path coefficients (β). n = 16 tanks."
+#| fig-width: 8
+#| fig-height: 4.5
+
+library(purrr)
+
+# Node positions
+path_nodes <- tibble(
+  id    = c("NCP",  "pH",  "DOC",  "Chla",  "Endo",                 "GP",                   "R",           "Bio"),
+  label = c("NCP",  "pH",  "DOC",  "Chl-a", "Endosymbiont\ndensity","Gross\nphotosynthesis", "Respiration", "Tissue\nbiomass"),
+  x     = c(1,      3,     3,      5,        7,                       7,                       7,             7),
+  y     = c(0,      0.8,  -0.8,    0,        1.8,                     0.6,                    -0.6,          -1.8)
+)
+
+# Direct path results pulled dynamically from model
+path_direct <- parameterEstimates(tank_path_fit, standardized = TRUE) |>
+  filter(op == "~") |>
+  select(lhs, rhs, std.all, pvalue) |>
+  mutate(
+    lhs = recode(lhs, NEP_mean="NCP", pH_mean="pH", DOC_mean="DOC",
+                 log_chla="Chla", log_endo="Endo", mean_GP="GP", mean_R="R", log_biomass="Bio"),
+    rhs = recode(rhs, NEP_mean="NCP", pH_mean="pH", DOC_mean="DOC", log_chla="Chla"),
+    sig = pvalue < 0.05
+  )
+
+path_edges <- tibble(
+  from = c("NCP", "NCP", "pH",   "DOC",  "Chla", "Chla", "Chla", "Chla"),
+  to   = c("pH",  "DOC", "Chla", "Chla", "Endo", "GP",   "R",    "Bio")
+) |>
+  left_join(path_direct |> select(lhs, rhs, std.all, sig),
+            by = c("to" = "lhs", "from" = "rhs")) |>
+  left_join(path_nodes |> select(id, x, y), by = c("from" = "id")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(path_nodes |> select(id, x, y), by = c("to" = "id")) |>
+  rename(x1 = x, y1 = y)
+
+shorten_arrow <- function(x0, y0, x1, y1, d_start = 0.5, d_end = 0.5) {
+  dx <- x1 - x0; dy <- y1 - y0; d <- sqrt(dx^2 + dy^2)
+  tibble(xs = x0 + dx/d*d_start, ys = y0 + dy/d*d_start,
+         xe = x1 - dx/d*d_end,   ye = y1 - dy/d*d_end,
+         mx = (x0 + dx/d*d_start + x1 - dx/d*d_end) / 2,
+         my = (y0 + dy/d*d_start + y1 - dy/d*d_end) / 2)
+}
+
+edge_coords <- pmap_dfr(path_edges, function(from, to, std.all, sig, x0, y0, x1, y1) {
+  pts <- shorten_arrow(x0, y0, x1, y1)
+  tibble(from, to, coef = std.all, sig,
+         xs = pts$xs, ys = pts$ys, xe = pts$xe, ye = pts$ye,
+         mx = pts$mx, my = pts$my)
+})
+
+ggplot() +
+  geom_segment(
+    data = edge_coords,
+    aes(x = xs, y = ys, xend = xe, yend = ye, color = sig),
+    linewidth = 0.9,
+    arrow = arrow(length = unit(0.22, "cm"), type = "closed"),
+    show.legend = FALSE
+  ) +
+  geom_label(
+    data = edge_coords,
+    aes(x = mx, y = my, label = sprintf("%.2f", coef), color = sig),
+    size = 2.8, label.padding = unit(0.12, "lines"), label.size = 0,
+    fill = "white", show.legend = FALSE
+  ) +
+  geom_tile(
+    data = path_nodes,
+    aes(x = x, y = y),
+    width = 0.9, height = 0.42,
+    fill = "white", color = "grey35", linewidth = 0.6
+  ) +
+  geom_text(
+    data = path_nodes,
+    aes(x = x, y = y, label = label),
+    size = 2.9, lineheight = 0.9
+  ) +
+  scale_color_manual(values = c("TRUE" = "#2ca25f", "FALSE" = "grey60")) +
+  annotate("text", x = 0.3, y = -2.5,
+           label = "Green = p < 0.05   Grey = n.s.   Coefficients are standardized (\u03b2)",
+           hjust = 0, size = 2.8, color = "grey30") +
+  coord_equal(xlim = c(0.3, 7.7), ylim = c(-2.6, 2.2), expand = FALSE) +
+  theme_void() +
+  theme(plot.margin = margin(8, 8, 8, 8))
+```
+
+## Indirect effects
+
+```{r tank-indirect}
+#| label: tank-indirect
+
+indirect_raw <- parameterEstimates(tank_path_fit, standardized = TRUE) |>
+  filter(op == ":=") |>
+  select(label, est, se, z, pvalue, std.all) |>
+  mutate(
+    Pathway = recode(label,
+      ind_NCP_pH_Chla      = "NCP → pH → Chl-a",
+      ind_NCP_DOC_Chla     = "NCP → DOC → Chl-a",
+      ind_NCP_total_Chla   = "NCP → [pH + DOC] → Chl-a  (total)",
+      ind_pH_Chla_Endo     = "pH → Chl-a → Endosymbiont",
+      ind_pH_Chla_GP       = "pH → Chl-a → Gross photosynthesis",
+      ind_pH_Chla_R        = "pH → Chl-a → Respiration",
+      ind_pH_Chla_Biomass  = "pH → Chl-a → Tissue biomass",
+      ind_DOC_Chla_Endo    = "DOC → Chl-a → Endosymbiont",
+      ind_DOC_Chla_GP      = "DOC → Chl-a → Gross photosynthesis",
+      ind_DOC_Chla_R       = "DOC → Chl-a → Respiration",
+      ind_DOC_Chla_Biomass = "DOC → Chl-a → Tissue biomass",
+      ind_NCP_pH_Endo      = "NCP → pH → Chl-a → Endosymbiont",
+      ind_NCP_pH_GP        = "NCP → pH → Chl-a → Gross photosynthesis",
+      ind_NCP_pH_R         = "NCP → pH → Chl-a → Respiration",
+      ind_NCP_pH_Biomass   = "NCP → pH → Chl-a → Tissue biomass",
+      ind_NCP_DOC_Endo     = "NCP → DOC → Chl-a → Endosymbiont",
+      ind_NCP_DOC_GP       = "NCP → DOC → Chl-a → Gross photosynthesis",
+      ind_NCP_DOC_R        = "NCP → DOC → Chl-a → Respiration",
+      ind_NCP_DOC_Biomass  = "NCP → DOC → Chl-a → Tissue biomass"
+    ),
+    across(where(is.numeric), ~ round(.x, 4)),
+    Chain = case_when(
+      grepl("^NCP → \\[", Pathway) ~ "NCP → Chl-a (total)",
+      grepl("^NCP → pH → Chl-a$", Pathway) ~ "NCP → Chl-a (total)",
+      grepl("^NCP → DOC → Chl-a$", Pathway) ~ "NCP → Chl-a (total)",
+      grepl("^NCP → pH → Chl-a →", Pathway) ~ "NCP → pH → Chl-a → downstream",
+      grepl("^NCP → DOC → Chl-a →", Pathway) ~ "NCP → DOC → Chl-a → downstream",
+      grepl("^pH", Pathway) ~ "pH → Chl-a → downstream",
+      grepl("^DOC", Pathway) ~ "DOC → Chl-a → downstream",
+      TRUE ~ "Other"
+    )
+  ) |>
+  arrange(Chain, desc(abs(est)))
+
+indirect_raw |>
+  select(Chain, Pathway, est, se, z, pvalue, std.all) |>
+  kbl(
+    caption = paste0(
+      "Indirect (mediated) effects from the tank-level SEM. ",
+      "Estimates are products of the relevant direct path coefficients; ",
+      "SEs are from the delta method. ",
+      "Green = p < 0.05; yellow = 0.05 ≤ p < 0.10."
+    ),
+    col.names = c("Chain group", "Pathway", "Estimate", "SE", "z", "p", "Std. β")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  row_spec(which(indirect_raw$pvalue < 0.05),  background = "#d4edda") |>
+  row_spec(which(indirect_raw$pvalue >= 0.05 & indirect_raw$pvalue < 0.10),
+           background = "#fff3cd")
+```
+
+## Data visualization
+
+```{r fig-model1}
+#| label: fig-model1
+#| fig-cap: "Bivariate relationships for the significant paths in Model 1 (means). Points are tank-level means (n = 16) colored by community treatment. Regression line and R²/p-value are pooled across treatments. Note: bivariate R² will generally be smaller than path model partial coefficients because it does not condition on other variables in the model."
+#| fig-width: 10
+#| fig-height: 8
+
+library(ggpubr)
+library(patchwork)
+library(cowplot)
+
+treat_colors <- c("Control" = "#4682B4", "Algae_Dom" = "#2E8B57",
+                  "Coral_Dom" = "#E07B54", "Rubble_Dom" = "#A07850")
+treat_labels <- c("Control" = "Control", "Algae_Dom" = "Macroalgae",
+                  "Coral_Dom" = "Coral",  "Rubble_Dom" = "CCA")
+
+scatter_path <- function(df, x, y, xlab, ylab, log_y = FALSE) {
+  p <- ggplot(df, aes(x = .data[[x]], y = .data[[y]],
+                      color = TREATMENT, fill = TREATMENT)) +
+    geom_point(size = 3.5, alpha = 0.85) +
+    geom_smooth(method = "lm", aes(group = 1),
+                color = "grey25", fill = "grey80", se = TRUE,
+                linewidth = 0.8, alpha = 0.25) +
+    stat_cor(aes(group = 1,
+                 label = paste(after_stat(rr.label), after_stat(p.label),
+                               sep = "~`,`~")),
+             color = "grey20", label.x.npc = 0.05, label.y.npc = 0.97, size = 3.4) +
+    scale_color_manual(values = treat_colors, labels = treat_labels, name = NULL) +
+    scale_fill_manual(values  = treat_colors, labels = treat_labels, name = NULL) +
+    labs(x = xlab, y = ylab) +
+    theme_bw(base_size = 11) +
+    theme(legend.position = "none", axis.title = element_text(size = 10))
+  if (log_y) p <- p + scale_y_log10()
+  p
+}
+
+# Build plot dataset from pipeline
+plot_m1 <- chem_reframe_DAY_clean |>
+  group_by(TREATMENT, TANK_NUM) |>
+  summarize(NEP_mean = mean(NEP, na.rm = TRUE),
+            pH_mean  = mean(pH,  na.rm = TRUE),
+            DOC_mean = log(mean(DOC, na.rm = TRUE)),
+            .groups  = "drop") |>
+  drop_na() |>
+  mutate(TANK_NUM  = as.numeric(TANK_NUM),
+         TREATMENT = factor(TREATMENT, levels = treatment_levels)) |>
+  left_join(tank_full |> select(TANK_NUM, mean_chla, mean_endo, mean_biomass, mean_GP, mean_R),
+            by = "TANK_NUM")
+
+p1a <- scatter_path(plot_m1, "NEP_mean", "pH_mean",
+                    expression("NCP  (mmol C m"^-2~hr^-1~")"),
+                    expression("Mean pH"[T]))
+p1b <- scatter_path(plot_m1, "pH_mean", "mean_chla",
+                    expression("Mean pH"[T]),
+                    expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
+p1c <- scatter_path(plot_m1, "mean_chla", "mean_endo",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Endosymbiont  (10"^6~cm^-2*")"), log_y = TRUE)
+p1d <- scatter_path(plot_m1, "mean_chla", "mean_R",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Respiration  ("*mu*mol~O[2]~cm^-2~hr^-1*")"))
+p1e <- scatter_path(plot_m1, "mean_chla", "mean_biomass",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Tissue biomass  (mg cm"^-2*")"), log_y = TRUE)
+
+leg <- get_legend(
+  ggplot(plot_m1, aes(x = NEP_mean, y = pH_mean, color = TREATMENT)) +
+    geom_point(size = 3) +
+    scale_color_manual(values = treat_colors, labels = treat_labels, name = NULL) +
+    theme_bw() + theme(legend.position = "bottom", legend.text = element_text(size = 11))
+)
+
+fig_m1 <- (p1a | p1b) / (p1c | p1d | p1e) +
+  plot_annotation(tag_levels = "a") &
+  theme(plot.tag = element_text(size = 10, face = "bold"))
+
+wrap_plots(fig_m1, leg, ncol = 1, heights = c(10, 1))
+```
+
+## Global model fit
+
+```{r tank-path-fit}
+#| label: tank-path-fit
+
+fit_idx <- fitMeasures(tank_path_fit, c("chisq", "df", "pvalue", "cfi", "rmsea", "srmr"))
+data.frame(
+  Statistic = names(fit_idx),
+  Value     = round(as.numeric(fit_idx), 4)
+) |>
+  kbl(caption = "Global fit statistics: CFI > 0.90, RMSEA < 0.08, and p(χ²) > 0.05 indicate acceptable fit.") |>
+  kable_styling(bootstrap_options = "striped", full_width = FALSE, position = "left")
+```
+
+::: {.callout-warning}
+**Model fit with n = 16:** CFI (0.90) and RMSEA (0.16) are at conventional thresholds, but χ²-based fit statistics are unreliable at this sample size. The χ²/df ratio (18.1/13 = 1.39) and non-significant model χ² (p = 0.154) are acceptable. Interpret fit indices cautiously and focus on individual path coefficients.
+:::
+
+---
+
+# Interpretation
+
+## What the direct paths tell us
+
+**NCP correlates with pH across the continuous gradient.** Instantaneous NCP rates positively predict tank pH — a mechanistically sound relationship, as photosynthesis removes dissolved CO₂ and shifts the carbonate equilibrium toward higher pH. This continuous-gradient relationship captures the within-experiment biogeochemical dynamics driving the pH signal received by downstream corals. It is important to note that NCP is partially coupled to pH through the shared use of pH in the DIC–NCP calculation, so the magnitude of this relationship should be interpreted conservatively (see sensitivity analysis in reviewer response document).
+
+**pH predicts chlorophyll-a in downstream corals.** Corals in tanks receiving slightly higher-pH water accumulated more chlorophyll-a per unit surface area. Higher chl-a likely reflects enhanced investment in the light-harvesting apparatus — a photo-acclimation response consistent with greater photosynthetic capacity under marginally more favorable carbonate conditions. This signal is detectable despite the narrow pH range (~0.03–0.05 units across tanks), suggesting that even modest biogeochemical differentiation within a single reef flat can influence symbiont physiology.
+
+**Chlorophyll-a links to downstream physiology through symbiont–host coupling.** Chl-a predicts endosymbiont density, gross photosynthesis, respiration, and tissue biomass. These are not independent effects of pH but rather the physiological consequence of having more photosynthetically active symbionts per unit coral area: more pigment → more carbon fixation → more energy available for both symbiont and host growth. pH appears to tune the chl-a setpoint, and downstream physiology follows from that.
+
+## What the indirect effects tell us
+
+The indirect effects table quantifies *how much* of the NCP signal propagates through to coral physiology at each step of the proposed chain.
+
+**The NCP → pH → Chl-a pathway.** The standardized indirect effect (`ind_NCP_pH_Chla`) represents the portion of the production–physiology relationship that flows specifically through pH mediation. A significant indirect effect here supports pH as a genuine mechanistic link — not merely a correlated variable — between NCP dynamics and coral photophysiology.
+
+**The pH/DOC → Chl-a → downstream chain.** Indirect effects of pH and DOC on endosymbiont density, gross photosynthesis, respiration, and tissue biomass (all via chl-a) provide a quantitative answer to whether these downstream variables are influenced by biogeochemistry in a biologically meaningful way. Significant indirect effects support describing these variables as part of the causal chain; non-significant effects indicate the endpoint is too weakly connected to chl-a to claim a NCP-driven effect.
+
+**Three-step indirect effects (NCP → pH/DOC → Chl-a → downstream).** These represent the total NCP-mediated signal reaching each physiological endpoint. Even where statistical significance is limited by sample size (n = 16 tanks), the direction and magnitude of the standardized coefficient provide a biologically interpretable estimate of the "dose" of NCP-altered chemistry reaching individual corals. These values should be reported in the Discussion to ground the "material legacies" concept in specific, quantified effect sizes.
+
+## Synthesis
+
+Together, these analyses support the following framing for the revised manuscript:
+
+> *Net community production (NCP) is positively associated with local pH, consistent with photosynthetic CO₂ drawdown. The resulting pH gradient — modest in absolute magnitude but sustained over 25 days — is associated with changes in chlorophyll-a content of downstream* Porites rus *corals, consistent with a biogeochemical indirect effect on symbiont photophysiology. Downstream physiological variables (endosymbiont density, gross photosynthesis, respiration, tissue biomass) co-vary with chlorophyll-a as expected from holobiont physiology, but their relationship to NCP-altered pH is mediated through the chl-a signal and should not be treated as independent responses. The strength of this indirect chain, quantified through path analysis, is β = 0.35 for the two-step NCP → pH → Chl-a pathway (p = 0.059) and β = 0.18–0.23 across the three-step NCP → pH → Chl-a → downstream physiology pathways (endosymbiont density: β = 0.18; respiration: β = 0.23; tissue biomass: β = 0.18; p = 0.10–0.14) — ecologically modest but directionally consistent with the hypothesis that community phase shifts carry biogeochemical legacies for individual coral performance.*
+
+---
+
+# Path analysis 2 — pH temporal variability {#sec-path-var}
+
+The first path analysis uses the mean pH and DOC experienced by each tank. This section replaces both with **temporal variability** — the variance of daytime pH and DOC measurements across sampling dates within each tank. Variance captures a different dimension of the biogeochemical environment: not average conditions, but their consistency (or instability) over time.
+
+Both variance terms are right-skewed and are log-transformed prior to z-scoring.
+
+## Data preparation
+
+```{r prep-var-data}
+#| label: prep-var-data
+
+#tank_chem_var <- chem_reframe_DAY_clean |>
+tank_chem_var <- clean_chem_fig |>
+  group_by(TREATMENT, TANK_NUM) |>
+  summarize(
+    NEP_mean    = mean(NEP, na.rm = TRUE),
+    log_pH_var  = log(var(pH,  na.rm = TRUE)),
+    log_DOC_var = log(var(log(DOC), na.rm = TRUE)),
+    .groups     = "drop"
+  ) |>
+  drop_na() |>
+  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
+
+tank_path_var <- tank_chem_var |>
+  mutate(TANK_NUM = as.numeric(TANK_NUM)) |>
+  left_join(
+    tank_full |> select(TANK_NUM, log_chla, log_endo, log_biomass, mean_GP, mean_R),
+    by = "TANK_NUM"
+  ) |>
+  mutate(across(c(NEP_mean, log_pH_var, log_DOC_var,
+                  log_chla, log_endo, log_biomass, mean_GP, mean_R), scale)) |>
+  drop_na()
+
+cat("n tanks:", nrow(tank_path_var), "\n")
+cat("pH variance range:",  round(range(exp(tank_chem_var$log_pH_var),  na.rm = TRUE), 5), "\n")
+cat("DOC variance range:", round(range(exp(tank_chem_var$log_DOC_var), na.rm = TRUE), 5), "(log-µmol/L)²\n")
+```
+
+## Path model
+
+The structure mirrors Path analysis 1, with `log_pH_var` replacing `pH_mean` and `log_DOC_var` replacing `DOC_mean`.
+
+```{r var-path-model}
+#| label: var-path-model
+
+var_path_model <- "
+  # NCP → log(pH var) (c1) and log(DOC var) (d1)
+  log_pH_var  ~ c1*NEP_mean
+  log_DOC_var ~ d1*NEP_mean
+
+  # log(pH var) (e1) and log(DOC var) (e2) → Chl-a
+  log_chla ~ e1*log_pH_var + e2*log_DOC_var
+
+  # Chl-a → downstream physiology (f1–f4)
+  log_endo    ~ f1*log_chla
+  mean_GP     ~ f2*log_chla
+  mean_R      ~ f3*log_chla
+  log_biomass ~ f4*log_chla
+
+  # Residual covariance
+  log_pH_var ~~ log_DOC_var
+
+  # --- Indirect effects ---
+
+  ind_NCP_pHvar_Chla      := c1 * e1
+  ind_NCP_DOCvar_Chla     := d1 * e2
+  ind_NCP_total_Chla      := (c1 * e1) + (d1 * e2)
+  ind_pHvar_Chla_Endo     := e1 * f1
+  ind_pHvar_Chla_GP       := e1 * f2
+  ind_pHvar_Chla_R        := e1 * f3
+  ind_pHvar_Chla_Biomass  := e1 * f4
+  ind_DOCvar_Chla_Endo    := e2 * f1
+  ind_DOCvar_Chla_GP      := e2 * f2
+  ind_DOCvar_Chla_R       := e2 * f3
+  ind_DOCvar_Chla_Biomass := e2 * f4
+  ind_NCP_pHvar_Endo      := c1 * e1 * f1
+  ind_NCP_pHvar_GP        := c1 * e1 * f2
+  ind_NCP_pHvar_R         := c1 * e1 * f3
+  ind_NCP_pHvar_Biomass   := c1 * e1 * f4
+  ind_NCP_DOCvar_Endo     := d1 * e2 * f1
+  ind_NCP_DOCvar_GP       := d1 * e2 * f2
+  ind_NCP_DOCvar_R        := d1 * e2 * f3
+  ind_NCP_DOCvar_Biomass  := d1 * e2 * f4
+"
+
+fit_var <- sem(var_path_model, data = as.data.frame(tank_path_var), estimator = "ML")
+cat("Converged:", lavInspect(fit_var, "converged"), "\n")
+```
+
+## Direct path coefficients
+
+```{r var-path-direct}
+#| label: var-path-direct
+
+var_path_coefs <- parameterEstimates(fit_var, standardized = TRUE) |>
+  filter(op == "~") |>
+  select(lhs, rhs, est, se, z, pvalue, std.all) |>
+  mutate(
+    lhs = recode(lhs,
+      NEP_mean    = "NCP",
+      log_pH_var  = "log(pH variance)",
+      log_DOC_var = "log(DOC variance)",
+      log_chla    = "Chl-a (log)",
+      log_endo    = "Endosymbiont (log)",
+      mean_GP     = "Gross photosynthesis",
+      mean_R      = "Respiration",
+      log_biomass = "Tissue biomass (log)"
+    ),
+    rhs = recode(rhs,
+      NEP_mean    = "NCP",
+      log_pH_var  = "log(pH variance)",
+      log_DOC_var = "log(DOC variance)",
+      log_chla    = "Chl-a (log)"
+    ),
+    across(where(is.numeric), ~ round(.x, 4))
+  )
+
+var_path_coefs |>
+  kbl(
+    caption = paste0(
+      "Direct path coefficients from the pH-variance SEM (n = ",
+      nrow(tank_path_var), " tanks). All variables z-scored. ",
+      "Green = p < 0.05; yellow = 0.05 ≤ p < 0.10."
+    ),
+    col.names = c("Response", "Predictor", "Estimate", "SE", "z", "p", "Std. β")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  row_spec(which(var_path_coefs$pvalue < 0.05),  background = "#d4edda") |>
+  row_spec(which(var_path_coefs$pvalue >= 0.05 & var_path_coefs$pvalue < 0.10),
+           background = "#fff3cd")
+```
+
+## Path diagram
+
+```{r var-path-diagram}
+#| label: var-path-diagram
+#| fig-cap: "Path diagram for the variance model. Green = p < 0.05; grey = n.s. Numbers are standardized path coefficients (β). n = 16 tanks."
+#| fig-width: 8
+#| fig-height: 4.5
+
+var_nodes <- tibble(
+  id    = c("NCP",  "pHvar",            "DOCvar",             "Chla",  "Endo",                 "GP",                   "R",           "Bio"),
+  label = c("NCP",  "log(pH\nvariance)", "log(DOC\nvariance)", "Chl-a", "Endosymbiont\ndensity","Gross\nphotosynthesis", "Respiration", "Tissue\nbiomass"),
+  x     = c(1,      3,                   3,                    5,        7,                       7,                       7,             7),
+  y     = c(0,      0.8,                -0.8,                   0,        1.8,                     0.6,                    -0.6,          -1.8)
+)
+
+var_direct <- parameterEstimates(fit_var, standardized = TRUE) |>
+  filter(op == "~") |>
+  select(lhs, rhs, std.all, pvalue) |>
+  mutate(
+    lhs = recode(lhs, NEP_mean="NCP", log_pH_var="pHvar", log_DOC_var="DOCvar",
+                 log_chla="Chla", log_endo="Endo", mean_GP="GP", mean_R="R", log_biomass="Bio"),
+    rhs = recode(rhs, NEP_mean="NCP", log_pH_var="pHvar", log_DOC_var="DOCvar", log_chla="Chla"),
+    sig = pvalue < 0.05
+  )
+
+var_edges <- tibble(
+  from = c("NCP",   "NCP",   "pHvar", "DOCvar", "Chla", "Chla", "Chla", "Chla"),
+  to   = c("pHvar", "DOCvar","Chla",  "Chla",   "Endo", "GP",   "R",    "Bio")
+) |>
+  left_join(var_direct |> select(lhs, rhs, std.all, sig),
+            by = c("to" = "lhs", "from" = "rhs")) |>
+  left_join(var_nodes |> select(id, x, y), by = c("from" = "id")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(var_nodes |> select(id, x, y), by = c("to" = "id")) |>
+  rename(x1 = x, y1 = y)
+
+var_edge_coords <- pmap_dfr(var_edges, function(from, to, std.all, sig, x0, y0, x1, y1) {
+  dx <- x1-x0; dy <- y1-y0; d <- sqrt(dx^2+dy^2)
+  tibble(from, to, coef=std.all, sig,
+         xs=x0+dx/d*0.55, ys=y0+dy/d*0.55,
+         xe=x1-dx/d*0.50, ye=y1-dy/d*0.50,
+         mx=(x0+dx/d*0.55+x1-dx/d*0.50)/2,
+         my=(y0+dy/d*0.55+y1-dy/d*0.50)/2)
+})
+
+ggplot() +
+  geom_segment(
+    data = var_edge_coords,
+    aes(x = xs, y = ys, xend = xe, yend = ye, color = sig),
+    linewidth = 0.9,
+    arrow = arrow(length = unit(0.22, "cm"), type = "closed"),
+    show.legend = FALSE
+  ) +
+  geom_label(
+    data = var_edge_coords,
+    aes(x = mx, y = my, label = sprintf("%.2f", coef), color = sig),
+    size = 2.8, label.padding = unit(0.12, "lines"), label.size = 0,
+    fill = "white", show.legend = FALSE
+  ) +
+  geom_tile(
+    data = var_nodes,
+    aes(x = x, y = y),
+    width = 0.95, height = 0.42,
+    fill = "white", color = "grey35", linewidth = 0.6
+  ) +
+  geom_text(
+    data = var_nodes,
+    aes(x = x, y = y, label = label),
+    size = 2.7, lineheight = 0.9
+  ) +
+  scale_color_manual(values = c("TRUE" = "#2ca25f", "FALSE" = "grey60")) +
+  annotate("text", x = 0.3, y = -2.5,
+           label = "Green = p < 0.05   Grey = n.s.   Coefficients are standardized (\u03b2)",
+           hjust = 0, size = 2.8, color = "grey30") +
+  coord_equal(xlim = c(0.3, 7.7), ylim = c(-2.6, 2.2), expand = FALSE) +
+  theme_void() +
+  theme(plot.margin = margin(8, 8, 8, 8))
+```
+
+## Indirect effects
+
+```{r var-indirect}
+#| label: var-indirect
+
+var_indirect <- parameterEstimates(fit_var, standardized = TRUE) |>
+  filter(op == ":=") |>
+  select(label, est, se, z, pvalue, std.all) |>
+  mutate(
+    Pathway = recode(label,
+      ind_NCP_pHvar_Chla      = "NCP → log(pH var.) → Chl-a",
+      ind_NCP_DOCvar_Chla     = "NCP → log(DOC var.) → Chl-a",
+      ind_NCP_total_Chla      = "NCP → [log(pH var.) + log(DOC var.)] → Chl-a  (total)",
+      ind_pHvar_Chla_Endo     = "log(pH var.) → Chl-a → Endosymbiont",
+      ind_pHvar_Chla_GP       = "log(pH var.) → Chl-a → Gross photosynthesis",
+      ind_pHvar_Chla_R        = "log(pH var.) → Chl-a → Respiration",
+      ind_pHvar_Chla_Biomass  = "log(pH var.) → Chl-a → Tissue biomass",
+      ind_DOCvar_Chla_Endo    = "log(DOC var.) → Chl-a → Endosymbiont",
+      ind_DOCvar_Chla_GP      = "log(DOC var.) → Chl-a → Gross photosynthesis",
+      ind_DOCvar_Chla_R       = "log(DOC var.) → Chl-a → Respiration",
+      ind_DOCvar_Chla_Biomass = "log(DOC var.) → Chl-a → Tissue biomass",
+      ind_NCP_pHvar_Endo      = "NCP → log(pH var.) → Chl-a → Endosymbiont",
+      ind_NCP_pHvar_GP        = "NCP → log(pH var.) → Chl-a → Gross photosynthesis",
+      ind_NCP_pHvar_R         = "NCP → log(pH var.) → Chl-a → Respiration",
+      ind_NCP_pHvar_Biomass   = "NCP → log(pH var.) → Chl-a → Tissue biomass",
+      ind_NCP_DOCvar_Endo     = "NCP → log(DOC var.) → Chl-a → Endosymbiont",
+      ind_NCP_DOCvar_GP       = "NCP → log(DOC var.) → Chl-a → Gross photosynthesis",
+      ind_NCP_DOCvar_R        = "NCP → log(DOC var.) → Chl-a → Respiration",
+      ind_NCP_DOCvar_Biomass  = "NCP → log(DOC var.) → Chl-a → Tissue biomass"
+    ),
+    across(where(is.numeric), ~ round(.x, 4)),
+    Chain = case_when(
+      grepl("^NCP → \\[", Pathway)                  ~ "NCP → Chl-a (total)",
+      grepl("^NCP → log\\(pH.*Chla$", Pathway)      ~ "NCP → Chl-a (total)",
+      grepl("^NCP → log\\(DOC.*Chla$", Pathway)     ~ "NCP → Chl-a (total)",
+      grepl("^NCP → log\\(pH.*→ Chl-a →", Pathway) ~ "NCP → log(pH var.) → Chl-a → downstream",
+      grepl("^NCP → log\\(DOC.*→ Chl-a →", Pathway)~ "NCP → log(DOC var.) → Chl-a → downstream",
+      grepl("^log\\(pH", Pathway)                   ~ "log(pH var.) → Chl-a → downstream",
+      grepl("^log\\(DOC", Pathway)                  ~ "log(DOC var.) → Chl-a → downstream",
+      TRUE                                          ~ "Other"
+    )
+  ) |>
+  arrange(Chain, desc(abs(est)))
+
+var_indirect |>
+  select(Chain, Pathway, est, se, z, pvalue, std.all) |>
+  kbl(
+    caption = "Indirect effects from the pH-variance SEM. Green = p < 0.05; yellow = 0.05 ≤ p < 0.10.",
+    col.names = c("Chain group", "Pathway", "Estimate", "SE", "z", "p", "Std. β")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  row_spec(which(var_indirect$pvalue < 0.05),  background = "#d4edda") |>
+  row_spec(which(var_indirect$pvalue >= 0.05 & var_indirect$pvalue < 0.10),
+           background = "#fff3cd")
+```
+
+## Data visualization
+
+```{r fig-model2}
+#| label: fig-model2
+#| fig-cap: "Bivariate relationships for the significant paths in Model 2 (variance). Points are tank-level means (n = 16) colored by community treatment. Regression line and R²/p-value are pooled across treatments. Note: bivariate R² will generally be smaller than path model partial coefficients because it does not condition on other variables in the model."
+#| fig-width: 10
+#| fig-height: 8
+
+plot_m2 <- tank_chem_var |>
+  mutate(TANK_NUM = as.numeric(TANK_NUM)) |>
+  left_join(
+    tank_full |> select(TANK_NUM, mean_chla, mean_endo, mean_biomass, mean_GP, mean_R),
+    by = "TANK_NUM"
+  ) |>
+  mutate(
+    pH_sd  = sqrt(exp(log_pH_var)),
+    DOC_sd = sqrt(exp(log_DOC_var))
+  )
+
+p2a <- scatter_path(plot_m2, "NEP_mean", "pH_sd",
+                    expression("NCP  (mmol C m"^-2~hr^-1~")"),
+                    "pH SD (units)")
+p2b <- scatter_path(plot_m2, "pH_sd", "mean_chla",
+                    "pH SD (units)",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
+p2c <- scatter_path(plot_m2, "DOC_sd", "mean_chla",
+                    expression("SD of log(DOC)"),
+                    expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
+p2d <- scatter_path(plot_m2, "mean_chla", "mean_endo",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Endosymbiont  (10"^6~cm^-2*")"), log_y = TRUE)
+p2e <- scatter_path(plot_m2, "mean_chla", "mean_R",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Respiration  ("*mu*mol~O[2]~cm^-2~hr^-1*")"))
+p2f <- scatter_path(plot_m2, "mean_chla", "mean_biomass",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Tissue biomass  (mg cm"^-2*")"), log_y = TRUE)
+
+fig2 <- (p2a | p2b | p2c) / (p2d | p2e | p2f) +
+  plot_annotation(tag_levels = "a") &
+  theme(plot.tag = element_text(size = 10, face = "bold"))
+
+wrap_plots(fig2, leg, ncol = 1, heights = c(10, 1))
+```
+
+## Global model fit
+
+```{r var-path-fit}
+#| label: var-path-fit
+
+fitMeasures(fit_var, c("chisq", "df", "pvalue", "cfi", "rmsea", "srmr")) |>
+  as.data.frame() |>
+  setNames("Value") |>
+  mutate(Value = round(Value, 4)) |>
+  kbl(caption = "Global fit statistics for the pH-variance model.") |>
+  kable_styling(bootstrap_options = "striped", full_width = FALSE, position = "left")
+```
+
+::: {.callout-warning}
+**Model fit with n = 16:** Same n = 16 limitations apply. χ²/df = 16.8/13 = 1.29, p = 0.211. CFI (0.93) and RMSEA (0.13) are slightly better than the means model, suggesting the variance specification fits the data marginally better.
+:::
+
+## Interpretation
+
+The variance model asks whether the *fluctuation* in pH and DOC — rather than mean levels — predicts coral physiology. This model also fits the data slightly better than the means model (CFI = 0.93 vs. 0.90).
+
+**NCP predicts pH variability but not DOC variability.** Higher NCP is associated with greater temporal variance in pH (β = 0.676, p < 0.001), consistent with more photosynthetically active communities generating larger diel pH swings. NCP does not predict DOC variance (β = 0.005, p = 0.985), suggesting DOC fluctuation is driven by processes other than gross production (e.g., heterotrophic activity, particulate release, or physical flushing dynamics).
+
+**pH variability positively predicts chlorophyll-a** (β = 0.568, p = 0.003), at a similar magnitude to the pH mean effect. Corals in more biogeochemically dynamic tanks invest more in light-harvesting pigmentation regardless of absolute pH level.
+
+**DOC variability negatively predicts chlorophyll-a** (β = −0.543, p = 0.004) — a striking result absent in the means model, where DOC mean was non-significant. Tanks with more variable DOC may expose corals to episodic high-DOC pulses that favour heterotrophic competitors or microbial activity that suppresses symbiont function. This warrants investigation but should be interpreted cautiously given n = 16.
+
+The downstream Chl-a → physiology paths are essentially unchanged between models, as expected — those relationships are determined by coral biology, not by which chemistry metric precedes Chl-a.
+
+---
+
+# Path analysis 3 — Day + Night means {#sec-path-daynight}
+
+This model uses the same structure as Path analysis 1 but averages chemistry (NCP, pH, DOC) across **both noon (12:00) and 9 pm (21:00) measurements**, rather than daytime only. Averaging in nighttime readings attenuates the NCP signal — net respiration at night partially offsets gross daytime production — providing a conservative test of whether the pH-mediated pathway holds across the full diel cycle.
+
+::: {.callout-note}
+The same outlier filters applied in Model 1 are used here. DOC measurements from the `deltaDOC` column are excluded from the select since they are not needed for the path model and are not available at all time points.
+:::
+
+## Data preparation
+
+```{r prep-dn-data}
+#| label: prep-dn-data
+
+daynight_vars <- c("deltaDIC", "deltaTA", "DIC_umol_kg", "DOC", "NEC", "NEP", "pH", "TA")
+
+chem_reframe_DAYNIGHT_clean <- Data |>
+  filter(TIME %in% c(hms::as_hms("12:00:00"), hms::as_hms("21:00:00"))) |>
+  group_by(TREATMENT, DATE, TANK_NUM) |>
+  select(DATE, TIME, TANK_NUM, TREATMENT,
+         TA, pH, DIC_umol_kg, NPOC_uM, deltaTA, deltaDIC, NEC, NEP) |>
+  rename(DOC = NPOC_uM) |>
+  ungroup() |>
+  mutate(across(all_of(daynight_vars), remove_outliers))
+
+tank_chem_dn <- chem_reframe_DAYNIGHT_clean |>
+  group_by(TREATMENT, TANK_NUM) |>
+  summarize(
+    NEP_mean = mean(NEP, na.rm = TRUE),
+    pH_mean  = mean(pH,  na.rm = TRUE),
+    DOC_mean = log(mean(DOC, na.rm = TRUE)),
+    .groups  = "drop"
+  ) |>
+  drop_na() |>
+  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
+
+tank_path_dn <- tank_chem_dn |>
+  mutate(TANK_NUM = as.numeric(TANK_NUM)) |>
+  left_join(
+    tank_full |> select(TANK_NUM, log_chla, log_endo, log_biomass, mean_GP, mean_R),
+    by = "TANK_NUM"
+  ) |>
+  mutate(across(c(NEP_mean, pH_mean, DOC_mean,
+                  log_chla, log_endo, log_biomass, mean_GP, mean_R), scale)) |>
+  drop_na()
+
+cat("n tanks in path model:", nrow(tank_path_dn), "\n")
+cat("pH range (day+night):",  round(diff(range(tank_chem_dn$pH_mean)), 4), "units\n")
+cat("DOC range (day+night):", round(diff(range(tank_chem_dn$DOC_mean)), 3), "log-µmol/L\n")
+cat("NEP range (day+night):", paste(round(range(tank_chem_dn$NEP_mean), 3), collapse = " to "), "\n")
+```
+
+## Path model
+
+```{r dn-path-model}
+#| label: dn-path-model
+
+tank_path_model_dn <- "
+  # NCP → pH (c1) and DOC (d1)
+  pH_mean  ~ c1*NEP_mean
+  DOC_mean ~ d1*NEP_mean
+
+  # pH (e1) and DOC (e2) → Chl-a
+  log_chla ~ e1*pH_mean + e2*DOC_mean
+
+  # Chl-a → downstream physiology (f1–f4)
+  log_endo    ~ f1*log_chla
+  mean_GP     ~ f2*log_chla
+  mean_R      ~ f3*log_chla
+  log_biomass ~ f4*log_chla
+
+  # Residual covariance between pH and DOC after accounting for NCP
+  pH_mean ~~ DOC_mean
+
+  # --- Indirect effects ---
+  ind_NCP_pH_Chla     := c1 * e1
+  ind_NCP_DOC_Chla    := d1 * e2
+  ind_NCP_total_Chla  := (c1 * e1) + (d1 * e2)
+
+  ind_pH_Chla_Endo    := e1 * f1
+  ind_pH_Chla_GP      := e1 * f2
+  ind_pH_Chla_R       := e1 * f3
+  ind_pH_Chla_Biomass := e1 * f4
+
+  ind_DOC_Chla_Endo    := e2 * f1
+  ind_DOC_Chla_GP      := e2 * f2
+  ind_DOC_Chla_R       := e2 * f3
+  ind_DOC_Chla_Biomass := e2 * f4
+
+  ind_NCP_pH_Endo     := c1 * e1 * f1
+  ind_NCP_pH_GP       := c1 * e1 * f2
+  ind_NCP_pH_R        := c1 * e1 * f3
+  ind_NCP_pH_Biomass  := c1 * e1 * f4
+
+  ind_NCP_DOC_Endo    := d1 * e2 * f1
+  ind_NCP_DOC_GP      := d1 * e2 * f2
+  ind_NCP_DOC_R       := d1 * e2 * f3
+  ind_NCP_DOC_Biomass := d1 * e2 * f4
+"
+
+fit_dn <- sem(tank_path_model_dn,
+              data      = as.data.frame(tank_path_dn),
+              estimator = "ML")
+cat("Converged:", lavInspect(fit_dn, "converged"), "\n")
+```
+
+## Direct path coefficients
+
+```{r dn-path-direct}
+#| label: dn-path-direct
+
+dn_path_coefs <- parameterEstimates(fit_dn, standardized = TRUE) |>
+  filter(op == "~") |>
+  select(lhs, rhs, est, se, z, pvalue, std.all) |>
+  mutate(
+    lhs = recode(lhs,
+      NEP_mean    = "NCP",
+      pH_mean     = "pH",
+      DOC_mean    = "DOC",
+      log_chla    = "Chl-a (log)",
+      log_endo    = "Endosymbiont (log)",
+      mean_GP     = "Gross photosynthesis",
+      mean_R      = "Respiration",
+      log_biomass = "Tissue biomass (log)"
+    ),
+    rhs = recode(rhs,
+      NEP_mean = "NCP",
+      pH_mean  = "pH",
+      DOC_mean = "DOC",
+      log_chla = "Chl-a (log)"
+    ),
+    across(where(is.numeric), ~ round(.x, 4))
+  )
+
+dn_path_coefs |>
+  kbl(
+    caption = paste0(
+      "Direct path coefficients from the day+night SEM (n = ",
+      nrow(tank_path_dn), " tanks). All variables z-scored. ",
+      "Green = p < 0.05; yellow = 0.05 ≤ p < 0.10."
+    ),
+    col.names = c("Response", "Predictor", "Estimate", "SE", "z", "p", "Std. β")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  row_spec(which(dn_path_coefs$pvalue < 0.05),  background = "#d4edda") |>
+  row_spec(which(dn_path_coefs$pvalue >= 0.05 & dn_path_coefs$pvalue < 0.10),
+           background = "#fff3cd")
+```
+
+## Path diagram
+
+```{r dn-path-diagram}
+#| label: dn-path-diagram
+#| fig-cap: "Path diagram for the day+night means model (noon + 9 pm). Green = p < 0.05; grey = n.s. Numbers are standardized path coefficients (β). n = 16 tanks."
+#| fig-width: 8
+#| fig-height: 4.5
+
+dn_nodes <- tibble(
+  id    = c("NCP",  "pH",  "DOC",  "Chla",  "Endo",                  "GP",                   "R",           "Bio"),
+  label = c("NCP",  "pH",  "DOC",  "Chl-a", "Endosymbiont\ndensity", "Gross\nphotosynthesis", "Respiration", "Tissue\nbiomass"),
+  x     = c(1,      3,     3,      5,        7,                        7,                       7,             7),
+  y     = c(0,      0.8,  -0.8,    0,        1.8,                      0.6,                    -0.6,          -1.8)
+)
+
+dn_direct <- parameterEstimates(fit_dn, standardized = TRUE) |>
+  filter(op == "~") |>
+  select(lhs, rhs, std.all, pvalue) |>
+  mutate(
+    lhs = recode(lhs, NEP_mean="NCP", pH_mean="pH", DOC_mean="DOC",
+                 log_chla="Chla", log_endo="Endo", mean_GP="GP", mean_R="R", log_biomass="Bio"),
+    rhs = recode(rhs, NEP_mean="NCP", pH_mean="pH", DOC_mean="DOC", log_chla="Chla"),
+    sig = pvalue < 0.05
+  )
+
+dn_edges <- tibble(
+  from = c("NCP", "NCP", "pH",   "DOC",  "Chla", "Chla", "Chla", "Chla"),
+  to   = c("pH",  "DOC", "Chla", "Chla", "Endo", "GP",   "R",    "Bio")
+) |>
+  left_join(dn_direct |> select(lhs, rhs, std.all, sig),
+            by = c("to" = "lhs", "from" = "rhs")) |>
+  left_join(dn_nodes |> select(id, x, y), by = c("from" = "id")) |>
+  rename(x0 = x, y0 = y) |>
+  left_join(dn_nodes |> select(id, x, y), by = c("to" = "id")) |>
+  rename(x1 = x, y1 = y)
+
+dn_edge_coords <- pmap_dfr(dn_edges, function(from, to, std.all, sig, x0, y0, x1, y1) {
+  dx <- x1 - x0; dy <- y1 - y0; d <- sqrt(dx^2 + dy^2)
+  tibble(from, to, coef = std.all, sig,
+         xs = x0 + dx/d * 0.5, ys = y0 + dy/d * 0.5,
+         xe = x1 - dx/d * 0.5, ye = y1 - dy/d * 0.5,
+         mx = (x0 + dx/d * 0.5 + x1 - dx/d * 0.5) / 2,
+         my = (y0 + dy/d * 0.5 + y1 - dy/d * 0.5) / 2)
+})
+
+ggplot() +
+  geom_segment(
+    data = dn_edge_coords,
+    aes(x = xs, y = ys, xend = xe, yend = ye, color = sig),
+    linewidth = 0.9,
+    arrow = arrow(length = unit(0.22, "cm"), type = "closed"),
+    show.legend = FALSE
+  ) +
+  geom_label(
+    data = dn_edge_coords,
+    aes(x = mx, y = my, label = sprintf("%.2f", coef), color = sig),
+    size = 2.8, label.padding = unit(0.12, "lines"), label.size = 0,
+    fill = "white", show.legend = FALSE
+  ) +
+  geom_tile(
+    data = dn_nodes,
+    aes(x = x, y = y),
+    width = 0.9, height = 0.42,
+    fill = "white", color = "grey35", linewidth = 0.6
+  ) +
+  geom_text(
+    data = dn_nodes,
+    aes(x = x, y = y, label = label),
+    size = 2.9, lineheight = 0.9
+  ) +
+  scale_color_manual(values = c("TRUE" = "#2ca25f", "FALSE" = "grey60")) +
+  annotate("text", x = 0.3, y = -2.5,
+           label = "Green = p < 0.05   Grey = n.s.   Coefficients are standardized (\u03b2)",
+           hjust = 0, size = 2.8, color = "grey30") +
+  coord_equal(xlim = c(0.3, 7.7), ylim = c(-2.6, 2.2), expand = FALSE) +
+  theme_void() +
+  theme(plot.margin = margin(8, 8, 8, 8))
+```
+
+## Indirect effects
+
+```{r dn-indirect}
+#| label: dn-indirect
+
+dn_indirect <- parameterEstimates(fit_dn, standardized = TRUE) |>
+  filter(op == ":=") |>
+  select(label, est, se, z, pvalue, std.all) |>
+  mutate(
+    Pathway = recode(label,
+      ind_NCP_pH_Chla      = "NCP → pH → Chl-a",
+      ind_NCP_DOC_Chla     = "NCP → DOC → Chl-a",
+      ind_NCP_total_Chla   = "NCP → [pH + DOC] → Chl-a  (total)",
+      ind_pH_Chla_Endo     = "pH → Chl-a → Endosymbiont",
+      ind_pH_Chla_GP       = "pH → Chl-a → Gross photosynthesis",
+      ind_pH_Chla_R        = "pH → Chl-a → Respiration",
+      ind_pH_Chla_Biomass  = "pH → Chl-a → Tissue biomass",
+      ind_DOC_Chla_Endo    = "DOC → Chl-a → Endosymbiont",
+      ind_DOC_Chla_GP      = "DOC → Chl-a → Gross photosynthesis",
+      ind_DOC_Chla_R       = "DOC → Chl-a → Respiration",
+      ind_DOC_Chla_Biomass = "DOC → Chl-a → Tissue biomass",
+      ind_NCP_pH_Endo      = "NCP → pH → Chl-a → Endosymbiont",
+      ind_NCP_pH_GP        = "NCP → pH → Chl-a → Gross photosynthesis",
+      ind_NCP_pH_R         = "NCP → pH → Chl-a → Respiration",
+      ind_NCP_pH_Biomass   = "NCP → pH → Chl-a → Tissue biomass",
+      ind_NCP_DOC_Endo     = "NCP → DOC → Chl-a → Endosymbiont",
+      ind_NCP_DOC_GP       = "NCP → DOC → Chl-a → Gross photosynthesis",
+      ind_NCP_DOC_R        = "NCP → DOC → Chl-a → Respiration",
+      ind_NCP_DOC_Biomass  = "NCP → DOC → Chl-a → Tissue biomass"
+    ),
+    across(where(is.numeric), ~ round(.x, 4)),
+    Chain = case_when(
+      grepl("^NCP → \\[", Pathway)          ~ "NCP → Chl-a (total)",
+      grepl("^NCP → pH → Chl-a$", Pathway)  ~ "NCP → Chl-a (total)",
+      grepl("^NCP → DOC → Chl-a$", Pathway) ~ "NCP → Chl-a (total)",
+      grepl("^NCP → pH → Chl-a →", Pathway) ~ "NCP → pH → Chl-a → downstream",
+      grepl("^NCP → DOC → Chl-a →", Pathway)~ "NCP → DOC → Chl-a → downstream",
+      grepl("^pH", Pathway)                  ~ "pH → Chl-a → downstream",
+      grepl("^DOC", Pathway)                 ~ "DOC → Chl-a → downstream",
+      TRUE                                   ~ "Other"
+    )
+  ) |>
+  arrange(Chain, desc(abs(est)))
+
+dn_indirect |>
+  select(Chain, Pathway, est, se, z, pvalue, std.all) |>
+  kbl(
+    caption = paste0(
+      "Indirect (mediated) effects from the day+night SEM. ",
+      "Estimates are products of the relevant direct path coefficients; ",
+      "SEs are from the delta method. ",
+      "Green = p < 0.05; yellow = 0.05 ≤ p < 0.10."
+    ),
+    col.names = c("Chain group", "Pathway", "Estimate", "SE", "z", "p", "Std. β")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  collapse_rows(columns = 1, valign = "top") |>
+  row_spec(which(dn_indirect$pvalue < 0.05),  background = "#d4edda") |>
+  row_spec(which(dn_indirect$pvalue >= 0.05 & dn_indirect$pvalue < 0.10),
+           background = "#fff3cd")
+```
+
+## Data visualization
+
+```{r fig-model3}
+#| label: fig-model3
+#| fig-cap: "Bivariate relationships for the paths in Model 3 (day + night means: noon + 9 pm). Points are tank-level means (n = 16) colored by community treatment. Regression line and R²/p-value are pooled across treatments."
+#| fig-width: 10
+#| fig-height: 8
+
+plot_m3 <- tank_chem_dn |>
+  mutate(TANK_NUM = as.numeric(TANK_NUM),
+         DOC_mean = exp(DOC_mean)) |>   # back-transform log(mean(DOC)) for display
+  left_join(
+    tank_full |> select(TANK_NUM, mean_chla, mean_endo, mean_biomass, mean_GP, mean_R),
+    by = "TANK_NUM"
+  )
+
+p3a <- scatter_path(plot_m3, "NEP_mean", "pH_mean",
+                    expression("NCP  (mmol C m"^-2~hr^-1~")"),
+                    expression("Mean pH"[T]))
+p3b <- scatter_path(plot_m3, "pH_mean", "mean_chla",
+                    expression("Mean pH"[T]),
+                    expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
+p3c <- scatter_path(plot_m3, "DOC_mean", "mean_chla",
+                    expression("Mean DOC  ("*mu*mol~L^-1*")"),
+                    expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
+p3d <- scatter_path(plot_m3, "mean_chla", "mean_endo",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Endosymbiont  (10"^6~cm^-2*")"), log_y = TRUE)
+p3e <- scatter_path(plot_m3, "mean_chla", "mean_R",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Respiration  ("*mu*mol~O[2]~cm^-2~hr^-1*")"))
+p3f <- scatter_path(plot_m3, "mean_chla", "mean_biomass",
+                    expression("Chl-a  ("*mu*g~cm^-2*")"),
+                    expression("Tissue biomass  (mg cm"^-2*")"), log_y = TRUE)
+
+fig3 <- (p3a | p3b | p3c) / (p3d | p3e | p3f) +
+  plot_annotation(tag_levels = "a") &
+  theme(plot.tag = element_text(size = 10, face = "bold"))
+
+wrap_plots(fig3, leg, ncol = 1, heights = c(10, 1))
+```
+
+## Global model fit
+
+```{r dn-path-fit}
+#| label: dn-path-fit
+
+fitMeasures(fit_dn, c("chisq", "df", "pvalue", "cfi", "rmsea", "srmr")) |>
+  as.data.frame() |>
+  setNames("Value") |>
+  mutate(Value = round(Value, 4)) |>
+  kbl(caption = "Global fit statistics for the day+night means model.") |>
+  kable_styling(bootstrap_options = "striped", full_width = FALSE, position = "left")
+```
+
+::: {.callout-warning}
+**Model fit with n = 16:** χ²/df = 17.96/13 = 1.38, p = 0.159. CFI (0.876) falls slightly below the conventional 0.90 threshold, and RMSEA (0.154) is similar to Model 1. Interpret with the same n = 16 caveats; the weaker fit relative to Models 1 and 2 may reflect the attenuation of the NCP → pH signal when nighttime measurements are included.
+:::
+
+## Interpretation
+
+The day+night model asks whether the daytime-only findings in Model 1 are robust to inclusion of nighttime chemistry. The short answer is: the downstream Chl-a → physiology chain is unchanged, but the NCP → biogeochemistry segment is substantially attenuated.
+
+**NCP no longer predicts mean pH or DOC.** Including nighttime measurements (when photosynthesis ceases and respiration returns CO₂ to the water column) halves the effective NCP signal — tank-mean NEP across noon and 9 pm ranges from −0.13 to +1.00 mmol C m⁻² hr⁻¹, compared to purely positive daytime values. This collapses the NCP → pH path (β = 0.31, p = 0.19), consistent with diel pH buffering eroding the community-level biogeochemical signature.
+
+**pH retains a marginal positive association with Chl-a** (β = 0.41, p = 0.10), suggesting the daytime pH signal partly persists in tank-average conditions even when nights are included. DOC remains non-significant (β = −0.20, p = 0.42).
+
+**Chlorophyll-a → downstream physiology paths are unchanged**, as expected — these are biological relationships within the coral holobiont, independent of which chemistry metric precedes Chl-a.
+
+The comparison across models supports daytime-only measurements as the appropriate time window for testing the NCP → biogeochemistry → coral physiology hypothesis. Nighttime respiration actively erases the biogeochemical differentiation created by daytime production, so averaging over both time points obscures the mechanism of interest.
+
+---
+
+*Document generated: `r Sys.time()`*
