@@ -305,12 +305,17 @@ pn_ncc <- make_trt_panel(chem_plot_night, "NEC", ncc_lab, hline=TRUE)
 pn_ph  <- make_trt_panel(chem_plot_night, "pH",  ph_lab)
 pn_doc <- make_trt_panel(chem_plot_night, "DOC", doc_lab, show_x=TRUE) + scale_y_log10()
 
-(pd_ncp | pn_ncp) /
-(pd_ncc | pn_ncc) /
-#(pd_ph  | pn_ph)  /
-#(pd_doc | pn_doc) +
-  plot_annotation(tag_levels = "a") &
-  theme(plot.tag = element_text(size = 10, face = "bold"))
+fig_trt <- (pd_ncp | pn_ncp) /
+           (pd_ncc | pn_ncc) /
+           #(pd_ph  | pn_ph)  /
+           #(pd_doc | pn_doc) +
+             plot_annotation(tag_levels = "a") &
+             theme(plot.tag = element_text(size = 10, face = "bold"))
+
+ggsave(here("Revision", "Output", "fig1_treatment_differences.png"),
+       fig_trt, width = 10, height = 11, dpi = 300)
+
+fig_trt
 ```
 
 ## Mixed-effects models
@@ -512,11 +517,16 @@ p_ncc_doc <- ggplot(clean_chem_fig,
        y = expression("DOC  ("*mu*mol~L^-1~")")) +
   theme_bw(base_size = 11)
 
-(p_ncp_ph | p_ncp_doc) /
-(p_ph_ncc | p_ncc_doc) +
-  plot_layout(guides = "collect") &
-  theme(legend.position = "bottom",
-        legend.text = element_text(size = 10))
+fig_biogeo <- (p_ncp_ph | p_ncp_doc) /
+              (p_ph_ncc | p_ncc_doc) +
+                plot_layout(guides = "collect") &
+                theme(legend.position = "bottom",
+                      legend.text = element_text(size = 10))
+
+ggsave(here("Revision", "Output", "fig2_biogeochem_relationships.png"),
+       fig_biogeo, width = 10, height = 10, dpi = 300)
+
+fig_biogeo
 ```
 
 ```{r mod-ncp-relationships}
@@ -804,7 +814,7 @@ edge_coords <- pmap_dfr(path_edges, function(from, to, std.all, sig, x0, y0, x1,
          mx = pts$mx, my = pts$my)
 })
 
-ggplot() +
+fig_path <- ggplot() +
   geom_segment(
     data = edge_coords,
     aes(x = xs, y = ys, xend = xe, yend = ye, color = sig),
@@ -836,6 +846,11 @@ ggplot() +
   coord_equal(xlim = c(0.3, 7.7), ylim = c(-2.6, 2.2), expand = FALSE) +
   theme_void() +
   theme(plot.margin = margin(8, 8, 8, 8))
+
+ggsave(here("Revision", "Output", "fig3_path_diagram.png"),
+       fig_path, width = 8, height = 4.5, dpi = 300)
+
+fig_path
 ```
 
 ## Indirect effects
@@ -978,7 +993,12 @@ fig_m1 <- (p1a | p1b) / (p1c | p1d | p1e) +
   plot_annotation(tag_levels = "a") &
   theme(plot.tag = element_text(size = 10, face = "bold"))
 
-wrap_plots(fig_m1, leg, ncol = 1, heights = c(10, 1))
+fig_m1_out <- wrap_plots(fig_m1, leg, ncol = 1, heights = c(10, 1))
+
+ggsave(here("Revision", "Output", "fig4_path_scatterplots.png"),
+       fig_m1_out, width = 10, height = 8, dpi = 300)
+
+fig_m1_out
 ```
 
 ## Global model fit
