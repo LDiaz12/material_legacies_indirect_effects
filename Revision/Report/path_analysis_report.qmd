@@ -530,6 +530,8 @@ tank_chem <- chem_reframe_DAY_clean |>
 
 # Tank-level physiology means
 tank_physio <- metadata |>
+ # mutate (GP = ifelse(GP > 6, NA, GP)
+#  ) |> 
   group_by(TANK_NUM, TREATMENT) |>
   summarize(
     mean_chla    = mean(chla_ug_cm2,        na.rm = TRUE),
@@ -640,7 +642,7 @@ tank_path_coefs <- parameterEstimates(tank_path_fit, standardized = TRUE) |>
     lhs = recode(lhs,
       NEP_mean    = "NCP",
       pH_mean     = "pH",
-      DOC_mean    = "DOC",
+      DOC_mean    = "DOC (log)",
       log_chla    = "Chl-a (log)",
       log_endo    = "Endosymbiont (log)",
       mean_GP     = "Gross photosynthesis",
@@ -650,7 +652,7 @@ tank_path_coefs <- parameterEstimates(tank_path_fit, standardized = TRUE) |>
     rhs = recode(rhs,
       NEP_mean = "NCP",
       pH_mean  = "pH",
-      DOC_mean = "DOC",
+      DOC_mean = "DOC (log)",
       log_chla = "Chl-a (log)"
     ),
     across(where(is.numeric), ~ round(.x, 4))
@@ -689,13 +691,23 @@ path_nodes <- tibble(
   y     = c(0,      0.8,  -0.8,    0,        1.8,                     0.6,                    -0.6,          -1.8)
 )
 
-# Direct path results from model
+# Direct path results pulled dynamically from model
+path_direct <- parameterEstimates(tank_path_fit, standardized = TRUE) |>
+  filter(op == "~") |>
+  select(lhs, rhs, std.all, pvalue) |>
+  mutate(
+    lhs = recode(lhs, NEP_mean="NCP", pH_mean="pH", DOC_mean="DOC",
+                 log_chla="Chla", log_endo="Endo", mean_GP="GP", mean_R="R", log_biomass="Bio"),
+    rhs = recode(rhs, NEP_mean="NCP", pH_mean="pH", DOC_mean="DOC", log_chla="Chla"),
+    sig = pvalue < 0.05
+  )
+
 path_edges <- tibble(
   from = c("NCP", "NCP", "pH",   "DOC",  "Chla", "Chla", "Chla", "Chla"),
-  to   = c("pH",  "DOC", "Chla", "Chla", "Endo", "GP",   "R",    "Bio"),
-  coef = c(0.651, 0.180, 0.564, -0.286,  0.522,  0.263,  0.642,  0.510),
-  sig  = c(TRUE,  FALSE, TRUE,   FALSE,   TRUE,   FALSE,  TRUE,   TRUE)
+  to   = c("pH",  "DOC", "Chla", "Chla", "Endo", "GP",   "R",    "Bio")
 ) |>
+  left_join(path_direct |> select(lhs, rhs, std.all, sig),
+            by = c("to" = "lhs", "from" = "rhs")) |>
   left_join(path_nodes |> select(id, x, y), by = c("from" = "id")) |>
   rename(x0 = x, y0 = y) |>
   left_join(path_nodes |> select(id, x, y), by = c("to" = "id")) |>
@@ -709,9 +721,9 @@ shorten_arrow <- function(x0, y0, x1, y1, d_start = 0.5, d_end = 0.5) {
          my = (y0 + dy/d*d_start + y1 - dy/d*d_end) / 2)
 }
 
-edge_coords <- pmap_dfr(path_edges, function(from, to, coef, sig, x0, y0, x1, y1) {
+edge_coords <- pmap_dfr(path_edges, function(from, to, std.all, sig, x0, y0, x1, y1) {
   pts <- shorten_arrow(x0, y0, x1, y1)
-  tibble(from, to, coef, sig,
+  tibble(from, to, coef = std.all, sig,
          xs = pts$xs, ys = pts$ys, xe = pts$xe, ye = pts$ye,
          mx = pts$mx, my = pts$my)
 })
@@ -936,7 +948,7 @@ The indirect effects table quantifies *how much* of the NCP signal propagates th
 
 Together, these analyses support the following framing for the revised manuscript:
 
-> *Net community production (NCP) is positively associated with local pH, consistent with photosynthetic CO₂ drawdown. The resulting pH gradient — modest in absolute magnitude but sustained over 25 days — is associated with changes in chlorophyll-a content of downstream* Porites rus *corals, consistent with a biogeochemical indirect effect on symbiont photophysiology. Downstream physiological variables (endosymbiont density, gross photosynthesis, respiration, tissue biomass) co-vary with chlorophyll-a as expected from holobiont physiology, but their relationship to NCP-altered pH is mediated through the chl-a signal and should not be treated as independent responses. The strength of this indirect chain, quantified through path analysis, is [insert key standardized indirect effect values from the indirect effects table] — ecologically modest but directionally consistent with the hypothesis that community phase shifts carry biogeochemical legacies for individual coral performance.*
+> *Net community production (NCP) is positively associated with local pH, consistent with photosynthetic CO₂ drawdown. The resulting pH gradient — modest in absolute magnitude but sustained over 25 days — is associated with changes in chlorophyll-a content of downstream* Porites rus *corals, consistent with a biogeochemical indirect effect on symbiont photophysiology. Downstream physiological variables (endosymbiont density, gross photosynthesis, respiration, tissue biomass) co-vary with chlorophyll-a as expected from holobiont physiology, but their relationship to NCP-altered pH is mediated through the chl-a signal and should not be treated as independent responses. The strength of this indirect chain, quantified through path analysis, is β = 0.35 for the two-step NCP → pH → Chl-a pathway (p = 0.059) and β = 0.18–0.23 across the three-step NCP → pH → Chl-a → downstream physiology pathways (endosymbiont density: β = 0.18; respiration: β = 0.23; tissue biomass: β = 0.18; p = 0.10–0.14) — ecologically modest but directionally consistent with the hypothesis that community phase shifts carry biogeochemical legacies for individual coral performance.*
 
 ---
 
@@ -951,7 +963,8 @@ Both variance terms are right-skewed and are log-transformed prior to z-scoring.
 ```{r prep-var-data}
 #| label: prep-var-data
 
-tank_chem_var <- chem_reframe_DAY_clean |>
+#tank_chem_var <- chem_reframe_DAY_clean |>
+tank_chem_var <- clean_chem_fig |>
   group_by(TREATMENT, TANK_NUM) |>
   summarize(
     NEP_mean    = mean(NEP, na.rm = TRUE),
@@ -1273,11 +1286,11 @@ fitMeasures(fit_var, c("chisq", "df", "pvalue", "cfi", "rmsea", "srmr")) |>
 
 The variance model asks whether the *fluctuation* in pH and DOC — rather than mean levels — predicts coral physiology. This model also fits the data slightly better than the means model (CFI = 0.93 vs. 0.90).
 
-**NCP predicts pH variability but not DOC variability.** Higher NCP is associated with greater temporal variance in pH (β = 0.676, p < 0.001), consistent with more photosynthetically active communities generating larger diel pH swings. NCP does not predict DOC variance (β = 0.020, p = 0.936), suggesting DOC fluctuation is driven by processes other than gross production (e.g., heterotrophic activity, particulate release, or physical flushing dynamics).
+**NCP predicts pH variability but not DOC variability.** Higher NCP is associated with greater temporal variance in pH (β = 0.676, p < 0.001), consistent with more photosynthetically active communities generating larger diel pH swings. NCP does not predict DOC variance (β = 0.005, p = 0.985), suggesting DOC fluctuation is driven by processes other than gross production (e.g., heterotrophic activity, particulate release, or physical flushing dynamics).
 
-**pH variability positively predicts chlorophyll-a** (β = 0.578, p = 0.005), at a similar magnitude to the pH mean effect. Corals in more biogeochemically dynamic tanks invest more in light-harvesting pigmentation regardless of absolute pH level.
+**pH variability positively predicts chlorophyll-a** (β = 0.568, p = 0.003), at a similar magnitude to the pH mean effect. Corals in more biogeochemically dynamic tanks invest more in light-harvesting pigmentation regardless of absolute pH level.
 
-**DOC variability negatively predicts chlorophyll-a** (β = −0.536, p = 0.009) — a striking result absent in the means model, where DOC mean was non-significant. Tanks with more variable DOC may expose corals to episodic high-DOC pulses that favour heterotrophic competitors or microbial activity that suppresses symbiont function. This warrants investigation but should be interpreted cautiously given n = 16.
+**DOC variability negatively predicts chlorophyll-a** (β = −0.543, p = 0.004) — a striking result absent in the means model, where DOC mean was non-significant. Tanks with more variable DOC may expose corals to episodic high-DOC pulses that favour heterotrophic competitors or microbial activity that suppresses symbiont function. This warrants investigation but should be interpreted cautiously given n = 16.
 
 The downstream Chl-a → physiology paths are essentially unchanged between models, as expected — those relationships are determined by coral biology, not by which chemistry metric precedes Chl-a.
 
@@ -1645,7 +1658,7 @@ The day+night model asks whether the daytime-only findings in Model 1 are robust
 
 **NCP no longer predicts mean pH or DOC.** Including nighttime measurements (when photosynthesis ceases and respiration returns CO₂ to the water column) halves the effective NCP signal — tank-mean NEP across noon and 9 pm ranges from −0.13 to +1.00 mmol C m⁻² hr⁻¹, compared to purely positive daytime values. This collapses the NCP → pH path (β = 0.31, p = 0.19), consistent with diel pH buffering eroding the community-level biogeochemical signature.
 
-**pH retains a marginal positive association with Chl-a** (β = 0.43, p = 0.09), suggesting the daytime pH signal partly persists in tank-average conditions even when nights are included. DOC remains non-significant (β = −0.21, p = 0.41).
+**pH retains a marginal positive association with Chl-a** (β = 0.41, p = 0.10), suggesting the daytime pH signal partly persists in tank-average conditions even when nights are included. DOC remains non-significant (β = −0.20, p = 0.42).
 
 **Chlorophyll-a → downstream physiology paths are unchanged**, as expected — these are biological relationships within the coral holobiont, independent of which chemistry metric precedes Chl-a.
 
