@@ -621,9 +621,9 @@ emm_night |>
 
 ## Interpretation
 
-**At noon, NCP, NCC, and pH all differed significantly by treatment; DOC did not.** All three live-community treatments had higher daytime NCP than controls (Tukey p ≤ 0.04), but did not differ from each other — consistent with active benthic photosynthesis across all reef community types. The higher daytime production drove elevated pH in all three vs. control (p ≤ 0.009). Coral-enriched tanks had the highest NCC, differing significantly from both control (p = 0.015) and macroalgae (p = 0.009) treatments. DOC was not significantly different by treatment at noon (F = 2.0, p = 0.17).
+**At noon, NCP, NCC, and pH all differed significantly by treatment; DOC did not.** All three live-community treatments had higher daytime NCP than controls (Tukey p ≤ 0.04), but did not differ from each other — consistent with active benthic photosynthesis across all reef community types. The higher daytime production drove elevated pH in all three vs. control (p ≤ 0.009). Coral-enriched tanks had the highest NCC, differing significantly from both control (p = 0.015) and macroalgae (p = 0.009) treatments. DOC was not significantly different by treatment at noon (F = 1.6, p = 0.20).
 
-**At 9 PM, the treatment signal narrows.** Nighttime NCP did not differ by treatment (F = 0.97, p = 0.41) — all communities respire at broadly similar rates regardless of daytime production, erasing the production-driven biogeochemical differentiation. pH differences persisted into the night (F = 17.6, p < 0.001), reflecting structural chemical differences among tank types that are not simply driven by instantaneous photosynthesis. NCC remained marginally differentiated (F = 4.4, p = 0.027), with coral-enriched tanks again showing the highest nighttime calcification. DOC showed no treatment effect at night (F = 1.5, p = 0.28).
+**At 9 PM, the treatment signal narrows.** Nighttime NCP did not differ by treatment (F = 0.97, p = 0.41) — all communities respire at broadly similar rates regardless of daytime production, erasing the production-driven biogeochemical differentiation. pH differences persisted into the night (F = 17.6, p < 0.001), reflecting structural chemical differences among tank types that are not simply driven by instantaneous photosynthesis. NCC remained marginally differentiated (F = 4.4, p = 0.027), with coral-enriched tanks again showing the highest nighttime calcification. DOC showed no treatment effect at night (F = 1.4, p = 0.29).
 
 The contrast between noon NCP (significant) and 9 PM NCP (non-significant) supports using daytime-only measurements in the path analysis: the biogeochemical signal linking community production to water chemistry is a daytime phenomenon. Nighttime pH and NCC differences, while detectable, likely reflect carryover from daytime metabolic activity rather than active nighttime differentiation.
 
@@ -1407,7 +1407,7 @@ fig_supp2
 
 ```{r fig-supp3}
 #| label: fig-supp3
-#| fig-cap: "Coral physiology as a function of mean daytime pH (tank means, n = 16). Points colored by treatment. OLS regression line (± 95% CI) shown for panels where the relationship was significant (Chl-a and Respiration Rate, both p < 0.05). Y-axes for Chl-a, Endosymbiont Density, and Tissue Biomass are on a log₁₀ scale."
+#| fig-cap: "Coral physiology as a function of mean daytime pH (tank means, n = 16). Points colored by treatment. No relationships were significant at α = 0.05 (simple OLS; Chl-a: p = 0.09, Endosymbiont Density: p = 0.84, Tissue Biomass: p = 0.67, Respiration Rate: p = 0.06, Gross Photosynthesis: p = 0.50). Y-axes for Chl-a, Endosymbiont Density, and Tissue Biomass are on a log₁₀ scale."
 #| fig-width: 12
 #| fig-height: 9
 
@@ -1459,10 +1459,10 @@ bio_ylab   <- expression("Mean Tissue Biomass (mg cm"^{-2} * ")")
 R_ylab     <- expression("Respiration Rate (" * mu * "mol O"[2] * " cm"^{-2} * " hr"^{-1} * ")")
 GP_ylab    <- expression("Gross Photosynthesis (" * mu * "mol O"[2] * " cm"^{-2} * " hr"^{-1} * ")")
 
-sp3a <- make_scatter("grand_mean_pH", "mean_chla",    ph_xlab, chla_ylab, add_lm = TRUE, log_y = TRUE)
+sp3a <- make_scatter("grand_mean_pH", "mean_chla",    ph_xlab, chla_ylab, log_y = TRUE)
 sp3b <- make_scatter("grand_mean_pH", "mean_endos",   ph_xlab, endo_ylab, log_y = TRUE)
 sp3c <- make_scatter("grand_mean_pH", "mean_biomass", ph_xlab, bio_ylab,  log_y = TRUE)
-sp3d <- make_scatter("grand_mean_pH", "mean_R",       ph_xlab, R_ylab,    add_lm = TRUE)
+sp3d <- make_scatter("grand_mean_pH", "mean_R",       ph_xlab, R_ylab)
 sp3e <- make_scatter("grand_mean_pH", "mean_GP",      ph_xlab, GP_ylab)
 
 fig_supp3 <- (sp3a + sp3b + sp3c) / (sp3d + sp3e) +
