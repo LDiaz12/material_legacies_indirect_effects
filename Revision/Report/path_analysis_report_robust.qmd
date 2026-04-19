@@ -994,7 +994,7 @@ data.frame(
 ```
 
 ::: {.callout-warning}
-**Model fit caveat:** CFI (0.83) and RMSEA (0.19) fall below conventional thresholds. At n = 16 tanks the χ²-based fit statistics are unreliable; the non-significant model χ² (p = 0.068) and the low χ²/df ratio (25.1/16 = 1.57) are the more relevant indicators at this sample size. Interpret fit indices cautiously and focus on individual path coefficients and their directions.
+**Model fit caveat:** CFI (0.85) and RMSEA (0.17) fall below conventional thresholds. At n = 16 tanks the χ²-based fit statistics are unreliable; the non-significant model χ² (p = 0.11) and the low χ²/df ratio (23.2/16 = 1.45) are the more relevant indicators at this sample size. Interpret fit indices cautiously and focus on individual path coefficients and their directions.
 :::
 
 ---
