@@ -1252,9 +1252,13 @@ fig_path_scatters
 
 **Gross photosynthesis and respiration.** Neither Chl-a (β = 0.18, p = 0.52) nor endosymbiont density (β = 0.26, p = 0.34) significantly predicts gross photosynthesis at the tank level. Respiration is predicted by both Chl-a (β = 0.47, p = 0.002) and gross photosynthesis (β = 0.55, p < 0.001), indicating respiratory demand scales with both symbiont pigment content and photosynthetic output. R → Tissue biomass is non-significant (β = 0.02, p = 0.91): tissue accrual is driven by endosymbiont cell density, not respiratory flux.
 
+::: {.callout-note}
+**Potential outliers: corals 53 and 114.** Fragments from coral 53 (genotype L) and coral 114 (genotype S) in tank 1 had endosymbiont densities in the bottom 5% of the entire dataset (~0.04 × 10⁶ cells cm⁻²), approximately 10-fold below the dataset median. These fragments may reflect localised bleaching or a sampling artefact and could exert leverage on tank-level path estimates. Sensitivity models excluding these two fragments produced path coefficients within |Δβ| ≤ 0.05 of the full model with all significance conclusions preserved, indicating that the primary results are not driven by these observations.
+:::
+
 ---
 
-# Sensitivity analysis: corals 53 & 114 excluded {#sec-sensitivity}
+# Alternative model: Chl-a per endosymbiont {#sec-chl-per-endo}
 
 Fragments from coral 53 (genotype L) and coral 114 (genotype S) in tank 1 had
 endosymbiont densities in the bottom 5% of the entire dataset (~0.04 cells cm⁻²),
@@ -1360,244 +1364,13 @@ comparison_tbl |>
   )
 ```
 
-## Global fit — fragments 53 & 114 excluded
-
-```{r sens-fit}
-#| label: sens-fit
-
-fit_full_stats <- fitMeasures(tank_v6_fit,      c("chisq", "df", "pvalue", "cfi", "rmsea", "srmr"))
-fit_excl_stats <- fitMeasures(tank_v6_fit_excl, c("chisq", "df", "pvalue", "cfi", "rmsea", "srmr"))
-
-data.frame(
-  Statistic      = names(fit_full_stats),
-  `Full model`   = round(as.numeric(fit_full_stats), 4),
-  `Excl. 53 & 114` = round(as.numeric(fit_excl_stats), 4),
-  check.names    = FALSE
-) |>
-  kbl(caption = paste0(
-    "Global fit comparison. Excluding corals 53 and 114 marginally improves all indices, ",
-    "consistent with those fragments adding noise to the tank 1 average."
-  )) |>
-  kable_styling(bootstrap_options = "striped", full_width = FALSE, position = "left")
-```
-
-## Path diagram — fragments 53 & 114 excluded
-
-```{r sens-path-diagram}
-#| label: sens-path-diagram
-#| fig-cap: "Sensitivity model path diagram (corals 53 & 114 excluded, n = 16 tanks). Green = significant positive path (p < 0.05); red = significant negative path (p < 0.05); grey = n.s. Coefficients are standardised β."
-#| fig-width: 9
-#| fig-height: 5
-
-sens_edge_coords <- parameterEstimates(tank_v6_fit_excl, standardized = TRUE) |>
-  filter(op == "~") |>
-  mutate(
-    from = recode(rhs, NEP_tank="NCP", pH_tank="pH", DOC_tank="DOC",
-                  log_chla="Chla", log_endo="Endo", mean_GP="GP", mean_R="R"),
-    to   = recode(lhs, pH_tank="pH", DOC_tank="DOC", log_chla="Chla",
-                  log_endo="Endo", mean_GP="GP", mean_R="R", log_biomass="Bio"),
-    colour = case_when(
-      pvalue < 0.05 & std.all > 0 ~ "pos",
-      pvalue < 0.05 & std.all < 0 ~ "neg",
-      TRUE                         ~ "ns"
-    )
-  ) |>
-  dplyr::select(from, to, coef = std.all, colour) |>
-  left_join(revised_nodes |> dplyr::select(id, x, y), by = c("from" = "id")) |> rename(x0=x, y0=y) |>
-  left_join(revised_nodes |> dplyr::select(id, x, y), by = c("to"   = "id")) |> rename(x1=x, y1=y) |>
-  pmap_dfr(function(from, to, coef, colour, x0, y0, x1, y1) {
-    pts <- shorten_arrow(x0, y0, x1, y1)
-    tibble(from, to, coef, colour,
-           xs=pts$xs, ys=pts$ys, xe=pts$xe, ye=pts$ye, mx=pts$mx, my=pts$my)
-  })
-
-fig_sens_path <- ggplot() +
-  geom_segment(
-    data = sens_edge_coords,
-    aes(x=xs, y=ys, xend=xe, yend=ye, color=colour),
-    linewidth = 0.85,
-    arrow = arrow(length = unit(0.2, "cm"), type = "closed"),
-    show.legend = FALSE
-  ) +
-  geom_label(
-    data = sens_edge_coords,
-    aes(x=mx, y=my, label=sprintf("%.2f", coef), color=colour),
-    size = 2.5, label.padding = unit(0.10, "lines"), label.size = 0,
-    fill = "white", show.legend = FALSE
-  ) +
-  geom_tile(
-    data = revised_nodes, aes(x=x, y=y),
-    width = 0.88, height = 0.44,
-    fill = "white", color = "grey35", linewidth = 0.55
-  ) +
-  geom_text(
-    data = revised_nodes, aes(x=x, y=y, label=label),
-    size = 2.7, lineheight = 0.88
-  ) +
-  scale_color_manual(values = colour_vals) +
-  annotate("text", x = 0.8, y = -2.6,
-           label = "Green = sig. positive   Red = sig. negative   Grey = n.s.   Standardised \u03b2   n = 16 tanks (corals 53 & 114 excl.)",
-           hjust = 0, size = 2.6, color = "grey35") +
-  coord_equal(xlim = c(0.6, 10.7), ylim = c(-2.7, 2.4), expand = FALSE) +
-  theme_void() +
-  theme(plot.margin = margin(6, 6, 6, 6))
-
-ggsave(here("Revision", "Output", "fig_sens_path_diagram.png"),
-       fig_sens_path, width = 9, height = 5, dpi = 300)
-
-fig_sens_path
-```
-
-## Scatter plots — fragments 53 & 114 excluded
-
-```{r sens-scatter-data}
-#| label: sens-scatter-data
-
-# Tank means (original scale) with corals 53 & 114 removed
-tank_means_raw_excl <- metadata |>
-  filter(!(CORAL_NUM %in% c(53, 114))) |>
-  mutate(mean_tissue_biomass = ifelse(mean_tissue_biomass > 30, NA, mean_tissue_biomass)) |>
-  group_by(TANK_NUM, TREATMENT) |>
-  summarize(
-    chla    = mean(chla_ug_cm2,        na.rm = TRUE),
-    endo    = mean(endo_per_cm2,       na.rm = TRUE),
-    gp      = mean(GP,                  na.rm = TRUE),
-    r       = mean(R,                   na.rm = TRUE),
-    biomass = mean(mean_tissue_biomass, na.rm = TRUE),
-    .groups = "drop"
-  ) |>
-  left_join(
-    chem_reframe_DAY_clean |>
-      group_by(TANK_NUM) |>
-      summarize(nep = mean(NEP, na.rm = TRUE),
-                ph  = mean(pH,  na.rm = TRUE),
-                doc = mean(DOC, na.rm = TRUE),
-                .groups = "drop"),
-    by = "TANK_NUM"
-  ) |>
-  drop_na(nep) |>
-  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
-
-# Fragment-level data (original scale) with corals 53 & 114 removed
-raw_frag_path_excl <- metadata |>
-  filter(!(CORAL_NUM %in% c(53, 114))) |>
-  mutate(mean_tissue_biomass = ifelse(mean_tissue_biomass > 30, NA, mean_tissue_biomass),
-         chla    = chla_ug_cm2,
-         endo    = endo_per_cm2,
-         biomass = mean_tissue_biomass,
-         gp      = GP,
-         r       = R) |>
-  left_join(
-    chem_reframe_DAY_clean |>
-      group_by(TANK_NUM) |>
-      summarize(nep = mean(NEP, na.rm = TRUE),
-                ph  = mean(pH,  na.rm = TRUE),
-                doc = mean(DOC, na.rm = TRUE),
-                .groups = "drop"),
-    by = "TANK_NUM"
-  ) |>
-  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
-
-# Path coefficients from the sensitivity fit for beta annotations
-path_coefs_excl <- parameterEstimates(tank_v6_fit_excl, standardized = TRUE) |>
-  filter(op == "~") |>
-  dplyr::select(lhs, rhs, std.all, pvalue)
-
-get_beta_label_excl <- function(response, predictor) {
-  row <- path_coefs_excl |> filter(lhs == response, rhs == predictor)
-  if (nrow(row) == 0) return("")
-  p_str <- if (row$pvalue < 0.001) "p < 0.001" else sprintf("p = %.3f", row$pvalue)
-  sprintf("\u03b2 = %.2f, %s", row$std.all, p_str)
-}
-
-is_sig_excl <- function(response, predictor, alpha = 0.05) {
-  path_coefs_excl |>
-    filter(lhs == response, rhs == predictor) |>
-    pull(pvalue) < alpha
-}
-
-scatter_sens <- function(x, y, xlab, ylab,
-                         response_var, predictor_var, raw_data,
-                         log_x = FALSE, log_y = FALSE) {
-  beta_lbl   <- get_beta_label_excl(response_var, predictor_var)
-  sig        <- is_sig_excl(response_var, predictor_var)
-  main_clean <- tank_means_raw_excl |> drop_na(all_of(c(x, y)))
-  raw_clean  <- raw_data            |> drop_na(all_of(c(x, y)))
-
-  x_ann <- if (log_x) min(main_clean[[x]], na.rm = TRUE) else -Inf
-
-  p <- ggplot(main_clean, aes(x = .data[[x]], y = .data[[y]])) +
-    geom_point(data = raw_clean, aes(x = .data[[x]], y = .data[[y]]),
-               color = "grey60", alpha = 0.25, size = 1.2, inherit.aes = FALSE) +
-    { if (sig) geom_smooth(method = "lm", color = "grey30", fill = "grey80",
-                           linewidth = 0.7, alpha = 0.25, se = TRUE) } +
-    geom_point(aes(fill = TREATMENT), shape = 21, size = 3.2,
-               alpha = 0.9, stroke = 0.4, color = "grey20") +
-    annotate("text", x = x_ann, y = Inf, label = beta_lbl,
-             hjust = -0.08, vjust = 1.5, size = 3.0,
-             color = "grey25", fontface = "italic") +
-    scale_fill_manual(values = trt_colors, name = NULL) +
-    labs(x = xlab, y = ylab) +
-    theme_bw(base_size = 10) +
-    theme(legend.position = "none", axis.title = element_text(size = 9))
-
-  if (log_x) p <- p + scale_x_log10()
-  if (log_y) p <- p + scale_y_log10()
-  p
-}
-```
-
-```{r fig-sens-scatters}
-#| label: fig-sens-scatters
-#| fig-width: 8
-#| fig-height: 18
-#| fig-cap: "Bivariate scatter plots for each direct path in the sensitivity SEM (corals 53 & 114 excluded). Grey points show raw fragment-level observations. Coloured circles show tank means (n = 16), filled by treatment. Regression line shown only for significant paths (p < 0.05). Annotated \u03b2 is the standardised path coefficient from the sensitivity model."
-
-#                       x       y         xlab   ylab   response       predictor     raw_data           log_x  log_y
-ss1  <- scatter_sens("nep","ph",      xncp,  xph,  "pH_tank",    "NEP_tank",  raw_chem_path,     FALSE, FALSE)
-ss2  <- scatter_sens("nep","doc",     xncp,  xdoc, "DOC_tank",   "NEP_tank",  raw_chem_path,     FALSE, TRUE)
-ss3  <- scatter_sens("ph","chla",     xph,   xchla,"log_chla",   "pH_tank",   raw_frag_path_excl,FALSE, TRUE)
-ss4  <- scatter_sens("doc","chla",    xdoc,  xchla,"log_chla",   "DOC_tank",  raw_frag_path_excl,TRUE,  TRUE)
-ss5  <- scatter_sens("chla","endo",   xchla, xendo,"log_endo",   "log_chla",  raw_frag_path_excl,TRUE,  TRUE)
-ss6  <- scatter_sens("doc","endo",    xdoc,  xendo,"log_endo",   "DOC_tank",  raw_frag_path_excl,TRUE,  TRUE)
-ss7  <- scatter_sens("chla","gp",     xchla, xgp,  "mean_GP",    "log_chla",  raw_frag_path_excl,TRUE,  FALSE)
-ss8  <- scatter_sens("endo","gp",     xendo, xgp,  "mean_GP",    "log_endo",  raw_frag_path_excl,TRUE,  FALSE)
-ss9  <- scatter_sens("gp","r",        xgp,   xr,   "mean_R",     "mean_GP",   raw_frag_path_excl,FALSE, FALSE)
-ss10 <- scatter_sens("chla","r",      xchla, xr,   "mean_R",     "log_chla",  raw_frag_path_excl,TRUE,  FALSE)
-ss11 <- scatter_sens("endo","biomass",xendo, xbio, "log_biomass","log_endo",  raw_frag_path_excl,TRUE,  TRUE)
-ss12 <- scatter_sens("r","biomass",   xr,    xbio, "log_biomass","mean_R",    raw_frag_path_excl,FALSE, TRUE)
-
-fig_sens_scatters <-
-  (ss1  | ss2)  /
-  (ss3  | ss4)  /
-  (ss5  | ss6)  /
-  (ss7  | ss8)  /
-  (ss9  | ss10) /
-  (ss11 | ss12) +
-  plot_annotation(
-    tag_levels = "a",
-    caption    = paste0(
-      "Grey points = raw fragment-level observations  |  ",
-      "Coloured circles = tank means (n = 16, corals 53 & 114 excl.)  |  ",
-      "\u03b2 = standardised path coefficient from sensitivity SEM"
-    )
-  ) &
-  theme(plot.tag     = element_text(size = 8, face = "bold"),
-        plot.caption = element_text(size = 7.5, color = "grey40", hjust = 0))
-
-ggsave(here("Revision", "Output", "fig_sens_path_scatters.png"),
-       fig_sens_scatters, width = 8, height = 18, dpi = 300)
-
-fig_sens_scatters
-```
 
 ::: {.callout-note}
-**Sensitivity conclusion:** All key path coefficients change by |Δβ| ≤ 0.05 after removing
-corals 53 and 114, and all significance conclusions are preserved. The two anomalous
-fragments (bottom 5% endosymbiont density in the dataset, likely reflecting fragment-level
-bleaching or a sampling artefact) do not drive the main model results. Global fit
-improves marginally (CFI +0.04, RMSEA −0.03), confirming that the primary model
-conclusions are robust to their inclusion.
+**Note on potential outliers:** Fragments 53 and 114 showed unusually low endosymbiont
+densities (bottom 5% of the dataset), possibly reflecting fragment-level bleaching or a
+sampling artefact. They may be outliers worth investigating further, though the sensitivity
+comparison table above shows that their inclusion does not materially alter the path
+coefficients or significance conclusions.
 :::
 
 ---
@@ -1663,13 +1436,13 @@ cpe_model <- "
   # Water chemistry → Chl-a per cell
   log_chla_per_endo ~ b1*pH_tank + b2*DOC_tank
 
-  # Chl-a per cell → endosymbiont density and gross photosynthesis
+  # Chl-a per cell → endosymbiont density
   log_endo ~ c1*log_chla_per_endo
-  mean_GP  ~ d1*log_chla_per_endo + d2*log_endo
 
-  # GP → respiration and tissue biomass; Endo → tissue biomass
-  mean_R      ~ e1*mean_GP
-  log_biomass ~ f1*mean_GP + f2*log_endo
+  # Endo → Biomass → R → GP (with direct Endo effects on R and GP)
+  log_biomass ~ f1*log_endo
+  mean_R      ~ e1*log_biomass + e2*log_endo
+  mean_GP     ~ d1*mean_R      + d2*log_endo
 "
 
 cpe_fit <- sem(cpe_model,
@@ -1685,16 +1458,18 @@ parameterEstimates(cpe_fit, standardized = TRUE) |>
       pH_tank           = "pH",
       DOC_tank          = "DOC (log)",
       log_chla_per_endo = "Chl-a per cell",
-      mean_GP           = "Gross photosynthesis"
+      log_endo          = "Endosymbiont density",
+      log_biomass       = "Tissue biomass",
+      mean_R            = "Respiration"
     ),
     to = recode(lhs,
       pH_tank           = "pH",
       DOC_tank          = "DOC (log)",
       log_chla_per_endo = "Chl-a per cell",
       log_endo          = "Endosymbiont density",
-      mean_GP           = "Gross photosynthesis",
+      log_biomass       = "Tissue biomass",
       mean_R            = "Respiration",
-      log_biomass       = "Tissue biomass"
+      mean_GP           = "Gross photosynthesis"
     ),
     across(c(est, se, std.all, pvalue), ~round(., 4))
   ) |>
@@ -1748,39 +1523,38 @@ cpe_indirect_model <- "
   # Water chemistry → Chl-a per cell
   log_chla_per_endo ~ b1*pH_tank + b2*DOC_tank
 
-  # Chl-a per cell → endosymbiont density and gross photosynthesis
+  # Chl-a per cell → endosymbiont density
   log_endo ~ c1*log_chla_per_endo
-  mean_GP  ~ d1*log_chla_per_endo + d2*log_endo
 
-  # GP → respiration and tissue biomass; Endo → tissue biomass
-  mean_R      ~ e1*mean_GP
-  log_biomass ~ f1*mean_GP + f2*log_endo
+  # Endo → Biomass → R → GP (with direct Endo effects on R and GP)
+  log_biomass ~ f1*log_endo
+  mean_R      ~ e1*log_biomass + e2*log_endo
+  mean_GP     ~ d1*mean_R      + d2*log_endo
 
   # ── Indirect effects ─────────────────────────────────────────────────────────
   # NCP → Chl/cell (via pH and DOC)
   ind_NCP_ChlCell_pH   := a1*b1
   ind_NCP_ChlCell_DOC  := a2*b2
 
-  # NCP → Endo
+  # NCP → Endo (via Chl/cell)
   ind_NCP_Endo_pH      := a1*b1*c1
   ind_NCP_Endo_DOC     := a2*b2*c1
   tot_NCP_Endo         := (a1*b1 + a2*b2)*c1
 
-  # NCP → GP (via Chl/cell direct and via Endo)
-  ind_NCP_GP_pH        := a1*b1*(d1 + c1*d2)
-  ind_NCP_GP_DOC       := a2*b2*(d1 + c1*d2)
-  tot_NCP_GP           := (a1*b1 + a2*b2)*(d1 + c1*d2)
+  # NCP → Biomass (via Chl/cell → Endo → Bio)
+  tot_NCP_Bio          := (a1*b1 + a2*b2)*c1*f1
 
-  # NCP → Biomass (via GP and via Endo direct)
-  tot_NCP_Bio          := (a1*b1 + a2*b2)*((d1 + c1*d2)*f1 + c1*f2)
+  # NCP → R: via Bio→R (e1) and direct Endo→R (e2)
+  tot_NCP_R            := (a1*b1 + a2*b2)*c1*(f1*e1 + e2)
 
-  # NCP → R (via GP)
-  tot_NCP_R            := (a1*b1 + a2*b2)*(d1 + c1*d2)*e1
+  # NCP → GP: via R (d1) and direct Endo→GP (d2)
+  tot_NCP_GP           := (a1*b1 + a2*b2)*c1*((f1*e1 + e2)*d1 + d2)
 
   # DOC → downstream via Chl/cell
   ind_DOC_Endo         := b2*c1
-  ind_DOC_GP           := b2*(d1 + c1*d2)
-  ind_DOC_Bio          := b2*((d1 + c1*d2)*f1 + c1*f2)
+  ind_DOC_Bio          := b2*c1*f1
+  ind_DOC_R            := b2*c1*(f1*e1 + e2)
+  ind_DOC_GP           := b2*c1*((f1*e1 + e2)*d1 + d2)
 "
 
 cpe_indirect_fit <- sem(cpe_indirect_model,
@@ -1796,14 +1570,13 @@ indirect_tbl_cpe <- parameterEstimates(cpe_indirect_fit, standardized = TRUE) |>
       ind_NCP_Endo_pH     = "NCP \u2192 pH \u2192 Chl-a/cell \u2192 Endo",
       ind_NCP_Endo_DOC    = "NCP \u2192 DOC \u2192 Chl-a/cell \u2192 Endo",
       tot_NCP_Endo        = "NCP total \u2192 Endo",
-      ind_NCP_GP_pH       = "NCP \u2192 pH \u2192 \u2026 \u2192 GP (all routes)",
-      ind_NCP_GP_DOC      = "NCP \u2192 DOC \u2192 \u2026 \u2192 GP (all routes)",
-      tot_NCP_GP          = "NCP total \u2192 GP",
       tot_NCP_Bio         = "NCP total \u2192 Biomass",
       tot_NCP_R           = "NCP total \u2192 R",
+      tot_NCP_GP          = "NCP total \u2192 GP",
       ind_DOC_Endo        = "DOC \u2192 Chl-a/cell \u2192 Endo",
-      ind_DOC_GP          = "DOC \u2192 \u2026 \u2192 GP (all routes)",
-      ind_DOC_Bio         = "DOC \u2192 \u2026 \u2192 Biomass (all routes)"
+      ind_DOC_Bio         = "DOC \u2192 \u2026 \u2192 Biomass",
+      ind_DOC_R           = "DOC \u2192 \u2026 \u2192 R",
+      ind_DOC_GP          = "DOC \u2192 \u2026 \u2192 GP"
     ),
     across(c(est, se, std.all, pvalue), ~round(., 4))
   ) |>
@@ -1834,20 +1607,21 @@ indirect_tbl_cpe |>
 #| fig-height: 5
 
 cpe_nodes <- tibble(
-  id    = c("NCP", "pH",  "DOC",  "Chla",            "Endo",                  "GP",                   "Bio",             "R"),
-  label = c("NCP", "pH",  "DOC",  "Chl-a\nper cell", "Endosymbiont\ndensity", "Gross\nphotosynthesis", "Tissue\nbiomass", "Respiration"),
-  x     = c(1,      3,     3,      5.5,                8,                       8,                       10.5,              10.5),
-  y     = c(0,      1.2,  -1.2,    0,                  1.5,                    -0.5,                      0.5,             -1.8)
+  id    = c("NCP", "pH",  "DOC",  "Chla",            "Endo",                  "Bio",             "R",           "GP"),
+  label = c("NCP", "pH",  "DOC",  "Chl-a\nper cell", "Endosymbiont\ndensity", "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
+  x     = c(1,      3,     3,      5.5,                7.5,                     9.5,               9.5,           11.5),
+  y     = c(0,      1.0,  -1.0,    0,                  0,                       1.0,              -0.8,            0.0)
 )
 
 cpe_edge_coords <- parameterEstimates(cpe_fit, standardized = TRUE) |>
   filter(op == "~") |>
   mutate(
     from = recode(rhs, NEP_tank="NCP", pH_tank="pH", DOC_tank="DOC",
-                  log_chla_per_endo="Chla", log_endo="Endo", mean_GP="GP"),
+                  log_chla_per_endo="Chla", log_endo="Endo",
+                  log_biomass="Bio", mean_R="R"),
     to   = recode(lhs, pH_tank="pH", DOC_tank="DOC",
                   log_chla_per_endo="Chla", log_endo="Endo",
-                  mean_GP="GP", mean_R="R", log_biomass="Bio"),
+                  log_biomass="Bio", mean_R="R", mean_GP="GP"),
     colour = case_when(
       pvalue < 0.05 & std.all > 0 ~ "pos",
       pvalue < 0.05 & std.all < 0 ~ "neg",
@@ -1887,10 +1661,10 @@ fig_cpe_path <- ggplot() +
     size = 2.7, lineheight = 0.88
   ) +
   scale_color_manual(values = colour_vals) +
-  annotate("text", x = 0.8, y = -2.6,
+  annotate("text", x = 0.8, y = -1.55,
            label = "Green = sig. positive   Red = sig. negative   Grey = n.s.   Standardised \u03b2   n = 16 tanks",
            hjust = 0, size = 2.6, color = "grey35") +
-  coord_equal(xlim = c(0.6, 11.2), ylim = c(-2.7, 2.4), expand = FALSE) +
+  coord_equal(xlim = c(0.6, 12.2), ylim = c(-1.8, 1.8), expand = FALSE) +
   theme_void() +
   theme(plot.margin = margin(6, 6, 6, 6))
 
@@ -1964,9 +1738,9 @@ get_beta_label_cpe <- function(response, predictor) {
 }
 
 is_sig_cpe <- function(response, predictor, alpha = 0.05) {
-  path_coefs_cpe |>
-    filter(lhs == response, rhs == predictor) |>
-    pull(pvalue) < alpha
+  rows <- path_coefs_cpe |> filter(lhs == response, rhs == predictor)
+  if (nrow(rows) == 0) return(FALSE)
+  rows$pvalue < alpha
 }
 
 scatter_cpe <- function(x, y, xlab, ylab,
@@ -2002,27 +1776,27 @@ scatter_cpe <- function(x, y, xlab, ylab,
 ```{r fig-cpe-scatters}
 #| label: fig-cpe-scatters
 #| fig-width: 8
-#| fig-height: 15
+#| fig-height: 19
 #| fig-cap: "Bivariate scatter plots for each direct path in the Chl-a-per-endosymbiont SEM. Grey points show raw fragment-level observations. Coloured circles show tank means (n = 16), filled by treatment. Regression line shown only for significant paths (p < 0.05). Annotated \u03b2 is the standardised path coefficient."
 
-#                     x       y         xlab   ylab   response              predictor           raw_data           log_x  log_y
-sc1  <- scatter_cpe("nep","ph",      xncp,  xph,  "pH_tank",            "NEP_tank",          raw_chem_path,     FALSE, FALSE)
-sc2  <- scatter_cpe("nep","doc",     xncp,  xdoc, "DOC_tank",           "NEP_tank",          raw_chem_path,     FALSE, TRUE)
-sc3  <- scatter_cpe("ph","cpe",      xph,   xcpe, "log_chla_per_endo",  "pH_tank",           raw_frag_path_cpe, FALSE, TRUE)
-sc4  <- scatter_cpe("doc","cpe",     xdoc,  xcpe, "log_chla_per_endo",  "DOC_tank",          raw_frag_path_cpe, TRUE,  TRUE)
-sc5  <- scatter_cpe("cpe","endo",    xcpe,  xendo,"log_endo",           "log_chla_per_endo", raw_frag_path_cpe, TRUE,  TRUE)
-sc6  <- scatter_cpe("cpe","gp",      xcpe,  xgp,  "mean_GP",            "log_chla_per_endo", raw_frag_path_cpe, TRUE,  FALSE)
-sc7  <- scatter_cpe("endo","gp",     xendo, xgp,  "mean_GP",            "log_endo",          raw_frag_path_cpe, TRUE,  FALSE)
-sc8  <- scatter_cpe("endo","biomass",xendo, xbio, "log_biomass",        "log_endo",          raw_frag_path_cpe, TRUE,  TRUE)
-sc9  <- scatter_cpe("gp","biomass",  xgp,   xbio, "log_biomass",        "mean_GP",           raw_frag_path_cpe, FALSE, TRUE)
-sc10 <- scatter_cpe("gp","r",        xgp,   xr,   "mean_R",             "mean_GP",           raw_frag_path_cpe, FALSE, FALSE)
+#                     x          y         xlab   ylab   response              predictor           raw_data           log_x  log_y
+sc1  <- scatter_cpe("nep",     "ph",      xncp,  xph,  "pH_tank",            "NEP_tank",          raw_chem_path,     FALSE, FALSE)
+sc2  <- scatter_cpe("nep",     "doc",     xncp,  xdoc, "DOC_tank",           "NEP_tank",          raw_chem_path,     FALSE, TRUE)
+sc3  <- scatter_cpe("ph",      "cpe",     xph,   xcpe, "log_chla_per_endo",  "pH_tank",           raw_frag_path_cpe, FALSE, TRUE)
+sc4  <- scatter_cpe("doc",     "cpe",     xdoc,  xcpe, "log_chla_per_endo",  "DOC_tank",          raw_frag_path_cpe, TRUE,  TRUE)
+sc5  <- scatter_cpe("cpe",     "endo",    xcpe,  xendo,"log_endo",           "log_chla_per_endo", raw_frag_path_cpe, TRUE,  TRUE)
+sc6  <- scatter_cpe("endo",    "biomass", xendo, xbio, "log_biomass",        "log_endo",          raw_frag_path_cpe, TRUE,  TRUE)
+sc7  <- scatter_cpe("endo",    "r",       xendo, xr,   "mean_R",             "log_endo",          raw_frag_path_cpe, TRUE,  FALSE)
+sc8  <- scatter_cpe("endo",    "gp",      xendo, xgp,  "mean_GP",            "log_endo",          raw_frag_path_cpe, TRUE,  FALSE)
+sc9  <- scatter_cpe("biomass", "r",       xbio,  xr,   "mean_R",             "log_biomass",       raw_frag_path_cpe, TRUE,  FALSE)
+sc10 <- scatter_cpe("r",       "gp",      xr,    xgp,  "mean_GP",            "mean_R",            raw_frag_path_cpe, FALSE, FALSE)
 
 fig_cpe_scatters <-
-  (sc1  | sc2)  /
-  (sc3  | sc4)  /
-  (sc5  | sc6)  /
-  (sc7  | sc8)  /
-  (sc9  | sc10) +
+  (sc1 | sc2) /
+  (sc3 | sc4) /
+  (sc5 | sc6) /
+  (sc7 | sc8) /
+  (sc9 | sc10) +
   plot_annotation(
     tag_levels = "a",
     caption    = paste0(
@@ -2052,11 +1826,11 @@ Higher seawater pH — driven here by community net community production (NCP) �
 
 **2. The chlorophyll packing trade-off: why higher cell density does not co-occur with higher Chl per cell**
 
-The significant negative path from Chl-a/cell → endosymbiont density (β = −0.64) is not a biological causal mechanism but reflects a well-documented optical trade-off. There is a complex relationship between increased pigment loading and the decrease in optical absorption cross-section due to self-shading within the symbiont layer . As cell density increases, individual cells shade one another, making additional chlorophyll per cell increasingly inefficient — an increase in chlorophyll concentration per alga or in algal density are both self-limiting due to the packaging effect [@placeholder_dubinsky_stambler]. This creates the negative empirical correlation observed here: at high symbiont densities, packing more chlorophyll per cell yields diminishing photosynthetic returns because carbon fixation by individual algal cells decreases with increasing tissue depth due to the attenuation of light from symbiont self-shading [@placeholder_sciencedirect_depth]. The optimal strategy, therefore, is not to maximise both simultaneously — corals that achieve high cell density produce less chlorophyll per cell, and those with fewer but more heavily pigmented cells achieve similar or greater per-cell photosynthetic output. Chlorophyll concentration per zooxanthella cell and cell density display opposing trends, resulting in relatively homogeneous chlorophyll content per unit area across conditions [@placeholder_pmc_opposing].
+The significant negative path from Chl-a/cell → endosymbiont density (β = −0.64) is not a biological causal mechanism but reflects a well-documented optical trade-off. There is a complex relationship between increased pigment loading and the decrease in optical absorption cross-section due to self-shading within the symbiont layer . As cell density increases, individual cells shade one another, making additional chlorophyll per cell increasingly inefficient — an increase in chlorophyll concentration per alga or in algal density are both self-limiting due to the packaging effect. This creates the negative empirical correlation observed here: at high symbiont densities, packing more chlorophyll per cell yields diminishing photosynthetic returns because carbon fixation by individual algal cells decreases with increasing tissue depth due to the attenuation of light from symbiont self-shading . The optimal strategy, therefore, is not to maximise both simultaneously — corals that achieve high cell density produce less chlorophyll per cell, and those with fewer but more heavily pigmented cells achieve similar or greater per-cell photosynthetic output. Chlorophyll concentration per zooxanthella cell and cell density display opposing trends, resulting in relatively homogeneous chlorophyll content per unit area across conditions.
 
 **3. Chl/cell → GP → Tissue biomass & Respiration: the carbon-energy cascade**
 
-Higher chlorophyll per cell increases the light-harvesting capacity of individual symbionts, which should translate to greater gross photosynthesis (GP) if light is not saturating. The downstream consequence is a carbon cascade: endosymbiotic dinoflagellates significantly contribute to the host's nutrition by transferring a large fraction — up to 90% — of their photosynthetically assimilated carbon to support growth, respiration, reproduction, and calcification [@pernice2015; @muscatine1984]. Approximately 38% of daily fixed carbon is translocated to the coral host, fuelling tissue construction and the host's metabolic demands [@placeholder_frontiers_38pct]. Tissue biomass therefore accrues as a direct product of the carbon flow from photosynthesis: an increase in translocated photosynthetic products associated with symbiont activity is hypothesised to precede enlargement in tissue biomass .
+Higher chlorophyll per cell increases the light-harvesting capacity of individual symbionts, which should translate to greater gross photosynthesis (GP) if light is not saturating. The downstream consequence is a carbon cascade: endosymbiotic dinoflagellates significantly contribute to the host's nutrition by transferring a large fraction — up to 90% — of their photosynthetically assimilated carbon to support growth, respiration, reproduction, and calcification [@pernice2015; @muscatine1984]. Approximately 38% of daily fixed carbon is translocated to the coral host, fuelling tissue construction and the host's metabolic demands . Tissue biomass therefore accrues as a direct product of the carbon flow from photosynthesis: an increase in translocated photosynthetic products associated with symbiont activity is hypothesised to precede enlargement in tissue biomass .
 
 Respiration scales with this carbon-biomass investment from both directions simultaneously. In low-light environments, corals reduce energetic requirements by decreasing tissue biomass, skeleton thickness, respiration rates, and growth — the inverse pattern of what is expected here . When GP is higher, more photosynthate is available to burn, and a larger tissue mass demands greater maintenance respiration. The simultaneous GP → R and Endo → Biomass paths reflect that under higher photosynthetic output, both the incorporation of carbon into biomass and respiration rates increase together . This is consistent with the idea that respiration is not simply a cost of carbon fixation, but scales with the total living biomass the coral must maintain — the more tissue accumulated (via Endo → Biomass), the higher the ongoing respiratory demand.
 
@@ -2064,291 +1838,9 @@ Respiration scales with this carbon-biomass investment from both directions simu
 
 The Chl/cm² model captures the total pigment signal integrated across all cells, which is driven both by cell number and per-cell loading. The CPE model asks a different question: holding the community context constant, do corals in higher-pH environments achieve their photosynthetic capacity through better-equipped individual symbiont cells, and does this per-cell quality propagate through the carbon economy to tissue growth and respiration? The results offer partial support — the DOC → Chl/cell path is significant (β = 0.46), while the pH → Chl/cell path is not (β = 0.24) — suggesting that in this system, organic carbon availability is a stronger predictor of per-cell photosynthetic investment than inorganic carbon chemistry alone.
 
----
+## Big Picture take home  
 
-# Alternative model: Chl-a per endosymbiont, corals 53 & 114 excluded {#sec-cpe-excl}
-
-This section combines both modifications: the Chl-a per endosymbiont pigment variable
-**and** the exclusion of the two anomalous low-density fragments (corals 53 and 114,
-tank 1). This tests whether the CPE model conclusions are further sensitive to those
-outlier fragments.
-
-## Tank means
-
-```{r cpe-excl-tank-means}
-#| label: cpe-excl-tank-means
-
-tank_means_cpe_excl <- metadata |>
-  filter(!(CORAL_NUM %in% c(53, 114))) |>
-  mutate(
-    mean_tissue_biomass = ifelse(mean_tissue_biomass > 30, NA, mean_tissue_biomass),
-    chla_per_endo       = chla_ug_cm2 / endo_per_cm2
-  ) |>
-  group_by(TANK_NUM) |>
-  summarize(
-    log_chla_per_endo = mean(log(chla_per_endo),         na.rm = TRUE),
-    log_endo          = mean(log(endo_per_cm2),           na.rm = TRUE),
-    mean_GP           = mean(GP,                          na.rm = TRUE),
-    mean_R            = mean(R,                           na.rm = TRUE),
-    log_biomass       = mean(log(mean_tissue_biomass),    na.rm = TRUE),
-    .groups = "drop"
-  ) |>
-  left_join(
-    chem_reframe_DAY_clean |>
-      group_by(TANK_NUM) |>
-      summarize(
-        NEP_tank = mean(NEP,       na.rm = TRUE),
-        pH_tank  = mean(pH,        na.rm = TRUE),
-        DOC_tank = log(mean(DOC,   na.rm = TRUE)),
-        .groups  = "drop"
-      ) |>
-      mutate(TANK_NUM = as.numeric(TANK_NUM)),
-    by = "TANK_NUM"
-  ) |>
-  drop_na() |>
-  mutate(across(c(NEP_tank, pH_tank, DOC_tank,
-                  log_chla_per_endo, log_endo,
-                  mean_GP, mean_R, log_biomass), scale_vec))
-
-cat("n tanks:", nrow(tank_means_cpe_excl), "\n")
-```
-
-## Path model
-
-```{r cpe-excl-path-model}
-#| label: cpe-excl-path-model
-
-cpe_excl_fit <- sem(cpe_model,
-                    data      = as.data.frame(tank_means_cpe_excl),
-                    estimator = "ML")
-
-parameterEstimates(cpe_excl_fit, standardized = TRUE) |>
-  filter(op == "~") |>
-  mutate(
-    from = recode(rhs,
-      NEP_tank = "NCP", pH_tank = "pH", DOC_tank = "DOC (log)",
-      log_chla_per_endo = "Chl-a per cell", log_endo = "Endosymbiont",
-      mean_GP = "Gross photosynthesis", mean_R = "Respiration"),
-    to = recode(lhs,
-      pH_tank = "pH", DOC_tank = "DOC (log)",
-      log_chla_per_endo = "Chl-a per cell", log_endo = "Endosymbiont",
-      mean_GP = "Gross photosynthesis", mean_R = "Respiration",
-      log_biomass = "Tissue biomass"),
-    across(c(est, se, std.all, pvalue), ~round(., 4))
-  ) |>
-  dplyr::select(From = from, To = to, `Std. β` = std.all, SE = se, z, `p-value` = pvalue) |>
-  kbl(caption = paste0(
-    "CPE model, corals 53 & 114 excluded: direct path coefficients (n = ",
-    nrow(tank_means_cpe_excl), " tanks)."
-  )) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"),
-                full_width = FALSE, position = "left") |>
-  row_spec(which(
-    parameterEstimates(cpe_excl_fit, standardized = TRUE) |>
-      filter(op == "~") |> pull(pvalue) < 0.05
-  ), background = "#d4edda") |>
-  row_spec(which(
-    parameterEstimates(cpe_excl_fit, standardized = TRUE) |>
-      filter(op == "~") |>
-      mutate(q = pvalue >= 0.05 & pvalue < 0.10) |> pull(q)
-  ), background = "#fff3cd")
-```
-
-## Global model fit
-
-```{r cpe-excl-fit}
-#| label: cpe-excl-fit
-
-fitMeasures(cpe_excl_fit, c("chisq", "df", "pvalue", "cfi", "rmsea", "srmr")) |>
-  (\(x) data.frame(Statistic = names(x), Value = round(as.numeric(x), 4)))() |>
-  kbl(caption = "CPE model, corals 53 & 114 excluded: global fit.") |>
-  kable_styling(bootstrap_options = "striped", full_width = FALSE, position = "left")
-```
-
-## Path diagram
-
-```{r cpe-excl-path-diagram}
-#| label: cpe-excl-path-diagram
-#| fig-cap: "CPE model path diagram (corals 53 & 114 excluded, n = 16 tanks). Green = significant positive path (p < 0.05); red = significant negative path (p < 0.05); grey = n.s. Coefficients are standardised β."
-#| fig-width: 9
-#| fig-height: 5
-
-cpe_excl_edge_coords <- parameterEstimates(cpe_excl_fit, standardized = TRUE) |>
-  filter(op == "~") |>
-  mutate(
-    from = recode(rhs, NEP_tank="NCP", pH_tank="pH", DOC_tank="DOC",
-                  log_chla_per_endo="Chla", log_endo="Endo", mean_GP="GP"),
-    to   = recode(lhs, pH_tank="pH", DOC_tank="DOC",
-                  log_chla_per_endo="Chla", log_endo="Endo",
-                  mean_GP="GP", mean_R="R", log_biomass="Bio"),
-    colour = case_when(
-      pvalue < 0.05 & std.all > 0 ~ "pos",
-      pvalue < 0.05 & std.all < 0 ~ "neg",
-      TRUE                         ~ "ns"
-    )
-  ) |>
-  dplyr::select(from, to, coef = std.all, colour) |>
-  left_join(cpe_nodes |> dplyr::select(id, x, y), by = c("from" = "id")) |> rename(x0=x, y0=y) |>
-  left_join(cpe_nodes |> dplyr::select(id, x, y), by = c("to"   = "id")) |> rename(x1=x, y1=y) |>
-  pmap_dfr(function(from, to, coef, colour, x0, y0, x1, y1) {
-    pts <- shorten_arrow(x0, y0, x1, y1)
-    tibble(from, to, coef, colour,
-           xs=pts$xs, ys=pts$ys, xe=pts$xe, ye=pts$ye, mx=pts$mx, my=pts$my)
-  })
-
-fig_cpe_excl_path <- ggplot() +
-  geom_segment(data = cpe_excl_edge_coords,
-    aes(x=xs, y=ys, xend=xe, yend=ye, color=colour), linewidth = 0.85,
-    arrow = arrow(length = unit(0.2, "cm"), type = "closed"), show.legend = FALSE) +
-  geom_label(data = cpe_excl_edge_coords,
-    aes(x=mx, y=my, label=sprintf("%.2f", coef), color=colour),
-    size = 2.5, label.padding = unit(0.10, "lines"), label.size = 0,
-    fill = "white", show.legend = FALSE) +
-  geom_tile(data = cpe_nodes, aes(x=x, y=y),
-    width = 0.88, height = 0.44, fill = "white", color = "grey35", linewidth = 0.55) +
-  geom_text(data = cpe_nodes, aes(x=x, y=y, label=label),
-    size = 2.7, lineheight = 0.88) +
-  scale_color_manual(values = colour_vals) +
-  annotate("text", x = 0.8, y = -2.6,
-    label = "Green = sig. positive   Red = sig. negative   Grey = n.s.   Standardised \u03b2   n = 16 tanks (corals 53 & 114 excl.)",
-    hjust = 0, size = 2.6, color = "grey35") +
-  coord_equal(xlim = c(0.6, 11.2), ylim = c(-2.7, 2.4), expand = FALSE) +
-  theme_void() + theme(plot.margin = margin(6, 6, 6, 6))
-
-ggsave(here("Revision", "Output", "fig_cpe_excl_path_diagram.png"),
-       fig_cpe_excl_path, width = 9, height = 5, dpi = 300)
-
-fig_cpe_excl_path
-```
-
-## Scatter plots
-
-```{r cpe-excl-scatter-data}
-#| label: cpe-excl-scatter-data
-
-tank_means_raw_cpe_excl <- metadata |>
-  filter(!(CORAL_NUM %in% c(53, 114))) |>
-  mutate(mean_tissue_biomass = ifelse(mean_tissue_biomass > 30, NA, mean_tissue_biomass),
-         cpe = chla_ug_cm2 / endo_per_cm2) |>
-  group_by(TANK_NUM, TREATMENT) |>
-  summarize(
-    cpe     = mean(cpe,                na.rm = TRUE),
-    endo    = mean(endo_per_cm2,       na.rm = TRUE),
-    gp      = mean(GP,                  na.rm = TRUE),
-    r       = mean(R,                   na.rm = TRUE),
-    biomass = mean(mean_tissue_biomass, na.rm = TRUE),
-    .groups = "drop"
-  ) |>
-  left_join(
-    chem_reframe_DAY_clean |>
-      group_by(TANK_NUM) |>
-      summarize(nep = mean(NEP, na.rm = TRUE), ph = mean(pH, na.rm = TRUE),
-                doc = mean(DOC, na.rm = TRUE), .groups = "drop"),
-    by = "TANK_NUM"
-  ) |>
-  drop_na(nep) |>
-  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
-
-raw_frag_path_cpe_excl <- metadata |>
-  filter(!(CORAL_NUM %in% c(53, 114))) |>
-  mutate(mean_tissue_biomass = ifelse(mean_tissue_biomass > 30, NA, mean_tissue_biomass),
-         cpe = chla_ug_cm2 / endo_per_cm2, endo = endo_per_cm2,
-         biomass = mean_tissue_biomass, gp = GP, r = R) |>
-  left_join(
-    chem_reframe_DAY_clean |>
-      group_by(TANK_NUM) |>
-      summarize(nep = mean(NEP, na.rm = TRUE), ph = mean(pH, na.rm = TRUE),
-                doc = mean(DOC, na.rm = TRUE), .groups = "drop"),
-    by = "TANK_NUM"
-  ) |>
-  mutate(TREATMENT = factor(TREATMENT, levels = treatment_levels))
-
-path_coefs_cpe_excl <- parameterEstimates(cpe_excl_fit, standardized = TRUE) |>
-  filter(op == "~") |>
-  dplyr::select(lhs, rhs, std.all, pvalue)
-
-get_beta_label_cpe_excl <- function(response, predictor) {
-  row <- path_coefs_cpe_excl |> filter(lhs == response, rhs == predictor)
-  if (nrow(row) == 0) return("")
-  p_str <- if (row$pvalue < 0.001) "p < 0.001" else sprintf("p = %.3f", row$pvalue)
-  sprintf("\u03b2 = %.2f, %s", row$std.all, p_str)
-}
-
-is_sig_cpe_excl <- function(response, predictor, alpha = 0.05) {
-  path_coefs_cpe_excl |>
-    filter(lhs == response, rhs == predictor) |>
-    pull(pvalue) < alpha
-}
-
-scatter_cpe_excl <- function(x, y, xlab, ylab, response_var, predictor_var, raw_data,
-                              log_x = FALSE, log_y = FALSE) {
-  beta_lbl   <- get_beta_label_cpe_excl(response_var, predictor_var)
-  sig        <- is_sig_cpe_excl(response_var, predictor_var)
-  main_clean <- tank_means_raw_cpe_excl |> drop_na(all_of(c(x, y)))
-  raw_clean  <- raw_data                |> drop_na(all_of(c(x, y)))
-  x_ann      <- if (log_x) min(main_clean[[x]], na.rm = TRUE) else -Inf
-
-  p <- ggplot(main_clean, aes(x = .data[[x]], y = .data[[y]])) +
-    geom_point(data = raw_clean, aes(x = .data[[x]], y = .data[[y]]),
-               color = "grey60", alpha = 0.25, size = 1.2, inherit.aes = FALSE) +
-    { if (sig) geom_smooth(method = "lm", color = "grey30", fill = "grey80",
-                           linewidth = 0.7, alpha = 0.25, se = TRUE) } +
-    geom_point(aes(fill = TREATMENT), shape = 21, size = 3.2,
-               alpha = 0.9, stroke = 0.4, color = "grey20") +
-    annotate("text", x = x_ann, y = Inf, label = beta_lbl,
-             hjust = -0.08, vjust = 1.5, size = 3.0,
-             color = "grey25", fontface = "italic") +
-    scale_fill_manual(values = trt_colors, name = NULL) +
-    labs(x = xlab, y = ylab) +
-    theme_bw(base_size = 10) +
-    theme(legend.position = "none", axis.title = element_text(size = 9))
-
-  if (log_x) p <- p + scale_x_log10()
-  if (log_y) p <- p + scale_y_log10()
-  p
-}
-```
-
-```{r fig-cpe-excl-scatters}
-#| label: fig-cpe-excl-scatters
-#| fig-width: 8
-#| fig-height: 15
-#| fig-cap: "Bivariate scatter plots for each direct path in the CPE SEM (corals 53 & 114 excluded). Grey points show raw fragment-level observations. Coloured circles show tank means (n = 16), filled by treatment. Regression line shown only for significant paths (p < 0.05). Annotated \u03b2 is the standardised path coefficient."
-
-sce1  <- scatter_cpe_excl("nep","ph",      xncp, xph,  "pH_tank",           "NEP_tank",          raw_chem_path,          FALSE, FALSE)
-sce2  <- scatter_cpe_excl("nep","doc",     xncp, xdoc, "DOC_tank",          "NEP_tank",          raw_chem_path,          FALSE, TRUE)
-sce3  <- scatter_cpe_excl("ph","cpe",      xph,  xcpe, "log_chla_per_endo", "pH_tank",           raw_frag_path_cpe_excl, FALSE, TRUE)
-sce4  <- scatter_cpe_excl("doc","cpe",     xdoc, xcpe, "log_chla_per_endo", "DOC_tank",          raw_frag_path_cpe_excl, TRUE,  TRUE)
-sce5  <- scatter_cpe_excl("cpe","endo",    xcpe, xendo,"log_endo",          "log_chla_per_endo", raw_frag_path_cpe_excl, TRUE,  TRUE)
-sce6  <- scatter_cpe_excl("cpe","gp",      xcpe, xgp,  "mean_GP",           "log_chla_per_endo", raw_frag_path_cpe_excl, TRUE,  FALSE)
-sce7  <- scatter_cpe_excl("endo","gp",     xendo,xgp,  "mean_GP",           "log_endo",          raw_frag_path_cpe_excl, TRUE,  FALSE)
-sce8  <- scatter_cpe_excl("endo","biomass",xendo,xbio, "log_biomass",       "log_endo",          raw_frag_path_cpe_excl, TRUE,  TRUE)
-sce9  <- scatter_cpe_excl("gp","biomass",  xgp,  xbio, "log_biomass",       "mean_GP",           raw_frag_path_cpe_excl, FALSE, TRUE)
-sce10 <- scatter_cpe_excl("gp","r",        xgp,  xr,   "mean_R",            "mean_GP",           raw_frag_path_cpe_excl, FALSE, FALSE)
-
-fig_cpe_excl_scatters <-
-  (sce1  | sce2)  /
-  (sce3  | sce4)  /
-  (sce5  | sce6)  /
-  (sce7  | sce8)  /
-  (sce9  | sce10) +
-  plot_annotation(
-    tag_levels = "a",
-    caption    = paste0(
-      "Grey points = raw fragment-level observations  |  ",
-      "Coloured circles = tank means (n = 16, corals 53 & 114 excl.)  |  ",
-      "\u03b2 = standardised path coefficient from CPE sensitivity SEM"
-    )
-  ) &
-  theme(plot.tag     = element_text(size = 8, face = "bold"),
-        plot.caption = element_text(size = 7.5, color = "grey40", hjust = 0))
-
-ggsave(here("Revision", "Output", "fig_cpe_excl_path_scatters.png"),
-       fig_cpe_excl_scatters, width = 8, height = 15, dpi = 300)
-
-fig_cpe_excl_scatters
-```
-
+As coral reefs shift from coral-dominated to algae-dominated states — a trajectory already underway across much of the Indo-Pacific — the benthic community itself becomes a source of modified chemical conditions that feed back on the physiology of any corals that remain. This study shows that community net production is the primary driver of seawater pH across tank treatments, and that this pH signal reaches into coral photobiology by influencing how much chlorophyll each endosymbiont cell carries. The consequence is indirect but structural: because per-cell chlorophyll and symbiont cell density are locked in a strong negative trade-off, any community-driven shift in the chemical environment that pushes symbionts toward greater per-cell pigment investment simultaneously suppresses symbiont proliferation — and since symbiont abundance, not per-cell photosynthetic quality, is the dominant predictor of tissue biomass, the net effect is a reduction in the tissue investment that underpins coral growth, survival, and competitive ability. Critically, the community-to-coral signal in this study was not strong enough to propagate significantly all the way through to gross photosynthesis at n = 16 tanks, suggesting that individual corals retain some metabolic autonomy under moderate community shifts. But this buffering capacity should not be mistaken for resilience to the more severe and sustained phase shifts projected under continued warming and eutrophication: the causal architecture identified here — community metabolism → water chemistry → symbiont photoacclimation → cell density → tissue biomass — represents a plausible mechanism by which degrading reef communities could erode the physiological condition of remnant corals from the outside in, compounding the direct stressors of bleaching and acidification with an indirect chemical legacy of altered benthic composition. This is a chemical legacy effect: degraded communities don't just outcompete corals directly, they rewrite the environment that remaining corals experience.
 ---
 
 # Supplementary figures {#sec-supp}
@@ -2609,7 +2101,7 @@ fig_supp4
 
 # Model fit comparison {#sec-fit-comparison}
 
-Global fit statistics for all four SEMs, assembled for cross-model comparison.
+Global fit statistics for all three SEMs, assembled for cross-model comparison.
 χ² statistics for small samples (n = 16 tanks) are unreliable in isolation;
 the p(χ²), CFI, RMSEA, SRMR, and information criteria together inform adequacy.
 
@@ -2619,10 +2111,9 @@ the p(χ²), CFI, RMSEA, SRMR, and information criteria together inform adequacy
 library(kableExtra)
 
 all_models <- list(
-  "Main model (Chl/cm²)"         = tank_v6_fit,
-  "Sensitivity: excl. 53 & 114"  = tank_v6_fit_excl,
-  "CPE model (Chl/cell)"         = cpe_fit,
-  "CPE excl. 53 & 114"           = cpe_excl_fit
+  "Main model (Chl/cm²)"        = tank_v6_fit,
+  "Sensitivity: excl. 53 & 114" = tank_v6_fit_excl,
+  "CPE model (Chl/cell)"        = cpe_fit
 )
 
 fit_stats <- c("chisq", "df", "pvalue", "cfi", "tli",
@@ -2647,7 +2138,7 @@ names(fit_comparison) <- c(
 fit_comparison |>
   kbl(
     caption = paste0(
-      "Global fit statistics across all four SEMs. ",
+      "Global fit statistics across all three SEMs. ",
       "Acceptable thresholds (at this n): p(\u03c7\u00b2) > 0.05, CFI \u2265 0.90, ",
       "RMSEA \u2264 0.08, SRMR \u2264 0.08. ",
       "All models fall below conventional cut-offs for CFI/RMSEA; ",
@@ -2672,7 +2163,7 @@ indices (CFI, TLI, RMSEA) are known to be highly variable and biased
 toward rejection even for well-specified models. The χ²/df ratio
 (Main model: 25.1/16 = 1.57; CPE: 31.6/17 = 1.86) and the non-significant
 or marginal p(χ²) are the more reliable guides. The main Chl/cm² model
-outperforms the CPE variants on every metric, including AIC (292.99 vs 294.11),
+outperforms the CPE model on every metric, including AIC (292.99 vs 294.11),
 suggesting per-area pigment is a better-fitting mediator of the community
 signal than per-cell pigment under these conditions.
 :::
