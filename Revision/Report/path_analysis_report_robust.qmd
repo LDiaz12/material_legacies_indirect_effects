@@ -2048,17 +2048,17 @@ This model proposes that the community-level water chemistry signal transmitted 
 
 **1. pH → Chl-a per cell: photoacclimation under facilitated carbonate chemistry**
 
-Higher seawater pH — driven here by community net community production (NCP) — shifts the carbonate equilibrium towards CO₃²⁻ and HCO₃⁻, increasing the availability of inorganic carbon substrates for photosynthesis [@barott2015]. The coral host actively concentrates CO₂ for symbionts via a vacuolar H⁺-ATPase that acidifies the symbiosome to ~pH 4, functioning as an intracellular carbon concentrating mechanism [@barott2015]. Under higher ambient pH, this pumping mechanism must work harder to create the same local acidification gradient, potentially constraining inorganic carbon supply to individual symbionts. Rather than proliferating in cell number, symbionts may compensate by increasing chlorophyll loading per cell — a well-established photoacclimation response: within 15 days, *Symbiodinium* in corals photoacclimate by modifying chlorophyll a, chlorophyll c₂, and peridinin per cell while maintaining the same pigment ratios [@roth2014]. CO₂ enrichment has been shown to lead to enhanced photoacclimation — specifically increased chlorophyll a per cell — under subsaturating light conditions [@placeholder_pangaea]. The converse is also consistent: at higher pH (lower pCO₂), reduced inorganic carbon availability per cell may require cells to increase antenna size to maximise the conversion efficiency of captured light into fixed carbon.
+Higher seawater pH — driven here by community net community production (NCP) — shifts the carbonate equilibrium towards CO₃²⁻ and HCO₃⁻, increasing the availability of inorganic carbon substrates for photosynthesis [@barott2015]. The coral host actively concentrates CO₂ for symbionts via a vacuolar H⁺-ATPase that acidifies the symbiosome to ~pH 4, functioning as an intracellular carbon concentrating mechanism [@barott2015]. Under higher ambient pH, this pumping mechanism must work harder to create the same local acidification gradient, potentially constraining inorganic carbon supply to individual symbionts. Rather than proliferating in cell number, symbionts may compensate by increasing chlorophyll loading per cell — a well-established photoacclimation response: within 15 days, *Symbiodinium* in corals photoacclimate by modifying chlorophyll a, chlorophyll c₂, and peridinin per cell while maintaining the same pigment ratios [@roth2014]. CO₂ enrichment has been shown to lead to enhanced photoacclimation — specifically increased chlorophyll a per cell — under subsaturating light conditions. The converse is also consistent: at higher pH (lower pCO₂), reduced inorganic carbon availability per cell may require cells to increase antenna size to maximise the conversion efficiency of captured light into fixed carbon.
 
 **2. The chlorophyll packing trade-off: why higher cell density does not co-occur with higher Chl per cell**
 
-The significant negative path from Chl-a/cell → endosymbiont density (β = −0.64) is not a biological causal mechanism but reflects a well-documented optical trade-off. There is a complex relationship between increased pigment loading and the decrease in optical absorption cross-section due to self-shading within the symbiont layer [@placeholder_pmc_selfshading]. As cell density increases, individual cells shade one another, making additional chlorophyll per cell increasingly inefficient — an increase in chlorophyll concentration per alga or in algal density are both self-limiting due to the packaging effect [@placeholder_dubinsky_stambler]. This creates the negative empirical correlation observed here: at high symbiont densities, packing more chlorophyll per cell yields diminishing photosynthetic returns because carbon fixation by individual algal cells decreases with increasing tissue depth due to the attenuation of light from symbiont self-shading [@placeholder_sciencedirect_depth]. The optimal strategy, therefore, is not to maximise both simultaneously — corals that achieve high cell density produce less chlorophyll per cell, and those with fewer but more heavily pigmented cells achieve similar or greater per-cell photosynthetic output. Chlorophyll concentration per zooxanthella cell and cell density display opposing trends, resulting in relatively homogeneous chlorophyll content per unit area across conditions [@placeholder_pmc_opposing].
+The significant negative path from Chl-a/cell → endosymbiont density (β = −0.64) is not a biological causal mechanism but reflects a well-documented optical trade-off. There is a complex relationship between increased pigment loading and the decrease in optical absorption cross-section due to self-shading within the symbiont layer . As cell density increases, individual cells shade one another, making additional chlorophyll per cell increasingly inefficient — an increase in chlorophyll concentration per alga or in algal density are both self-limiting due to the packaging effect [@placeholder_dubinsky_stambler]. This creates the negative empirical correlation observed here: at high symbiont densities, packing more chlorophyll per cell yields diminishing photosynthetic returns because carbon fixation by individual algal cells decreases with increasing tissue depth due to the attenuation of light from symbiont self-shading [@placeholder_sciencedirect_depth]. The optimal strategy, therefore, is not to maximise both simultaneously — corals that achieve high cell density produce less chlorophyll per cell, and those with fewer but more heavily pigmented cells achieve similar or greater per-cell photosynthetic output. Chlorophyll concentration per zooxanthella cell and cell density display opposing trends, resulting in relatively homogeneous chlorophyll content per unit area across conditions [@placeholder_pmc_opposing].
 
 **3. Chl/cell → GP → Tissue biomass & Respiration: the carbon-energy cascade**
 
-Higher chlorophyll per cell increases the light-harvesting capacity of individual symbionts, which should translate to greater gross photosynthesis (GP) if light is not saturating. The downstream consequence is a carbon cascade: endosymbiotic dinoflagellates significantly contribute to the host's nutrition by transferring a large fraction — up to 90% — of their photosynthetically assimilated carbon to support growth, respiration, reproduction, and calcification [@pernice2015; @muscatine1984]. Approximately 38% of daily fixed carbon is translocated to the coral host, fuelling tissue construction and the host's metabolic demands [@placeholder_frontiers_38pct]. Tissue biomass therefore accrues as a direct product of the carbon flow from photosynthesis: an increase in translocated photosynthetic products associated with symbiont activity is hypothesised to precede enlargement in tissue biomass [@placeholder_pmc_biomass].
+Higher chlorophyll per cell increases the light-harvesting capacity of individual symbionts, which should translate to greater gross photosynthesis (GP) if light is not saturating. The downstream consequence is a carbon cascade: endosymbiotic dinoflagellates significantly contribute to the host's nutrition by transferring a large fraction — up to 90% — of their photosynthetically assimilated carbon to support growth, respiration, reproduction, and calcification [@pernice2015; @muscatine1984]. Approximately 38% of daily fixed carbon is translocated to the coral host, fuelling tissue construction and the host's metabolic demands [@placeholder_frontiers_38pct]. Tissue biomass therefore accrues as a direct product of the carbon flow from photosynthesis: an increase in translocated photosynthetic products associated with symbiont activity is hypothesised to precede enlargement in tissue biomass .
 
-Respiration scales with this carbon-biomass investment from both directions simultaneously. In low-light environments, corals reduce energetic requirements by decreasing tissue biomass, skeleton thickness, respiration rates, and growth — the inverse pattern of what is expected here [@placeholder_pmc_lowlight]. When GP is higher, more photosynthate is available to burn, and a larger tissue mass demands greater maintenance respiration. The simultaneous GP → R and Endo → Biomass paths reflect that under higher photosynthetic output, both the incorporation of carbon into biomass and respiration rates increase together [@placeholder_plos_gp_respiration]. This is consistent with the idea that respiration is not simply a cost of carbon fixation, but scales with the total living biomass the coral must maintain — the more tissue accumulated (via Endo → Biomass), the higher the ongoing respiratory demand.
+Respiration scales with this carbon-biomass investment from both directions simultaneously. In low-light environments, corals reduce energetic requirements by decreasing tissue biomass, skeleton thickness, respiration rates, and growth — the inverse pattern of what is expected here . When GP is higher, more photosynthate is available to burn, and a larger tissue mass demands greater maintenance respiration. The simultaneous GP → R and Endo → Biomass paths reflect that under higher photosynthetic output, both the incorporation of carbon into biomass and respiration rates increase together . This is consistent with the idea that respiration is not simply a cost of carbon fixation, but scales with the total living biomass the coral must maintain — the more tissue accumulated (via Endo → Biomass), the higher the ongoing respiratory demand.
 
 ### Why this model is structurally distinct from the Chl/cm² model
 
@@ -2604,6 +2604,78 @@ ggsave(here("Revision", "Output", "supp_fig4_physiology_vs_DOC.png"),
 
 fig_supp4
 ```
+
+---
+
+# Model fit comparison {#sec-fit-comparison}
+
+Global fit statistics for all four SEMs, assembled for cross-model comparison.
+χ² statistics for small samples (n = 16 tanks) are unreliable in isolation;
+the p(χ²), CFI, RMSEA, SRMR, and information criteria together inform adequacy.
+
+```{r all-model-fits}
+#| label: all-model-fits
+
+library(kableExtra)
+
+all_models <- list(
+  "Main model (Chl/cm²)"         = tank_v6_fit,
+  "Sensitivity: excl. 53 & 114"  = tank_v6_fit_excl,
+  "CPE model (Chl/cell)"         = cpe_fit,
+  "CPE excl. 53 & 114"           = cpe_excl_fit
+)
+
+fit_stats <- c("chisq", "df", "pvalue", "cfi", "tli",
+               "rmsea", "rmsea.ci.lower", "rmsea.ci.upper",
+               "srmr", "aic", "bic")
+
+fit_comparison <- do.call(rbind, lapply(names(all_models), \(nm) {
+  fm <- fitMeasures(all_models[[nm]], fit_stats)
+  setNames(
+    data.frame(matrix(c(nm, round(fm, 3)), nrow = 1)),
+    c("Model", fit_stats)
+  )
+}))
+
+# Rename columns for display
+names(fit_comparison) <- c(
+  "Model", "\u03c7\u00b2", "df", "p(\u03c7\u00b2)",
+  "CFI", "TLI", "RMSEA", "RMSEA\u00a0LB", "RMSEA\u00a0UB",
+  "SRMR", "AIC", "BIC"
+)
+
+fit_comparison |>
+  kbl(
+    caption = paste0(
+      "Global fit statistics across all four SEMs. ",
+      "Acceptable thresholds (at this n): p(\u03c7\u00b2) > 0.05, CFI \u2265 0.90, ",
+      "RMSEA \u2264 0.08, SRMR \u2264 0.08. ",
+      "All models fall below conventional cut-offs for CFI/RMSEA; ",
+      "the non-significant or marginal \u03c7\u00b2 and low \u03c7\u00b2/df ratio remain ",
+      "the more informative indicators at n = 16. ",
+      "Lower AIC/BIC indicates relatively better fit."
+    ),
+    align = c("l", rep("r", 11))
+  ) |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = FALSE,
+    position   = "left"
+  ) |>
+  row_spec(0, bold = TRUE) |>
+  column_spec(1, bold = TRUE)
+```
+
+::: {.callout-note}
+**Interpreting fit at n = 16:** With only 16 observations the χ²-based
+indices (CFI, TLI, RMSEA) are known to be highly variable and biased
+toward rejection even for well-specified models. The χ²/df ratio
+(Main model: 25.1/16 = 1.57; CPE: 31.6/17 = 1.86) and the non-significant
+or marginal p(χ²) are the more reliable guides. The main Chl/cm² model
+outperforms the CPE variants on every metric, including AIC (292.99 vs 294.11),
+suggesting per-area pigment is a better-fitting mediator of the community
+signal than per-cell pigment under these conditions.
+:::
 
 ---
 
