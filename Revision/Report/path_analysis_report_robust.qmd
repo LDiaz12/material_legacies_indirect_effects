@@ -55,6 +55,7 @@ library(lme4)
 library(lmerTest)
 library(emmeans)
 library(patchwork)
+library(piecewiseSEM)
 ```
 
 ---
@@ -2113,7 +2114,7 @@ Because the design is fully crossed (each genotype × treatment combination has 
 The two upstream equations — NCP → pH and NCP → DOC — remain at the tank level (OLS), since both predictor and response are measured per tank. All downstream equations are fragment-level `lmer` models. Path coefficients are standardised (z-scored across all fragments).
 
 ::: {.callout-note}
-`piecewiseSEM` (Lefcheck 2016), the ideal package for this mixed-level structure, is not available for R 4.3.2. Path equations are instead fitted as separate `lmerTest::lmer()` models; coefficients, Satterthwaite degrees of freedom, and p-values are extracted and assembled into a unified table. Marginal (R²m) and conditional (R²c) R² values follow Nakagawa & Schielzeth (2013) and are computed without external packages.
+Path equations are fitted as `lmer()` models and assembled into a `piecewiseSEM::psem()` object (Lefcheck 2016). Coefficients and Satterthwaite degrees of freedom are extracted with `coefs()`; marginal (R²m) and conditional (R²c) R² values follow Nakagawa & Schielzeth (2013) via `rsquared()`. Global model fit is assessed via Shipley's Fisher's C d-separation statistic.
 :::
 
 ---
@@ -2180,28 +2181,29 @@ cat("Genotypes represented:", n_distinct(frag_path_scaled$GENOTYPE), "\n")
 ```{r frag-path-models}
 #| label: frag-path-models
 
-library(lmerTest)
+# Fragment-level equations: (1|GENOTYPE) random intercept
+# REML = TRUE required for piecewiseSEM's Kenward-Roger F-tests
+# pH_tank and DOC_tank are exogenous (no upstream model at the fragment level)
+frag_m_chla    <- lmer(log_chla    ~ pH_tank  + DOC_tank + (1|GENOTYPE),
+                       data = frag_path_scaled, REML = TRUE)
+frag_m_endo    <- lmer(log_endo    ~ log_chla + (1|GENOTYPE),
+                       data = frag_path_scaled, REML = TRUE)
+frag_m_biomass <- lmer(log_biomass ~ log_endo  + (1|GENOTYPE),
+                       data = frag_path_scaled, REML = TRUE)
+frag_m_r       <- lmer(mean_R      ~ log_biomass + (1|GENOTYPE),
+                       data = frag_path_scaled, REML = TRUE)
+frag_m_gp      <- lmer(mean_GP     ~ log_endo + mean_R + (1|GENOTYPE),
+                       data = frag_path_scaled, REML = TRUE)
 
-# Tank-level equations (NCP → water chemistry)
-#frag_m_ph      <- lm(pH_tank  ~ NEP_tank, data = tank_rows_frag)
-#frag_m_doc     <- lm(DOC_tank ~ NEP_tank, data = tank_rows_frag)
-
-# Fragment-level equations: (1|TANK_NUM) + (1|GENOTYPE)
-frag_m_chla    <- lmer(log_chla    ~ pH_tank  + DOC_tank +
-                          (1|GENOTYPE),
-                       data = frag_path_scaled, REML = FALSE)
-frag_m_endo    <- lmer(log_endo    ~ log_chla + 
-                         (1|GENOTYPE),
-                       data = frag_path_scaled, REML = FALSE)
-frag_m_gp      <- lmer(mean_GP     ~  log_endo + mean_R +
-                         (1|GENOTYPE),
-                       data = frag_path_scaled, REML = FALSE)
-frag_m_r       <- lmer(mean_R      ~ log_biomass  +
-                          (1|GENOTYPE),
-                       data = frag_path_scaled, REML = FALSE)
-frag_m_biomass <- lmer(log_biomass ~ log_endo  +
-                          (1|GENOTYPE),
-                       data = frag_path_scaled, REML = FALSE)
+# Wrap into a piecewiseSEM object; pH_tank and DOC_tank treated as exogenous
+frag_psem <- psem(
+  frag_m_chla,
+  frag_m_endo,
+  frag_m_biomass,
+  frag_m_r,
+  frag_m_gp,
+  data = frag_path_scaled
+)
 
 singular_flags <- sapply(
   list(frag_m_chla, frag_m_endo, frag_m_gp, frag_m_r, frag_m_biomass),
@@ -2221,52 +2223,36 @@ cat("Singular fits:", sum(singular_flags), "/ 5 fragment-level models\n")
 ```{r frag-path-coefs}
 #| label: frag-path-coefs
 
-# Extract standardised coefficients + Satterthwaite df/p
-get_frag_coefs <- function(mod, resp, tank = FALSE) {
-  s <- as.data.frame(summary(mod)$coefficients) |>
-    tibble::rownames_to_column("Predictor") |>
-    dplyr::filter(Predictor != "(Intercept)")
-  if (tank) {
-    dplyr::transmute(s,
-      Response = resp, Predictor,
-      `Std. β` = round(Estimate, 3),
-      SE       = round(`Std. Error`, 3),
-      df       = 14,
-      t        = round(`t value`, 3),
-      p        = round(`Pr(>|t|)`, 4)
-    )
-  } else {
-    dplyr::transmute(s,
-      Response = resp, Predictor,
-      `Std. β` = round(Estimate, 3),
-      SE       = round(`Std. Error`, 3),
-      df       = round(df, 1),
-      t        = round(`t value`, 3),
-      p        = round(`Pr(>|t|)`, 4)
-    )
-  }
-}
-
-frag_coef_tbl <- bind_rows(
-  get_frag_coefs(frag_m_chla,    "Chl-a (log)"),
-  get_frag_coefs(frag_m_endo,    "Endosymbiont (log)"),
-  get_frag_coefs(frag_m_gp,      "Gross photosynthesis"),
-  get_frag_coefs(frag_m_r,       "Respiration"),
-  get_frag_coefs(frag_m_biomass, "Tissue biomass (log)")
-) |>
-  mutate(Predictor = recode(Predictor,
-    NEP_tank = "NCP",     pH_tank  = "pH",    DOC_tank  = "DOC (log)",
-    log_chla = "Chl-a",  log_endo = "Endosymbiont",
-    mean_GP  = "GP",     mean_R   = "Respiration",
-    log_biomass = "Tissue biomass"
-  ))
+frag_coef_tbl <- coefs(frag_psem) |>
+  # coefs() appends an unnamed trailing column; select only the needed columns
+  dplyr::select(Response, Predictor, Estimate, Std.Error, DF, Crit.Value, P.Value) |>
+  dplyr::transmute(
+    Response  = recode(Response,
+      log_chla    = "Chl-a (log)",
+      log_endo    = "Endosymbiont (log)",
+      log_biomass = "Tissue biomass (log)",
+      mean_R      = "Respiration",
+      mean_GP     = "Gross photosynthesis"),
+    Predictor = recode(Predictor,
+      pH_tank     = "pH",
+      DOC_tank    = "DOC (log)",
+      log_chla    = "Chl-a",
+      log_endo    = "Endosymbiont",
+      log_biomass = "Tissue biomass",
+      mean_R      = "Respiration"),
+    `Std. β` = round(Estimate, 3),
+    SE        = round(Std.Error, 3),
+    df        = round(DF, 1),
+    t         = round(Crit.Value, 3),
+    p         = round(P.Value, 4)
+  )
 
 frag_coef_tbl |>
   kbl(
     caption = paste0(
       "Fragment-level path coefficients (n = ", nrow(frag_path_scaled),
-      " fragments, n = 16 tanks). All equations use lmer with (1|GENOTYPE) and ",
-      "Satterthwaite df. All variables z-scored. ",
+      " fragments, n = 16 tanks). Fitted with piecewiseSEM; lmer models with ",
+      "(1|GENOTYPE). All variables z-scored. ",
       "Green = p < 0.05; yellow = 0.05 \u2264 p < 0.10."
     ),
     col.names = c("Response", "Predictor", "Std. \u03b2", "SE", "df", "t", "p")
@@ -2288,30 +2274,31 @@ frag_coef_tbl |>
 
 library(purrr)
 
-r2_NS_frag <- function(mod) {
-  vf <- var(as.vector(getME(mod, "X") %*% fixef(mod)))
-  vc <- as.data.frame(VarCorr(mod))
-  vr <- sum(vc$vcov[is.na(vc$var2)])
-  ve <- sigma(mod)^2
-  round(vf / (vf + vr + ve), 3)
-}
+# Extract marginal R² from psem object
+frag_r2_diag <- rsquared(frag_psem) |>
+  dplyr::select(Response, r2 = Marginal) |>
+  deframe()
 
-frag_diag_paths <- list(
-  list(from="pH",   to="Chla", mod=frag_m_chla,    pred="pH_tank"),
-  list(from="DOC",  to="Chla", mod=frag_m_chla,    pred="DOC_tank"),
-  list(from="Chla", to="Endo", mod=frag_m_endo,    pred="log_chla"),
-  list(from="Endo", to="Bio",  mod=frag_m_biomass, pred="log_endo"),
-  list(from="Bio",  to="R",    mod=frag_m_r,       pred="log_biomass"),
-  list(from="Endo", to="GP",   mod=frag_m_gp,      pred="log_endo"),
-  list(from="R",    to="GP",   mod=frag_m_gp,      pred="mean_R")
-)
-
-frag_diag_edges <- map_dfr(frag_diag_paths, function(p) {
-  s <- summary(p$mod)$coefficients
-  tibble(from=p$from, to=p$to,
-         coef = round(s[p$pred, "Estimate"],   3),
-         pval =       s[p$pred, "Pr(>|t|)"])
-}) |>
+frag_diag_edges <- coefs(frag_psem) |>
+  dplyr::select(Response, Predictor, Estimate, P.Value) |>
+  mutate(
+    from = recode(Predictor,
+      pH_tank     = "pH",
+      DOC_tank    = "DOC",
+      log_chla    = "Chla",
+      log_endo    = "Endo",
+      log_biomass = "Bio",
+      mean_R      = "R"),
+    to = recode(Response,
+      log_chla    = "Chla",
+      log_endo    = "Endo",
+      log_biomass = "Bio",
+      mean_R      = "R",
+      mean_GP     = "GP"),
+    coef = round(Estimate, 3),
+    pval = P.Value
+  ) |>
+  dplyr::select(from, to, coef, pval) |>
   mutate(colour = case_when(
     pval < 0.05 & coef > 0 ~ "pos",
     pval < 0.05 & coef < 0 ~ "neg",
@@ -2321,14 +2308,14 @@ frag_diag_edges <- map_dfr(frag_diag_paths, function(p) {
 frag_diag_nodes <- tibble(
   id    = c("pH",  "DOC",  "Chla",         "Endo",                  "Bio",             "R",           "GP"),
   label = c("pH",  "DOC",  "Chl-a\n(log)", "Endosymbiont\ndensity", "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
-  x     = c(1,     1,      3,               5,                        7,                 7,              9),
-  y     = c(1.0,  -1.0,    0,               0,                        0.9,              -0.9,            0),
+  x     = c(1,     1,      3,               5,                        7,                 8.5,           10),
+  y     = c(1.0,  -1.0,    0,               0,                        0.6,               0.5,           0),
   r2    = c(NA, NA,
-            r2_NS_frag(frag_m_chla), r2_NS_frag(frag_m_endo),
-            r2_NS_frag(frag_m_biomass), r2_NS_frag(frag_m_r),
-            r2_NS_frag(frag_m_gp))
+            frag_r2_diag["log_chla"],    frag_r2_diag["log_endo"],
+            frag_r2_diag["log_biomass"], frag_r2_diag["mean_R"],
+            frag_r2_diag["mean_GP"])
 ) |>
-  mutate(r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", r2), NA_character_),
+  mutate(r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", round(r2, 2)), NA_character_),
          label_y  = ifelse(!is.na(r2), y + 0.07, y))
 
 frag_diag_e <- frag_diag_edges |>
@@ -2366,7 +2353,7 @@ ggplot() +
     label=paste0("Green = sig. positive   Red = sig. negative   Grey = n.s.",
                  "   Standardised \u03b2   n = 74 fragments"),
     hjust=0, size=2.4, color="grey35") +
-  coord_equal(xlim=c(0.4, 9.8), ylim=c(-1.8, 1.6), expand=FALSE) +
+  coord_equal(xlim=c(0.4, 10.8), ylim=c(-1.8, 1.6), expand=FALSE) +
   theme_void() +
   theme(plot.margin=margin(6,6,6,6))
 ```
@@ -2378,38 +2365,33 @@ ggplot() +
 ```{r frag-path-r2}
 #| label: frag-path-r2
 
-# Nakagawa & Schielzeth (2013): marginal (fixed only) and conditional (fixed + random) R²
-r2_NS <- function(mod) {
-  vf <- var(as.vector(getME(mod, "X") %*% fixef(mod)))
-  vc <- as.data.frame(VarCorr(mod))
-  vr <- sum(vc$vcov[is.na(vc$var2)])
-  ve <- sigma(mod)^2
-  c(R2m = round(vf / (vf + vr + ve), 3),
-    R2c  = round((vf + vr) / (vf + vr + ve), 3))
-}
-
-frag_r2_tbl <- tibble(
-  Response   = c("Chl-a (log)", "Endosymbiont (log)",
-                 "Gross photosynthesis", "Respiration",
-                 "Tissue biomass (log)"),
-  `R² / R²m` = c(r2_NS(frag_m_chla)["R2m"],  r2_NS(frag_m_endo)["R2m"],
-                  r2_NS(frag_m_gp)["R2m"],   r2_NS(frag_m_r)["R2m"],
-                  r2_NS(frag_m_biomass)["R2m"]),
-  `R²c`      = c(r2_NS(frag_m_chla)["R2c"],  r2_NS(frag_m_endo)["R2c"],
-                  r2_NS(frag_m_gp)["R2c"],   r2_NS(frag_m_r)["R2c"],
-                  r2_NS(frag_m_biomass)["R2c"]),
-  Singular   = c(isSingular(frag_m_chla), isSingular(frag_m_endo),
-                 isSingular(frag_m_gp),   isSingular(frag_m_r),
-                 isSingular(frag_m_biomass))
+singular_tbl <- tibble(
+  Response = c("log_chla", "log_endo", "log_biomass", "mean_R", "mean_GP"),
+  Singular = c(isSingular(frag_m_chla), isSingular(frag_m_endo),
+               isSingular(frag_m_biomass), isSingular(frag_m_r),
+               isSingular(frag_m_gp))
 )
+
+frag_r2_tbl <- rsquared(frag_psem) |>
+  dplyr::select(Response, `R² / R²m` = Marginal, `R²c` = Conditional) |>
+  left_join(singular_tbl, by = "Response") |>
+  mutate(
+    Response = recode(Response,
+      log_chla    = "Chl-a (log)",
+      log_endo    = "Endosymbiont (log)",
+      log_biomass = "Tissue biomass (log)",
+      mean_R      = "Respiration",
+      mean_GP     = "Gross photosynthesis"),
+    across(where(is.numeric), ~round(., 3))
+  )
 
 frag_r2_tbl |>
   kbl(
     caption = paste0(
-      "R\u00b2 per path equation. R\u00b2m (marginal) reflects fixed-effect ",
-      "predictors only; R\u00b2c (conditional) includes fixed + random effects ",
-      "(Nakagawa & Schielzeth 2013). Singular = one random-effect variance ",
-      "component estimated at zero."
+      "R\u00b2 per path equation (piecewiseSEM). R\u00b2m (marginal) reflects ",
+      "fixed-effect predictors only; R\u00b2c (conditional) includes fixed + ",
+      "random effects (Nakagawa & Schielzeth 2013). ",
+      "Singular = one random-effect variance component estimated at zero."
     ),
     col.names = c("Response", "R\u00b2 / R\u00b2m", "R\u00b2c", "Singular fit")
   ) |>
@@ -2484,12 +2466,12 @@ frag_cpe_data <- metadata |>
   ) |>
   left_join(
     chem_reframe_DAY_clean |>
-     # bind_rows(chem_reframe_NIGHT_clean) |>
+      bind_rows(chem_reframe_NIGHT_clean) |>
       group_by(TANK_NUM) |>
       summarize(
         NEP_tank = mean(NEP, na.rm = TRUE),
-        pH_tank  = max(pH,  na.rm = TRUE),
-        DOC_tank = log(max(DOC, na.rm = TRUE)),
+        pH_tank  = mean(pH,  na.rm = TRUE),
+        DOC_tank = log(mean(DOC, na.rm = TRUE)),
         .groups  = "drop"
       ) |>
       mutate(TANK_NUM = as.numeric(TANK_NUM)),
@@ -2524,19 +2506,29 @@ cat("Genotypes represented:", n_distinct(frag_cpe_scaled$GENOTYPE), "\n")
 ```{r frag-cpe-models}
 #| label: frag-cpe-models
 
-library(lmerTest)
+# Fragment-level CPE equations: (1|GENOTYPE) random intercept
+# REML = TRUE required for piecewiseSEM's Kenward-Roger F-tests
+cpe_m_cpe     <- lmer(log_cpe     ~ pH_tank + DOC_tank + 
+                        (1|GENOTYPE),
+                      data = frag_cpe_scaled, REML = TRUE)
+cpe_m_endo    <- lmer(log_endo    ~ log_cpe + (1|GENOTYPE),
+                      data = frag_cpe_scaled, REML = TRUE)
+cpe_m_biomass <- lmer(log_biomass ~ log_endo + (1|GENOTYPE),
+                      data = frag_cpe_scaled, REML = TRUE)
+cpe_m_r       <- lmer(mean_R      ~ log_biomass + (1|GENOTYPE),
+                      data = frag_cpe_scaled, REML = TRUE)
+cpe_m_gp      <- lmer(mean_GP     ~ log_endo + mean_R + (1|GENOTYPE),
+                      data = frag_cpe_scaled, REML = TRUE)
 
-cpe_m_cpe     <- lmer(log_cpe     ~ pH_tank + DOC_tank     +  (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = FALSE)
-cpe_m_endo    <- lmer(log_endo    ~ log_cpe      + (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = FALSE)
-cpe_m_biomass <- lmer(log_biomass ~ log_endo    + (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = FALSE)
-cpe_m_r       <- lmer(mean_R      ~ log_biomass  
-                      + (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = FALSE)
-cpe_m_gp      <- lmer(mean_GP     ~ log_endo + mean_R +(1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = FALSE) #mean_R      + 
+# Wrap into a piecewiseSEM object
+cpe_psem <- psem(
+  cpe_m_cpe,
+  cpe_m_endo,
+  cpe_m_biomass,
+  cpe_m_r,
+  cpe_m_gp,
+  data = frag_cpe_scaled
+)
 
 cpe_frag_mods <- list(cpe=cpe_m_cpe, endo=cpe_m_endo, biomass=cpe_m_biomass,
                       R=cpe_m_r, GP=cpe_m_gp)
@@ -2545,7 +2537,7 @@ cat("Singular fits:", sum(cpe_singular), "/ 5 fragment-level models\n")
 ```
 
 ::: {.callout-warning}
-**Singular fits.** `r sum(cpe_singular)` of the 5 fragment-level CPE models are singular. As in the Chl-a/cm² fragment model, `TANK_NUM` variance collapses to zero when the fixed chemistry predictors already explain the between-tank variation. Coefficients remain interpretable.
+**Singular fits.** `r sum(cpe_singular)` of the 5 fragment-level CPE models are singular, meaning one random-effect variance component is estimated at exactly zero. This occurs when the fixed chemistry predictors already explain the between-tank variation. The fixed-effect coefficients remain valid; singularity reflects a data limitation rather than a model failure.
 :::
 
 ---
@@ -2555,40 +2547,36 @@ cat("Singular fits:", sum(cpe_singular), "/ 5 fragment-level models\n")
 ```{r frag-cpe-coefs}
 #| label: frag-cpe-coefs
 
-get_frag_coefs <- function(mod, resp, tank = FALSE) {
-  s <- as.data.frame(summary(mod)$coefficients) |>
-    tibble::rownames_to_column("Predictor") |>
-    dplyr::filter(Predictor != "(Intercept)")
-  if (tank) {
-    dplyr::transmute(s, Response=resp, Predictor,
-                     `Std. β`=round(Estimate,3), SE=round(`Std. Error`,3),
-                     df=14, t=round(`t value`,3), p=round(`Pr(>|t|)`,4))
-  } else {
-    dplyr::transmute(s, Response=resp, Predictor,
-                     `Std. β`=round(Estimate,3), SE=round(`Std. Error`,3),
-                     df=round(df,1), t=round(`t value`,3), p=round(`Pr(>|t|)`,4))
-  }
-}
-
-cpe_coef_tbl <- bind_rows(
-  get_frag_coefs(cpe_m_cpe,     "Chl-a/cell (log)"),
-  get_frag_coefs(cpe_m_endo,    "Endosymbiont (log)"),
-  get_frag_coefs(cpe_m_biomass, "Tissue biomass (log)"),
-  get_frag_coefs(cpe_m_r,       "Respiration"),
-  get_frag_coefs(cpe_m_gp,      "Gross photosynthesis")
-) |>
-  mutate(Predictor = recode(Predictor,
-    NEP_tank="NCP", pH_tank="pH", DOC_tank="DOC (log)",
-    log_cpe="Chl-a/cell", log_endo="Endosymbiont",
-    log_biomass="Tissue biomass", mean_R="Respiration", mean_GP="GP"
-  ))
+cpe_coef_tbl <- coefs(cpe_psem) |>
+  # coefs() appends an unnamed trailing column; select only the needed columns
+  dplyr::select(Response, Predictor, Estimate, Std.Error, DF, Crit.Value, P.Value) |>
+  dplyr::transmute(
+    Response  = recode(Response,
+      log_cpe     = "Chl-a/cell (log)",
+      log_endo    = "Endosymbiont (log)",
+      log_biomass = "Tissue biomass (log)",
+      mean_R      = "Respiration",
+      mean_GP     = "Gross photosynthesis"),
+    Predictor = recode(Predictor,
+      pH_tank     = "pH",
+      DOC_tank    = "DOC (log)",
+      log_cpe     = "Chl-a/cell",
+      log_endo    = "Endosymbiont",
+      log_biomass = "Tissue biomass",
+      mean_R      = "Respiration"),
+    `Std. β` = round(Estimate, 3),
+    SE        = round(Std.Error, 3),
+    df        = round(DF, 1),
+    t         = round(Crit.Value, 3),
+    p         = round(P.Value, 4)
+  )
 
 cpe_coef_tbl |>
   kbl(
     caption = paste0(
       "Fragment-level CPE path coefficients (n = ", nrow(frag_cpe_scaled),
-      " fragments, n = 16 tanks). All equations use lmer with (1|GENOTYPE) and ",
-      "Satterthwaite df. All variables z-scored. ",
+      " fragments, n = 16 tanks). Fitted with piecewiseSEM; lmer models with ",
+      "(1|GENOTYPE). All variables z-scored. ",
       "Green = p < 0.05; yellow = 0.05 \u2264 p < 0.10."
     ),
     col.names = c("Response", "Predictor", "Std. \u03b2", "SE", "df", "t", "p")
@@ -2610,53 +2598,50 @@ cpe_coef_tbl |>
 
 library(purrr)
 
-# Nakagawa-Schielzeth marginal R²
-r2_NS <- function(mod) {
-  vf <- var(as.vector(getME(mod, "X") %*% fixef(mod)))
-  vc <- as.data.frame(VarCorr(mod))
-  vr <- sum(vc$vcov[is.na(vc$var2)])
-  ve <- sigma(mod)^2
-  c(R2m = round(vf/(vf+vr+ve), 3), R2c = round((vf+vr)/(vf+vr+ve), 3))
-}
+# Marginal R² from psem object
+cpe_r2_diag <- rsquared(cpe_psem) |>
+  dplyr::select(Response, r2 = Marginal) |>
+  deframe()
 
 # Node positions — pH and DOC are exogenous (no upstream model)
 cpe_frag_nodes <- tibble(
   id    = c("pH",  "DOC",  "Chla",            "Endo",                  "Bio",             "R",           "GP"),
   label = c("pH",  "DOC",  "Chl-a\nper cell", "Endosymbiont\ndensity", "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
-  x     = c(1,     1,      3.5,                5.5,                     7.5,               7.5,           9.5),
-  y     = c(1.0,  -1.0,    0,                  0,                       1.0,              -0.8,            0.0)
+  x     = c(1,     1,      3.5,                5.5,                     7.5,               9.0,           10.5),
+  y     = c(1.0,  -1.0,    0,                  0,                       0.6,               0.3,           0.0)
 ) |>
   mutate(
     r2 = c(NA, NA,
-           unname(r2_NS(cpe_m_cpe)["R2m"]),
-           unname(r2_NS(cpe_m_endo)["R2m"]),
-           unname(r2_NS(cpe_m_biomass)["R2m"]),
-           unname(r2_NS(cpe_m_r)["R2m"]),
-           unname(r2_NS(cpe_m_gp)["R2m"])),
-    r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", r2), NA_character_),
+           cpe_r2_diag["log_cpe"],
+           cpe_r2_diag["log_endo"],
+           cpe_r2_diag["log_biomass"],
+           cpe_r2_diag["mean_R"],
+           cpe_r2_diag["mean_GP"]),
+    r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", round(r2, 2)), NA_character_),
     label_y  = ifelse(!is.na(r2), y + 0.07, y)
   )
 
-# Build edge table from coefficient table
-cpe_frag_edges <- tibble(
-  from = c("pH","DOC","Chla","Endo","Endo","Bio","Endo","R"),
-  to   = c("Chla","Chla","Endo","Bio","R","R","GP","GP")
-) |>
-  left_join(
-    cpe_coef_tbl |>
-      mutate(
-        from = recode(Predictor,
-          NCP="NCP", pH="pH", `DOC (log)`="DOC",
-          `Chl-a/cell`="Chla", Endosymbiont="Endo",
-          `Tissue biomass`="Bio", Respiration="R"),
-        to   = recode(Response,
-          pH="pH", `DOC (log)`="DOC", `Chl-a/cell (log)`="Chla",
-          `Endosymbiont (log)`="Endo", `Tissue biomass (log)`="Bio",
-          Respiration="R", `Gross photosynthesis`="GP")
-      ) |>
-      dplyr::select(from, to, coef=`Std. β`, p),
-    by = c("from","to")
+# Build edge table directly from piecewiseSEM coefs
+cpe_frag_edges <- coefs(cpe_psem) |>
+  dplyr::select(Response, Predictor, Estimate, P.Value) |>
+  mutate(
+    from = recode(Predictor,
+      pH_tank     = "pH",
+      DOC_tank    = "DOC",
+      log_cpe     = "Chla",
+      log_endo    = "Endo",
+      log_biomass = "Bio",
+      mean_R      = "R"),
+    to = recode(Response,
+      log_cpe     = "Chla",
+      log_endo    = "Endo",
+      log_biomass = "Bio",
+      mean_R      = "R",
+      mean_GP     = "GP"),
+    coef = round(Estimate, 3),
+    p    = P.Value
   ) |>
+  dplyr::select(from, to, coef, p) |>
   mutate(colour = case_when(
     p < 0.05 & coef > 0 ~ "pos",
     p < 0.05 & coef < 0 ~ "neg",
@@ -2696,7 +2681,7 @@ ggplot() +
   annotate("text", x=0.3, y=-1.6,
     label="Green = sig. positive   Red = sig. negative   Grey = n.s.   Standardised \u03b2   n = 74 fragments",
     hjust=0, size=2.5, color="grey35") +
-  coord_equal(xlim=c(0.2,10.2), ylim=c(-1.8,1.8), expand=FALSE) +
+  coord_equal(xlim=c(0.2, 11.2), ylim=c(-1.8, 1.8), expand=FALSE) +
   theme_void() +
   theme(plot.margin=margin(6,6,6,6))
 ```
@@ -2708,27 +2693,29 @@ ggplot() +
 ```{r frag-cpe-r2}
 #| label: frag-cpe-r2
 
-frag_cpe_r2 <- tibble(
-  Response   = c("Chl-a/cell (log)", "Endosymbiont (log)",
-                 "Tissue biomass (log)", "Respiration",
-                 "Gross photosynthesis"),
-  `R² / R²m` = c(unname(r2_NS(cpe_m_cpe)["R2m"]),
-                  unname(r2_NS(cpe_m_endo)["R2m"]),
-                  unname(r2_NS(cpe_m_biomass)["R2m"]),
-                  unname(r2_NS(cpe_m_r)["R2m"]),
-                  unname(r2_NS(cpe_m_gp)["R2m"])),
-  `R²c`      = c(unname(r2_NS(cpe_m_cpe)["R2c"]),
-                  unname(r2_NS(cpe_m_endo)["R2c"]),
-                  unname(r2_NS(cpe_m_biomass)["R2c"]),
-                  unname(r2_NS(cpe_m_r)["R2c"]),
-                  unname(r2_NS(cpe_m_gp)["R2c"])),
-  Singular   = cpe_singular
+cpe_singular_tbl <- tibble(
+  Response = c("log_cpe", "log_endo", "log_biomass", "mean_R", "mean_GP"),
+  Singular = unname(cpe_singular)
 )
+
+frag_cpe_r2 <- rsquared(cpe_psem) |>
+  dplyr::select(Response, `R² / R²m` = Marginal, `R²c` = Conditional) |>
+  left_join(cpe_singular_tbl, by = "Response") |>
+  mutate(
+    Response = recode(Response,
+      log_cpe     = "Chl-a/cell (log)",
+      log_endo    = "Endosymbiont (log)",
+      log_biomass = "Tissue biomass (log)",
+      mean_R      = "Respiration",
+      mean_GP     = "Gross photosynthesis"),
+    across(where(is.numeric), ~round(., 3))
+  )
 
 frag_cpe_r2 |>
   kbl(
     caption = paste0(
-      "R\u00b2 per CPE path equation. R\u00b2m = marginal (fixed effects only); ",
+      "R\u00b2 per CPE path equation (piecewiseSEM). ",
+      "R\u00b2m = marginal (fixed effects only); ",
       "R\u00b2c = conditional (fixed + random effects); ",
       "Nakagawa & Schielzeth (2013). Singular = one random-effect variance at zero."
     ),
