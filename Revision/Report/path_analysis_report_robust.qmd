@@ -2278,6 +2278,101 @@ frag_coef_tbl |>
 
 ---
 
+## Path diagram
+
+```{r frag-path-diagram}
+#| label: frag-path-diagram
+#| fig-cap: "Fragment-level Chl-a path diagram (n = 74 fragments, 16 tanks, 24 genotypes). Green = significant positive path (p < 0.05); red = significant negative path (p < 0.05); grey = n.s. Coefficients are standardised β. R²m (marginal, fixed effects only) shown in each endogenous node."
+#| fig-width: 9
+#| fig-height: 4
+
+library(purrr)
+
+r2_NS_frag <- function(mod) {
+  vf <- var(as.vector(getME(mod, "X") %*% fixef(mod)))
+  vc <- as.data.frame(VarCorr(mod))
+  vr <- sum(vc$vcov[is.na(vc$var2)])
+  ve <- sigma(mod)^2
+  round(vf / (vf + vr + ve), 3)
+}
+
+frag_diag_paths <- list(
+  list(from="pH",   to="Chla", mod=frag_m_chla,    pred="pH_tank"),
+  list(from="DOC",  to="Chla", mod=frag_m_chla,    pred="DOC_tank"),
+  list(from="Chla", to="Endo", mod=frag_m_endo,    pred="log_chla"),
+  list(from="Endo", to="Bio",  mod=frag_m_biomass, pred="log_endo"),
+  list(from="Bio",  to="R",    mod=frag_m_r,       pred="log_biomass"),
+  list(from="Endo", to="GP",   mod=frag_m_gp,      pred="log_endo"),
+  list(from="R",    to="GP",   mod=frag_m_gp,      pred="mean_R")
+)
+
+frag_diag_edges <- map_dfr(frag_diag_paths, function(p) {
+  s <- summary(p$mod)$coefficients
+  tibble(from=p$from, to=p$to,
+         coef = round(s[p$pred, "Estimate"],   3),
+         pval =       s[p$pred, "Pr(>|t|)"])
+}) |>
+  mutate(colour = case_when(
+    pval < 0.05 & coef > 0 ~ "pos",
+    pval < 0.05 & coef < 0 ~ "neg",
+    TRUE                    ~ "ns"
+  ))
+
+frag_diag_nodes <- tibble(
+  id    = c("pH",  "DOC",  "Chla",         "Endo",                  "Bio",             "R",           "GP"),
+  label = c("pH",  "DOC",  "Chl-a\n(log)", "Endosymbiont\ndensity", "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
+  x     = c(1,     1,      3,               5,                        7,                 7,              9),
+  y     = c(1.0,  -1.0,    0,               0,                        0.9,              -0.9,            0),
+  r2    = c(NA, NA,
+            r2_NS_frag(frag_m_chla), r2_NS_frag(frag_m_endo),
+            r2_NS_frag(frag_m_biomass), r2_NS_frag(frag_m_r),
+            r2_NS_frag(frag_m_gp))
+) |>
+  mutate(r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", r2), NA_character_),
+         label_y  = ifelse(!is.na(r2), y + 0.07, y))
+
+frag_diag_e <- frag_diag_edges |>
+  dplyr::left_join(frag_diag_nodes |> dplyr::select(id,x,y), by=c("from"="id")) |>
+  rename(x0=x, y0=y) |>
+  dplyr::left_join(frag_diag_nodes |> dplyr::select(id,x,y), by=c("to"="id")) |>
+  rename(x1=x, y1=y) |>
+  mutate(
+    dx = x1-x0, dy = y1-y0, d = sqrt(dx^2+dy^2),
+    xs = x0+dx/d*0.5, ys = y0+dy/d*0.5,
+    xe = x1-dx/d*0.5, ye = y1-dy/d*0.5,
+    mx = (x0+x1)/2,   my = (y0+y1)/2
+  )
+
+colour_vals <- c("pos"="#2ca25f", "neg"="#e34a33", "ns"="grey70")
+
+ggplot() +
+  geom_segment(data=frag_diag_e,
+    aes(x=xs, y=ys, xend=xe, yend=ye, color=colour),
+    linewidth=0.85, arrow=arrow(length=unit(0.2,"cm"), type="closed"),
+    show.legend=FALSE) +
+  geom_label(data=frag_diag_e,
+    aes(x=mx, y=my, label=sprintf("%.2f", coef), color=colour),
+    size=2.5, label.padding=unit(0.10,"lines"), label.size=0,
+    fill="white", show.legend=FALSE) +
+  geom_tile(data=frag_diag_nodes, aes(x=x, y=y),
+    width=0.88, height=0.56, fill="white", color="grey35", linewidth=0.55) +
+  geom_text(data=frag_diag_nodes, aes(x=x, y=label_y, label=label),
+    size=2.6, lineheight=0.88) +
+  geom_text(data=frag_diag_nodes |> dplyr::filter(!is.na(r2_label)),
+    aes(x=x, y=y-0.13, label=r2_label),
+    size=2.0, color="grey40", fontface="italic") +
+  scale_color_manual(values=colour_vals) +
+  annotate("text", x=0.8, y=-1.6,
+    label=paste0("Green = sig. positive   Red = sig. negative   Grey = n.s.",
+                 "   Standardised \u03b2   n = 74 fragments"),
+    hjust=0, size=2.4, color="grey35") +
+  coord_equal(xlim=c(0.4, 9.8), ylim=c(-1.8, 1.6), expand=FALSE) +
+  theme_void() +
+  theme(plot.margin=margin(6,6,6,6))
+```
+
+---
+
 ## R² for endogenous variables
 
 ```{r frag-path-r2}
