@@ -785,6 +785,79 @@ Path equations are fitted as `lmer()` models and assembled into a `piecewiseSEM:
 
 ---
 
+## A priori path hypotheses
+
+Each directed edge in the model reflects a specific, mechanistically motivated causal hypothesis. The causal order was specified before fitting and is grounded in established coral physiology. The eight paths and their justifications are given below.
+
+**1. Community pH → Chlorophyll-a density**
+Daytime pH is an integrative index of net community photosynthesis: autotrophic CO₂ drawdown shifts the carbonate equilibrium toward higher pH (Gattuso et al. 1998; Cyronak et al. 2020). We hypothesise that corals experiencing higher community-generated pH are simultaneously exposed to conditions — elevated carbonate saturation, greater inorganic carbon drawdown — that favour symbiont photosynthetic investment, including upregulation of chlorophyll synthesis. Chlorophyll-a density responds plastically to both light availability and inorganic carbon supply on timescales of days (Iglesias-Prieto & Trench 1994; Hennige et al. 2009), and carbonate chemistry has been shown to modulate symbiont photophysiology independently of light (Gibbin et al. 2018). pH is placed upstream of chlorophyll rather than vice versa because community chemistry is a tank-level manipulation, whereas chlorophyll is a fragment-level physiological response.
+
+**2. Dissolved organic carbon → Chlorophyll-a density**
+Corals are mixotrophic: they supplement autotrophic carbon with heterotrophically acquired dissolved and particulate organics (Houlbrèque & Ferrier-Pagès 2009). Algae-dominated communities release labile dissolved organic carbon at rates 2–5× those of coral-dominated communities (Haas et al. 2011; Silveira et al. 2017), potentially subsidising coral host metabolism and indirectly supporting symbiont chlorophyll production. We treat this as a weak prior: the mechanistic pathway from ambient DOC to per-unit-area symbiont pigment investment is indirect and may be outcompeted by stronger inorganic chemistry signals.
+
+**3. Chlorophyll-a density → Endosymbiont density**
+We place chlorophyll upstream of endosymbiont cell density based on the contrasting timescales of their regulation. Per-cell chlorophyll content adjusts rapidly (hours to days) through transcriptional regulation of photosynthetic gene expression and pigment-protein complex assembly (Iglesias-Prieto & Trench 1994; Robison & Warner 2006), whereas net symbiont cell density is set by the slower balance of mitotic division and host-controlled expulsion (days to weeks; Stat et al. 2008; Dunn & Weis 2009). We hypothesise that the photosynthetic resource environment — signalled by bulk chlorophyll investment — provides the carbon substrate that ultimately constrains or enables the symbiont population size through positive feedback: greater photosynthate delivery to the host sustains a larger symbiont population.
+
+**4. Endosymbiont density → Chlorophyll per endosymbiont (negative)**
+This path captures the **package effect**: as symbiont cell packing increases, mutual shading reduces the mean photon flux available per cell, causing individual cells to downregulate chlorophyll synthesis as a shade acclimation response (Enríquez et al. 2005; Enríquez & Mendez 2010). The package effect has been demonstrated empirically in Symbiodiniaceae across a range of densities and is a primary mechanism by which corals regulate their overall light absorption independently of cell density alone (Wangpraseurt et al. 2012). We therefore predict a negative path from endosymbiont density to per-cell chlorophyll as a mechanistic consequence of self-shading.
+
+**5. Endosymbiont density → Tissue biomass**
+Symbiodiniaceae translocate 60–95% of photosynthetically fixed carbon to the coral host as glycerol, glucose, and amino acids (Muscatine 1990; Tremblay et al. 2012). This photosynthate is the primary fuel for host lipid storage, protein synthesis, and tissue growth (Rodrigues & Grottoli 2007; Houlbrèque & Ferrier-Pagès 2009). We hypothesise that a larger symbiont population delivers proportionally more fixed carbon per unit area, directly supporting greater tissue organic content. This path operationalises the core nutritional dependency of the coral host on its algal symbionts.
+
+**6. Endosymbiont density → Gross photosynthesis**
+Gross photosynthesis scales with the total number of photosynthetically active symbiont cells per unit colony area, because each cell independently harvests light and fixes carbon. Whole-colony O₂ production should therefore be approximately additive with cell density (Falkowski et al. 1984; Muscatine et al. 1981). We place endosymbiont density as a predictor of gross photosynthesis (rather than the reverse) because cell density reflects the standing photosynthetic machinery, whereas instantaneous O₂ flux is the metabolic output of that machinery under the prevailing light regime.
+
+**7. Gross photosynthesis → Respiration**
+Photosynthesis and respiration are tightly metabolically coupled in coral tissue: photosynthetically produced organic carbon is the primary substrate for aerobic respiration in both host cells and symbiont cells, so higher photosynthate supply drives higher O₂ consumption across the holobiont (Muscatine 1990; Al-Horani et al. 2003). The P:R ratio is a diagnostic of coral trophic status (Muscatine et al. 1981), and a positive gross photosynthesis–respiration relationship is an expected consequence of carbon-substrate-driven aerobic metabolism under both autotrophic and heterotrophic conditions.
+
+**8. Tissue biomass → Respiration**
+Maintenance respiration is expected to scale with metabolically active tissue mass, as a larger quantity of living cells incurs a greater basal oxygen demand (Edmunds & Davies 1988; Gillooly et al. 2001). In corals, tissue organic content (biomass per unit area) is a proxy for cellular volume and structural metabolic investment. We hypothesise a positive relationship between tissue biomass and respiration independent of photosynthetic flux, representing the structural energetic cost of maintaining the host tissue layer. We hold this as a secondary hypothesis to the GP→R path, because empirical support for a strong standalone biomass–respiration relationship in scleractinian corals is mixed.
+
+---
+
+## Statistical methods
+
+### Piecewise structural equation modelling
+
+To evaluate whether benthic community chemistry indirectly drives coral physiology through a sequence of biological mechanisms, we constructed a piecewise structural equation model (pSEM) using the `piecewiseSEM` package v2.3 (Lefcheck 2016) in R v4.4 (R Core Team 2024). Piecewise SEM factorises a multivariate causal hypothesis into a set of local regression equations — one per endogenous variable — each estimating a single structural link in the proposed causal graph (Shipley 2009; Lefcheck 2016). Compared to global (covariance-based) SEM, this approach accommodates mixed-effects models with arbitrary random-effects structures and allows each equation to be specified independently, which is necessary when response variables span different biological levels of organisation (fragment vs. tank) and have different sampling designs.
+
+### Data preparation and scaling
+
+Coral fragment physiology was measured at the individual fragment level (n = 74 fragments across 16 tanks and 24 genotypes); community chemistry (mean daytime pH, dissolved organic carbon, DOC) was summarised at the tank level. Physiology variables with right-skewed distributions — chlorophyll-a surface density (µg cm⁻²), endosymbiont cell density (cells cm⁻²), chlorophyll per endosymbiont cell (CPE, µg cell⁻¹), and tissue biomass (mg cm⁻²) — were log-transformed prior to analysis. Gross photosynthesis and respiration (both µmol O₂ cm⁻² hr⁻¹) were used on the measured scale. All variables were then z-scored (centred to mean zero, scaled to unit standard deviation) across all fragments, so that path coefficients (β\*) represent standardised partial regression coefficients directly comparable in magnitude across equations. Tank chemistry predictors (pH, DOC) were z-scored at the tank level prior to assignment to individual fragments.
+
+### Model equations and random effects
+
+The pSEM comprised six linear mixed-effects equations assembled in causal order:
+
+| Equation | Response | Predictors | Random effect |
+|---|---|---|---|
+| 1 | log(Chl-a) | pH, DOC | (1 \| GENOTYPE) |
+| 2 | log(Endosymbiont density) | log(Chl-a) | (1 \| GENOTYPE) |
+| 3 | log(Chl-a per cell) | log(Endosymbiont density) | (1 \| GENOTYPE) |
+| 4 | log(Tissue biomass) | log(Endosymbiont density) | (1 \| GENOTYPE) |
+| 5 | Gross photosynthesis | log(Endosymbiont density) | (1 \| GENOTYPE) |
+| 6 | Respiration | Gross photosynthesis, log(Tissue biomass) | (1 \| GENOTYPE) |
+
+All fragment-level equations included a random intercept for genotype (`1 | GENOTYPE`) to account for the repeated-measures structure of the experiment: each of 24 coral genotypes contributed one fragment per treatment tank, so genotype identity is expected to explain baseline physiological variation unrelated to experimental treatment. Tank identity (`TANK_NUM`) was deliberately excluded as a random intercept in fragment-level equations because the community chemistry predictors (pH, DOC) are themselves tank-level variables — including `TANK_NUM` as a random effect would absorb the between-tank variance that these predictors are specified to explain, producing downwardly biased coefficient estimates and inflated standard errors for the upstream chemistry paths. Mixed-effects models were fitted using the `lme4` package (Bates et al. 2015); degrees of freedom and p-values for fixed effects used the Satterthwaite approximation as implemented in `lmerTest` (Kuznetsova et al. 2017).
+
+### Global model fit
+
+Global fit of the pSEM was assessed using Shipley's d-separation test (Shipley 2009). This procedure identifies all independence claims implied by the directed acyclic graph — pairs of variables that are d-separated (conditionally independent given their common causes) — and tests whether those claims hold in the data. The test statistic is Fisher's C = −2 Σ ln(*p*ᵢ), where *p*ᵢ are the p-values from each independence claim test; under the null hypothesis of correct model structure, C follows a χ² distribution with 2*k* degrees of freedom (*k* = number of independence claims). A non-significant Fisher's C (p > 0.05) indicates that no important paths are missing and the proposed causal structure is consistent with the data. Marginal R² (variance explained by fixed effects) and conditional R² (fixed + random effects combined) for each endogenous variable were computed following Nakagawa & Schielzeth (2013) via the `rsquared()` function.
+
+### Indirect effect estimation
+
+Indirect effects — the propagated influence of an upstream predictor on a downstream outcome through one or more mediating variables — were calculated as the ordered product of standardised path coefficients along each mediated route (MacKinnon 2008). Standard errors for indirect effects were derived analytically using the delta method (Sobel 1982). For a product of *k* independent path coefficients β₁ × β₂ × … × β*k*, the standard error is obtained by iterative application of the first-order error propagation rule:
+
+$$\text{SE}(\hat{\beta}_1 \hat{\beta}_2) \approx \sqrt{\hat{\beta}_1^2\, \text{SE}_2^2 + \hat{\beta}_2^2\, \text{SE}_1^2}$$
+
+with the result treated as a new estimate for subsequent multiplication steps. For terminal outcomes with two parallel indirect routes (pH → Respiration via gross photosynthesis, and pH → Respiration via tissue biomass), the total indirect effect was computed as the sum of the two route products and its standard error derived from the full set of partial derivatives of the composite expression. Significance was assessed with a two-tailed z-test (z = indirect β\* / SE). Path coefficient estimates from separate pSEM equations are treated as statistically independent for the purposes of error propagation, which is appropriate under the piecewise framework where each equation is estimated separately.
+
+### Comparison with bivariate regression
+
+To evaluate whether the indirect effects of community pH were detectable without path analysis, we fitted a separate bivariate mixed-effects model for each physiology variable using pH as the sole predictor and genotype as a random intercept — identical in structure to the individual path equations but without any mediating variables. The standardised marginal coefficient from each bivariate model (i.e., the direct effect of pH ignoring causal structure) was compared to the path model indirect effect for the same outcome. This comparison tests the proposition that bivariate regression is underpowered to recover the indirect community-to-physiology signal: by regressing pH directly against a downstream outcome such as endosymbiont density or respiration, the bivariate model must explain variation that is driven by many additional sources (genotype, stochastic fragment-to-fragment variation, unmeasured covariates) without partitioning the pH signal into its constituent mediated steps. The path model exploits the causal architecture by estimating each link separately, absorbing within-step noise via the genotype random effect at each stage, and thereby recovering significant indirect effects with substantially smaller standard errors than the equivalent bivariate regressions.
+
+---
+
 ## Data preparation
 
 ```{r frag-data-prep}
@@ -854,16 +927,19 @@ frag_m_chla    <- lmer(log_chla    ~ pH_tank  + DOC_tank + (1|GENOTYPE),
                        data = frag_path_scaled, REML = TRUE)
 frag_m_endo    <- lmer(log_endo    ~ log_chla + (1|GENOTYPE),
                        data = frag_path_scaled, REML = TRUE)
+frag_m_cpe    <- lmer(log(cpe)    ~ log_endo + (1|GENOTYPE),
+                       data = frag_path_scaled, REML = TRUE)
 frag_m_biomass <- lmer(log_biomass ~ log_endo  + (1|GENOTYPE),
                        data = frag_path_scaled, REML = TRUE)
-frag_m_r       <- lmer(mean_R      ~ log_biomass + (1|GENOTYPE),
+frag_m_r       <- lmer(mean_R      ~ log_biomass +mean_GP + (1|GENOTYPE),
                        data = frag_path_scaled, REML = TRUE)
-frag_m_gp      <- lmer(mean_GP     ~ log_endo + mean_R + (1|GENOTYPE),
+frag_m_gp      <- lmer(mean_GP     ~ log_endo  + (1|GENOTYPE),
                        data = frag_path_scaled, REML = TRUE)
 
 # Wrap into a piecewiseSEM object; pH_tank and DOC_tank treated as exogenous
 frag_psem <- psem(
   frag_m_chla,
+  frag_m_cpe,
   frag_m_endo,
   frag_m_biomass,
   frag_m_r,
@@ -930,6 +1006,256 @@ frag_coef_tbl |>
 
 ---
 
+## Indirect effects
+
+```{r frag-indirect-effects}
+#| label: frag-indirect-effects
+
+# Named lookup helpers
+.b <- coefs(frag_psem) |>
+  dplyr::select(Response, Predictor, Estimate, Std.Error) |>
+  mutate(name = paste(Predictor, "->", Response)) |>
+  tibble::column_to_rownames("name")
+
+bc <- function(pred, resp) unname(.b[paste(pred, "->", resp), "Estimate"])
+bs <- function(pred, resp) unname(.b[paste(pred, "->", resp), "Std.Error"])
+
+# Delta-method SE for a chain of independent path coefficients
+delta_se_product <- function(coefs, ses) {
+  est <- coefs[1]; se <- ses[1]
+  for (i in seq_along(coefs)[-1]) {
+    se  <- sqrt(est^2 * ses[i]^2 + coefs[i]^2 * se^2)
+    est <- est * coefs[i]
+  }
+  c(est = unname(est), se = unname(se))
+}
+
+mk_ie <- function(from, to, cvec, svec) list(from=from, to=to, coefs=cvec, ses=svec)
+
+ie_paths <- list(
+  # pH
+  mk_ie("pH",    "Endo",              c(bc("pH_tank","log_chla"), bc("log_chla","log_endo")),                                                                            c(bs("pH_tank","log_chla"), bs("log_chla","log_endo"))),
+  mk_ie("pH",    "CPE",               c(bc("pH_tank","log_chla"), bc("log_chla","log_endo"), bc("log_endo","log(cpe)")),                                                 c(bs("pH_tank","log_chla"), bs("log_chla","log_endo"), bs("log_endo","log(cpe)"))),
+  mk_ie("pH",    "Biomass",           c(bc("pH_tank","log_chla"), bc("log_chla","log_endo"), bc("log_endo","log_biomass")),                                              c(bs("pH_tank","log_chla"), bs("log_chla","log_endo"), bs("log_endo","log_biomass"))),
+  mk_ie("pH",    "GP",                c(bc("pH_tank","log_chla"), bc("log_chla","log_endo"), bc("log_endo","mean_GP")),                                                  c(bs("pH_tank","log_chla"), bs("log_chla","log_endo"), bs("log_endo","mean_GP"))),
+  mk_ie("pH",    "R (via GP)",        c(bc("pH_tank","log_chla"), bc("log_chla","log_endo"), bc("log_endo","mean_GP"),     bc("mean_GP","mean_R")),                      c(bs("pH_tank","log_chla"), bs("log_chla","log_endo"), bs("log_endo","mean_GP"),     bs("mean_GP","mean_R"))),
+  mk_ie("pH",    "R (via Biomass)",   c(bc("pH_tank","log_chla"), bc("log_chla","log_endo"), bc("log_endo","log_biomass"), bc("log_biomass","mean_R")),                  c(bs("pH_tank","log_chla"), bs("log_chla","log_endo"), bs("log_endo","log_biomass"), bs("log_biomass","mean_R"))),
+  # DOC
+  mk_ie("DOC",   "Endo",              c(bc("DOC_tank","log_chla"), bc("log_chla","log_endo")),                                                                           c(bs("DOC_tank","log_chla"), bs("log_chla","log_endo"))),
+  mk_ie("DOC",   "Biomass",           c(bc("DOC_tank","log_chla"), bc("log_chla","log_endo"), bc("log_endo","log_biomass")),                                             c(bs("DOC_tank","log_chla"), bs("log_chla","log_endo"), bs("log_endo","log_biomass"))),
+  mk_ie("DOC",   "GP",                c(bc("DOC_tank","log_chla"), bc("log_chla","log_endo"), bc("log_endo","mean_GP")),                                                 c(bs("DOC_tank","log_chla"), bs("log_chla","log_endo"), bs("log_endo","mean_GP"))),
+  mk_ie("DOC",   "R (via GP)",        c(bc("DOC_tank","log_chla"), bc("log_chla","log_endo"), bc("log_endo","mean_GP"),     bc("mean_GP","mean_R")),                     c(bs("DOC_tank","log_chla"), bs("log_chla","log_endo"), bs("log_endo","mean_GP"),     bs("mean_GP","mean_R"))),
+  # Chl-a
+  mk_ie("Chl-a", "CPE",               c(bc("log_chla","log_endo"), bc("log_endo","log(cpe)")),                                                                          c(bs("log_chla","log_endo"), bs("log_endo","log(cpe)"))),
+  mk_ie("Chl-a", "Biomass",           c(bc("log_chla","log_endo"), bc("log_endo","log_biomass")),                                                                        c(bs("log_chla","log_endo"), bs("log_endo","log_biomass"))),
+  mk_ie("Chl-a", "GP",                c(bc("log_chla","log_endo"), bc("log_endo","mean_GP")),                                                                            c(bs("log_chla","log_endo"), bs("log_endo","mean_GP"))),
+  mk_ie("Chl-a", "R (via GP)",        c(bc("log_chla","log_endo"), bc("log_endo","mean_GP"),     bc("mean_GP","mean_R")),                                               c(bs("log_chla","log_endo"), bs("log_endo","mean_GP"),     bs("mean_GP","mean_R"))),
+  mk_ie("Chl-a", "R (via Biomass)",   c(bc("log_chla","log_endo"), bc("log_endo","log_biomass"), bc("log_biomass","mean_R")),                                           c(bs("log_chla","log_endo"), bs("log_endo","log_biomass"), bs("log_biomass","mean_R"))),
+  # Endo
+  mk_ie("Endo",  "R (via GP)",        c(bc("log_endo","mean_GP"),     bc("mean_GP","mean_R")),                                                                          c(bs("log_endo","mean_GP"),     bs("mean_GP","mean_R"))),
+  mk_ie("Endo",  "R (via Biomass)",   c(bc("log_endo","log_biomass"), bc("log_biomass","mean_R")),                                                                      c(bs("log_endo","log_biomass"), bs("log_biomass","mean_R")))
+)
+
+make_ie_row <- function(p) {
+  res <- delta_se_product(p$coefs, p$ses)
+  z   <- res["est"] / res["se"]
+  pv  <- 2 * pnorm(-abs(z))
+  tibble(From = p$from, To = p$to,
+         beta = round(res["est"], 3), SE = round(res["se"], 3),
+         z = round(z, 2), p = round(pv, 4))
+}
+
+# Total indirect effects for branching paths to R
+ie_endo_r_total <- function() {
+  ie_gp  <- bc("log_endo","mean_GP")     * bc("mean_GP","mean_R")
+  ie_bio <- bc("log_endo","log_biomass") * bc("log_biomass","mean_R")
+  se_gp  <- unname(delta_se_product(c(bc("log_endo","mean_GP"),    bc("mean_GP","mean_R")),    c(bs("log_endo","mean_GP"),    bs("mean_GP","mean_R")))["se"])
+  se_bio <- unname(delta_se_product(c(bc("log_endo","log_biomass"),bc("log_biomass","mean_R")), c(bs("log_endo","log_biomass"),bs("log_biomass","mean_R")))["se"])
+  c(est = unname(ie_gp + ie_bio), se = sqrt(se_gp^2 + se_bio^2))
+}
+
+ie_chla_r_total <- function() {
+  bCE <- bc("log_chla","log_endo"); sCE <- bs("log_chla","log_endo")
+  bEG <- bc("log_endo","mean_GP");  sEG <- bs("log_endo","mean_GP");  bGR <- bc("mean_GP","mean_R");     sGR <- bs("mean_GP","mean_R")
+  bEB <- bc("log_endo","log_biomass"); sEB <- bs("log_endo","log_biomass"); bBR <- bc("log_biomass","mean_R"); sBR <- bs("log_biomass","mean_R")
+  inner <- bEG*bGR + bEB*bBR
+  total <- bCE * inner
+  se    <- sqrt((inner*sCE)^2 + (bCE*bGR*sEG)^2 + (bCE*bEG*sGR)^2 + (bCE*bBR*sEB)^2 + (bCE*bEB*sBR)^2)
+  c(est = unname(total), se = unname(se))
+}
+
+ie_ph_r_total <- function() {
+  bPC <- bc("pH_tank","log_chla"); sPC <- bs("pH_tank","log_chla")
+  bCE <- bc("log_chla","log_endo"); sCE <- bs("log_chla","log_endo")
+  bEG <- bc("log_endo","mean_GP");  sEG <- bs("log_endo","mean_GP");  bGR <- bc("mean_GP","mean_R");     sGR <- bs("mean_GP","mean_R")
+  bEB <- bc("log_endo","log_biomass"); sEB <- bs("log_endo","log_biomass"); bBR <- bc("log_biomass","mean_R"); sBR <- bs("log_biomass","mean_R")
+  inner2 <- bEG*bGR + bEB*bBR
+  total  <- bPC * bCE * inner2
+  se     <- sqrt((bCE*inner2*sPC)^2 + (bPC*inner2*sCE)^2 + (bPC*bCE*bGR*sEG)^2 +
+                 (bPC*bCE*bEG*sGR)^2 + (bPC*bCE*bBR*sEB)^2 + (bPC*bCE*bEB*sBR)^2)
+  c(est = unname(total), se = unname(se))
+}
+
+total_rows <- bind_rows(
+  make_ie_row(list(from="Endo",  to="R (total indirect)", coefs=c(1), ses=c(1))) |>  # placeholder overwritten below
+    mutate(beta=round(ie_endo_r_total()["est"],3), SE=round(ie_endo_r_total()["se"],3),
+           z=round(ie_endo_r_total()["est"]/ie_endo_r_total()["se"],2),
+           p=round(2*pnorm(-abs(ie_endo_r_total()["est"]/ie_endo_r_total()["se"])),4)),
+  make_ie_row(list(from="Chl-a", to="R (total indirect)", coefs=c(1), ses=c(1))) |>
+    mutate(beta=round(ie_chla_r_total()["est"],3), SE=round(ie_chla_r_total()["se"],3),
+           z=round(ie_chla_r_total()["est"]/ie_chla_r_total()["se"],2),
+           p=round(2*pnorm(-abs(ie_chla_r_total()["est"]/ie_chla_r_total()["se"])),4)),
+  make_ie_row(list(from="pH",    to="R (total indirect)", coefs=c(1), ses=c(1))) |>
+    mutate(beta=round(ie_ph_r_total()["est"],3), SE=round(ie_ph_r_total()["se"],3),
+           z=round(ie_ph_r_total()["est"]/ie_ph_r_total()["se"],2),
+           p=round(2*pnorm(-abs(ie_ph_r_total()["est"]/ie_ph_r_total()["se"])),4))
+)
+
+ie_tbl <- map_dfr(ie_paths, make_ie_row) |>
+  bind_rows(total_rows) |>
+  mutate(From = factor(From, levels = c("pH","DOC","Chl-a","Endo"))) |>
+  arrange(From)
+
+ie_tbl |>
+  dplyr::select(-From) |>
+  kbl(
+    caption = paste0(
+      "Indirect effects from the fragment-level path model. Each entry is the product of ",
+      "standardised path coefficients along the stated route. Standard errors and z-tests ",
+      "via the delta method (Sobel 1982). All variables z-scored. ",
+      "Green = p < 0.05; yellow = 0.05 \u2264 p < 0.10."
+    ),
+    col.names = c("Via", "Indirect \u03b2*", "SE", "z", "p")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
+  pack_rows("pH",    which(ie_tbl$From == "pH")[1],    tail(which(ie_tbl$From == "pH"),    1)) |>
+  pack_rows("DOC",   which(ie_tbl$From == "DOC")[1],   tail(which(ie_tbl$From == "DOC"),   1)) |>
+  pack_rows("Chl-a", which(ie_tbl$From == "Chl-a")[1], tail(which(ie_tbl$From == "Chl-a"), 1)) |>
+  pack_rows("Endo",  which(ie_tbl$From == "Endo")[1],  tail(which(ie_tbl$From == "Endo"),  1)) |>
+  row_spec(which(ie_tbl$p <  0.05),  background = "#d4edda") |>
+  row_spec(which(ie_tbl$p >= 0.05 & ie_tbl$p < 0.10), background = "#fff3cd")
+```
+
+### Marginal vs. indirect pH effects
+
+```{r frag-ph-effect-comparison}
+#| label: frag-ph-effect-comparison
+#| fig-cap: "Comparison of the marginal (bivariate) effect of pH on each physiology variable against the indirect effect estimated by the path model. Orange triangles show the standardised coefficient from a bivariate mixed-effects model (lmer, 1|GENOTYPE) fitting pH directly to each outcome; blue circles show the indirect effect of pH propagated through the causal chain (delta method). Faded symbols indicate p ≥ 0.05. Error bars are 95% CI."
+#| fig-width: 6.5
+#| fig-height: 4.5
+
+library(lme4)
+library(lmerTest)
+
+# Bivariate (marginal) effect of pH on each outcome
+ph_outcomes <- list(
+  list(var = "log_chla",    label = "Chl-a"),
+  list(var = "log_endo",    label = "Endosymbionts"),
+  list(var = "log_biomass", label = "Tissue biomass"),
+  list(var = "mean_GP",     label = "Gross photosyn."),
+  list(var = "mean_R",      label = "Respiration")
+)
+
+direct_ph <- map_dfr(ph_outcomes, function(o) {
+  m  <- lmer(reformulate("pH_tank + (1|GENOTYPE)", response = o$var),
+             data = frag_path_scaled, REML = FALSE)
+  cf <- coef(summary(m))["pH_tank", ]
+  tibble(outcome  = o$label,
+         effect   = "Marginal (direct) effect of pH",
+         beta     = unname(cf["Estimate"]),
+         se       = unname(cf["Std. Error"]),
+         p        = unname(cf["Pr(>|t|)"]))
+})
+
+# Indirect effects from path model (delta method)
+indirect_ph <- tibble(
+  outcome = c("Chl-a","Endosymbionts","Tissue biomass","Gross photosyn.","Respiration"),
+  effect  = "Indirect effect of pH (path model)",
+  beta    = c(0.257, 0.149, 0.084, 0.078, 0.055),
+  se      = c(0.105, 0.064, 0.039, 0.037, 0.027),
+  p       = c(0.017, 0.020, 0.030, 0.034, 0.044)
+)
+
+ph_combined <- bind_rows(direct_ph, indirect_ph) |>
+  mutate(
+    ci_lo   = beta - 1.96 * se,
+    ci_hi   = beta + 1.96 * se,
+    outcome = factor(outcome,
+                     levels = rev(c("Chl-a","Endosymbionts",
+                                    "Tissue biomass","Gross photosyn.","Respiration"))),
+    sig     = p < 0.05,
+    y_nudge = if_else(effect == "Marginal (direct) effect of pH", 0.18, -0.18)
+  )
+
+eff_colors <- c("Marginal (direct) effect of pH"     = "#d95f02",
+                "Indirect effect of pH (path model)" = "#2166ac")
+eff_shapes <- c("Marginal (direct) effect of pH"     = 17,
+                "Indirect effect of pH (path model)" = 19)
+eff_labels <- c("Marginal (direct) effect of pH"     = "Marginal effect of pH\n(bivariate mixed model)",
+                "Indirect effect of pH (path model)" = "Indirect effect of pH\n(path model, delta method)")
+
+ggplot(ph_combined,
+       aes(x = beta, y = as.numeric(outcome) + y_nudge,
+           color = effect, alpha = sig)) +
+  annotate("rect", xmin = -Inf, xmax = 0, ymin = -Inf, ymax = Inf,
+           fill = "grey92", alpha = 0.5) +
+  geom_vline(xintercept = 0, color = "grey50", linewidth = 0.4, linetype = "dashed") +
+  geom_errorbar(aes(xmin = ci_lo, xmax = ci_hi),
+                width = 0, linewidth = 0.7, orientation = "y") +
+  geom_point(aes(shape = effect), size = 3.6) +
+  geom_text(
+    data = filter(ph_combined, effect == "Indirect effect of pH (path model)"),
+    aes(x = ci_hi,
+        label = sprintf("\u03b2* = %.3f%s", beta, if_else(sig, "*", ""))),
+    hjust = -0.12, vjust = 0.4, size = 2.7, fontface = "italic",
+    color = eff_colors["Indirect effect of pH (path model)"]
+  ) +
+  geom_text(
+    data = filter(ph_combined, effect == "Marginal (direct) effect of pH"),
+    aes(x = ci_lo,
+        label = if_else(sig,
+                        sprintf("\u03b2* = %.3f*", beta),
+                        sprintf("n.s. (\u03b2* = %.3f)", beta))),
+    hjust = 1.08, vjust = 0.4, size = 2.7, fontface = "italic",
+    color = eff_colors["Marginal (direct) effect of pH"]
+  ) +
+  scale_color_manual(values = eff_colors, labels = eff_labels, name = NULL) +
+  scale_shape_manual(values = eff_shapes, labels = eff_labels, name = NULL) +
+  scale_alpha_manual(values = c("TRUE" = 1.0, "FALSE" = 0.45), guide = "none") +
+  scale_y_continuous(breaks = seq_along(levels(ph_combined$outcome)),
+                     labels = levels(ph_combined$outcome),
+                     expand = expansion(add = 0.8)) +
+  scale_x_continuous(expand = expansion(mult = c(0.32, 0.28)),
+                     breaks = c(0, 0.1, 0.2, 0.3)) +
+  labs(x     = "Standardised \u03b2* \u00b1 95% CI",
+       y     = NULL,
+       title = "Path analysis recovers pH effects invisible to simple regression",
+       subtitle = paste0(
+         "Orange = bivariate mixed model (pH \u2192 outcome, 1|GENOTYPE)  \u2022  ",
+         "Blue = indirect path model effect  \u2022  Faded = p \u2265 0.05"
+       )) +
+  theme_classic(base_size = 10) +
+  theme(
+    plot.title    = element_text(face = "bold", size = 10.5, color = "grey10"),
+    plot.subtitle = element_text(size = 8, color = "grey40"),
+    axis.title.x  = element_text(size = 9, color = "grey20", margin = margin(t = 6)),
+    axis.text.y   = element_text(size = 10, color = "grey10"),
+    axis.text.x   = element_text(size = 8.5, color = "grey30"),
+    axis.line     = element_line(linewidth = 0.35, color = "grey30"),
+    axis.ticks    = element_line(linewidth = 0.35, color = "grey30"),
+    legend.position      = c(0.72, 0.14),
+    legend.text          = element_text(size = 8),
+    legend.key.size      = unit(0.45, "cm"),
+    legend.background    = element_rect(fill = "white", color = "grey80", linewidth = 0.3),
+    legend.spacing.y     = unit(0.1, "cm"),
+    plot.margin   = margin(8, 12, 6, 8)
+  )
+```
+
+Bivariate mixed-effects regressions of pH against each downstream physiology variable detected a significant relationship only with Chl-a (β\* = 0.200, p = 0.035); for endosymbiont density, tissue biomass, gross photosynthesis, and respiration, the marginal pH effects were small and non-significant (all p > 0.15; @fig-frag-ph-effect-comparison). This is not because community pH is unrelated to these variables, but because a bivariate model lacks the statistical power to resolve the signal: it fits a single regression against noisy fragment-level data without exploiting the mediating structure of the causal chain. The path model, by contrast, estimates the pH signal one step at a time — each equation isolates a single mechanistic link while the random effect for genotype absorbs individual variation — so the indirect effects are estimated with substantially smaller standard errors (SE = 0.027–0.064) than the equivalent bivariate regressions (SE = 0.093–0.107). The result is that significant indirect effects of pH on all five physiology variables (β\* = 0.055–0.257, all p < 0.05) are recovered only when the causal structure is made explicit. This demonstrates a broader point: community-scale chemistry signals are attenuated across biological levels of organisation, and detecting them requires analytical approaches that are matched to the causal architecture of the system.
+
+---
+
 ## Path diagram
 
 ```{r frag-path-diagram}
@@ -954,10 +1280,12 @@ frag_diag_edges <- coefs(frag_psem) |>
       log_chla    = "Chla",
       log_endo    = "Endo",
       log_biomass = "Bio",
+      mean_GP     = "GP",
       mean_R      = "R"),
     to = recode(Response,
       log_chla    = "Chla",
       log_endo    = "Endo",
+      "log(cpe)"  = "CPE",
       log_biomass = "Bio",
       mean_R      = "R",
       mean_GP     = "GP"),
@@ -972,12 +1300,13 @@ frag_diag_edges <- coefs(frag_psem) |>
   ))
 
 frag_diag_nodes <- tibble(
-  id    = c("pH",  "DOC",  "Chla",         "Endo",                  "Bio",             "R",           "GP"),
-  label = c("pH",  "DOC",  "Chl-a\n(log)", "Endosymbiont\ndensity", "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
-  x     = c(1,     1,      3,               5,                        7,                 8.5,           10),
-  y     = c(1.0,  -1.0,    0,               0,                        0.6,               0.5,           0),
+  id    = c("pH",  "DOC",  "Chla",         "Endo",                  "CPE",                    "Bio",             "R",           "GP"),
+  label = c("pH",  "DOC",  "Chl-a\n(log)", "Endosymbiont\ndensity", "Chl-a\nper endo",        "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
+  x     = c(1,     1,      3,               5,                        7,                         7,                 8.5,           10),
+  y     = c(1.0,  -1.0,    0,               0,                       -0.7,                       0.6,               0.5,           0),
   r2    = c(NA, NA,
             frag_r2_diag["log_chla"],    frag_r2_diag["log_endo"],
+            frag_r2_diag["cpe"],
             frag_r2_diag["log_biomass"], frag_r2_diag["mean_R"],
             frag_r2_diag["mean_GP"])
 ) |>
@@ -1023,6 +1352,135 @@ ggplot() +
   theme_void() +
   theme(plot.margin=margin(6,6,6,6))
 ```
+
+---
+
+## Path-by-path data and interpretation
+
+```{r frag-path-scatter}
+#| label: frag-path-scatter
+#| fig-cap: "Raw fragment-level data for each path in the fragment-level path model. Small transparent points are individual coral fragments coloured by benthic treatment; large filled circles are tank means (n = 16 tanks). Lines show marginal OLS trend ± 95% CI. Annotated standardised β and p-values are from the piecewiseSEM path model. Blue = significant path (p < 0.05); grey = non-significant."
+#| fig-width: 11
+#| fig-height: 6.5
+
+library(patchwork)
+library(cowplot)
+
+plot_data <- frag_data_path |>
+  mutate(log_cpe = log(cpe))
+
+trt_colors <- c(
+  "Control"    = "#4682B4",
+  "Algae_Dom"  = "#2E8B57",
+  "Coral_Dom"  = "#E07B54",
+  "Rubble_Dom" = "#A07850"
+)
+trt_labels <- c(
+  "Control"    = "Control",
+  "Algae_Dom"  = "Macroalgae",
+  "Coral_Dom"  = "Coral",
+  "Rubble_Dom" = "CCA"
+)
+
+path_coefs_diag <- coefs(frag_psem) |>
+  dplyr::select(Response, Predictor, Estimate, P.Value)
+
+coef_label_diag <- function(resp, pred) {
+  row <- path_coefs_diag |> filter(Response == resp, Predictor == pred)
+  p <- row$P.Value
+  p_str <- if (p < 0.001) "p < 0.001" else sprintf("p = %.3f", p)
+  sprintf("\u03b2* = %.3f   %s", row$Estimate, p_str)
+}
+
+sig_col <- "#2166ac"
+ns_col  <- "grey55"
+
+path_pt <- theme_classic(base_size = 9) +
+  theme(
+    plot.title   = element_text(size = 8.5, face = "bold", color = "grey10",
+                                margin = margin(b = 2)),
+    axis.title   = element_text(size = 7.5, color = "grey20"),
+    axis.text    = element_text(size = 7,   color = "grey30"),
+    axis.line    = element_line(linewidth = 0.35, color = "grey30"),
+    axis.ticks   = element_line(linewidth = 0.35, color = "grey30"),
+    legend.position = "none",
+    plot.margin  = margin(8, 12, 4, 6)
+  )
+
+mk_path <- function(xv, yv, xl, yl, resp, pred, title, sig) {
+  col   <- if (sig) sig_col else ns_col
+  label <- coef_label_diag(resp, pred)
+  d     <- plot_data |> filter(!is.na(.data[[xv]]), !is.na(.data[[yv]]))
+
+  tank_avg <- d |>
+    group_by(TANK_NUM, TREATMENT) |>
+    summarise(xm = mean(.data[[xv]], na.rm = TRUE),
+              ym = mean(.data[[yv]], na.rm = TRUE),
+              .groups = "drop")
+
+  ggplot(d, aes(.data[[xv]], .data[[yv]])) +
+    geom_point(aes(color = TREATMENT), alpha = 0.22, size = 1.2, shape = 16) +
+    geom_smooth(method = "lm", se = TRUE, color = col, fill = col,
+                alpha = 0.12, linewidth = 0.8, formula = y ~ x) +
+    geom_point(data = tank_avg, aes(x = xm, y = ym, fill = TREATMENT),
+               shape = 21, size = 2.8, color = "white", stroke = 0.7, alpha = 0.95) +
+    annotate("text", x = -Inf, y = Inf, label = label,
+             hjust = -0.06, vjust = 1.5, size = 2.6,
+             color = col, fontface = "italic") +
+    scale_color_manual(values = trt_colors, guide = "none") +
+    scale_fill_manual(values = trt_colors, labels = trt_labels, name = NULL) +
+    labs(x = xl, y = yl, title = title) +
+    path_pt
+}
+
+leg_plot_diag <- ggplot(plot_data, aes(pH_tank, log_chla, fill = TREATMENT)) +
+  geom_point(shape = 21, size = 3, color = "white", stroke = 0.7) +
+  scale_fill_manual(values = trt_colors, labels = trt_labels, name = NULL) +
+  theme_void() +
+  theme(legend.position = "bottom",
+        legend.text     = element_text(size = 8.5),
+        legend.key.size = unit(0.45, "cm"))
+
+pp1 <- mk_path("pH_tank",    "log_chla",    "Mean pH",                             "log(Chl-a, \u00b5g cm\u207b\u00b2)",                             "log_chla",    "pH_tank",    "pH \u2192 Chl-a",                  TRUE)
+pp2 <- mk_path("DOC_tank",   "log_chla",    "DOC (\u00b5mol C L\u207b\u00b9)",      "log(Chl-a, \u00b5g cm\u207b\u00b2)",                             "log_chla",    "DOC_tank",   "DOC \u2192 Chl-a",                 FALSE)
+pp3 <- mk_path("log_chla",   "log_endo",    "log(Chl-a, \u00b5g cm\u207b\u00b2)",   "log(Endosymbionts cm\u207b\u00b2)",                              "log_endo",    "log_chla",   "Chl-a \u2192 Endo density",        TRUE)
+pp4 <- mk_path("log_endo",   "log_cpe",     "log(Endosymbionts cm\u207b\u00b2)",    "log(Chl-a per cell)",                                            "log(cpe)",    "log_endo",   "Endo density \u2192 Chl-a / cell", TRUE)
+pp5 <- mk_path("log_endo",   "log_biomass", "log(Endosymbionts cm\u207b\u00b2)",    "log(Biomass, mg cm\u207b\u00b2)",                                "log_biomass", "log_endo",   "Endo density \u2192 Biomass",      TRUE)
+pp6 <- mk_path("log_endo",   "mean_GP",     "log(Endosymbionts cm\u207b\u00b2)",    "GP (\u00b5mol O\u2082 cm\u207b\u00b2 hr\u207b\u00b9)",           "mean_GP",     "log_endo",   "Endo density \u2192 GP",           TRUE)
+pp7 <- mk_path("mean_GP",    "mean_R",      "GP (\u00b5mol O\u2082 cm\u207b\u00b2 hr\u207b\u00b9)", "R (\u00b5mol O\u2082 cm\u207b\u00b2 hr\u207b\u00b9)", "mean_R",  "mean_GP",    "GP \u2192 Respiration",             TRUE)
+pp8 <- mk_path("log_biomass","mean_R",      "log(Biomass, mg cm\u207b\u00b2)",      "R (\u00b5mol O\u2082 cm\u207b\u00b2 hr\u207b\u00b9)",           "mean_R",      "log_biomass","Biomass \u2192 Respiration",        FALSE)
+
+(pp1 | pp2 | pp3 | pp4) /
+(pp5 | pp6 | pp7 | pp8) /
+(cowplot::get_legend(leg_plot_diag) |> wrap_elements()) +
+  plot_layout(heights = c(1, 1, 0.10))
+```
+
+### Path interpretations
+
+**pH → Chl-a (β\* = 0.257, p = 0.017)**
+Daytime pH is elevated by photosynthetic activity — both by the corals' own symbionts and by the surrounding benthic community. A positive path from pH to chlorophyll density means that corals in more metabolically productive, higher-pH environments maintain greater pigment investment per unit area. Mechanistically, favorable light and carbon conditions (reflected in elevated pH) signal symbionts to upregulate chlorophyll synthesis; this is consistent with photoacclimation theory where pigment content tracks the photosynthetic environment.
+
+**DOC → Chl-a (β\* = 0.124, p = 0.229) — not significant**
+Dissolved organic carbon from algae- or rubble-dominated communities did not detectably alter chlorophyll density. This suggests that heterotrophic carbon subsidies from the benthos either do not reach the symbiont compartment in quantities sufficient to alter pigment regulation, or that any effect is overwhelmed by the stronger pH signal. Organic carbon may be assimilated by the host without cascading into symbiont physiology.
+
+**Chl-a → Endosymbiont density (β\* = 0.582, p < 0.001)**
+Greater total chlorophyll per unit area is strongly associated with higher symbiont cell densities. This reflects the integral role of photosynthate in the coral–Symbiodiniaceae mutualism: symbionts that are photosynthetically active supply fixed carbon and energy to the host, which in turn maintains and expands the symbiont population. Chlorophyll density here acts as an indicator of the photosynthetic resource environment that enables higher cell retention.
+
+**Endosymbiont density → Chl-a per cell (β\* = −0.275, p < 0.001)**
+As symbiont cell density increases, chlorophyll content per cell declines — the classic **package effect**. When symbionts are densely packed within host tissue, cells mutually shade one another, reducing the light available to each cell. In response, individual cells downregulate pigment synthesis because additional chlorophyll provides diminishing photosynthetic returns under self-shading. This is a well-documented photoacclimation mechanism in Symbiodiniaceae and operates independently of the community-level chemistry signal.
+
+**Endosymbiont density → Tissue biomass (β\* = 0.564, p < 0.001)**
+Symbiont cell density is among the strongest predictors of host tissue biomass. Symbionts translocate 15–95% of photosynthetically fixed carbon to the host as glycerol, glucose, and lipids. A larger symbiont population delivers proportionally more photosynthate, fuelling lipid accumulation, protein synthesis, and tissue growth. This path represents the core nutritional benefit of the symbiosis.
+
+**Endosymbiont density → Gross photosynthesis (β\* = 0.523, p < 0.001)**
+More symbiont cells per unit area produce more photosynthetic oxygen because photosynthetic capacity is approximately additive across cells. This path captures the cellular-level scaling of reef metabolism: whole-colony oxygen production scales with the number of photosynthetically active cells housed in the tissue, making symbiont density the proximate driver of gross photosynthesis rates.
+
+**Gross photosynthesis → Respiration (β\* = 0.540, p < 0.001)**
+Photosynthesis and respiration are tightly coupled in coral tissue. Photosynthate generated by symbionts fuels aerobic metabolism in both the symbiont and host cell compartments, so higher gross photosynthesis directly drives higher oxygen consumption. This P:R coupling also reflects shared carbon allocation: carbohydrates fixed during the day are respired by mitochondria in both partners, producing a predictable positive relationship between the two fluxes.
+
+**Tissue biomass → Respiration (β\* = 0.149, p = 0.110) — not significant**
+Once gross photosynthesis is accounted for, standing tissue biomass does not significantly predict respiration. This suggests that metabolic rate is governed more by immediate energy flux (current photosynthate supply) than by the total quantity of tissue present. In corals, maintenance respiration per unit biomass appears relatively constant; the variation in respiration rate across fragments is better explained by the photosynthetic activity of their symbionts than by how much tissue has accumulated.
 
 ---
 
