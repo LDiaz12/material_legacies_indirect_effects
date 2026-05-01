@@ -1151,8 +1151,8 @@ ie_tbl |>
 
 ### Marginal vs. indirect pH effects
 
-```{r frag-ph-effect-comparison}
-#| label: frag-ph-effect-comparison
+```{r fig-frag-ph-effect-comparison}
+#| label: fig-frag-ph-effect-comparison
 #| fig-cap: "Comparison of the marginal (bivariate) effect of pH on each physiology variable against the indirect effect estimated by the path model. Orange triangles show the standardised coefficient from a bivariate mixed-effects model (lmer, 1|GENOTYPE) fitting pH directly to each outcome; blue circles show the indirect effect of pH propagated through the causal chain (delta method). Faded symbols indicate p ≥ 0.05. Error bars are 95% CI."
 #| fig-width: 6.5
 #| fig-height: 4.5
