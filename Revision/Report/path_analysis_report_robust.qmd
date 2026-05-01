@@ -52,8 +52,13 @@ library(lubridate)
 library(lme4)
 library(lmerTest)
 library(emmeans)
+library(multcomp)
+library(multcompView)
 library(patchwork)
+library(cowplot)
 library(piecewiseSEM)
+library(ggpubr)
+library(purrr)
 ```
 
 ---
@@ -181,8 +186,8 @@ remove_outliers <- function(x, multiplier = 3) {
          x > (q[2] + multiplier * iqr), NA, x)
 }
 
-day_vars   <- c("deltaDIC", "deltaDOC", "deltaTA", "DIC_umol_kg", "DOC", "NEC", "NEP", "pH", "TA")
-night_vars <- c("DIC_umol_kg", "DOC", "NEC", "NEP", "TA")
+day_vars   <- c("DOC", "NEC", "NEP", "pH", "TA")
+night_vars <- c("DOC", "NEC", "NEP", "TA")
 
 chem_reframe_DAY_clean <- Data |>
   filter(TIME == hms::as_hms("12:00:00")) |>
@@ -319,9 +324,6 @@ Before testing the mediation pathway, we first ask whether the four community tr
 #| fig-width: 8
 #| fig-height: 11
 
-library(multcomp)
-library(multcompView)
-
 trt_colors <- c("Control" = "#4682B4", "Algae_Dom" = "#2E8B57",
                 "Coral_Dom" = "#E07B54", "Rubble_Dom" = "#A07850")
 trt_labels <- c("Control" = "Control", "Algae_Dom" = "Macroalgae",
@@ -391,11 +393,13 @@ raw_all_fig <- raw_ph_doc |>
 get_letters_fig <- function(var, time_val, data, offset, raw_data = raw_all_fig) {
   df   <- data     |> filter(Time == time_val) |> drop_na(all_of(var))
   rdf  <- raw_data |> filter(Time == time_val) |> drop_na(all_of(var))
-  mod  <- aov(reformulate("TREATMENT", response = var), data = df)
-  ltrs <- multcompLetters4(mod, TukeyHSD(mod))$TREATMENT$Letters
+  mod  <- lmer(reformulate(c("TREATMENT", "(1|TANK_NUM)"), response = var), data = rdf)
+  em   <- emmeans(mod, ~ TREATMENT)
+  cld_df <- cld(em, Letters = letters, adjust = "tukey") |>
+    mutate(.group = trimws(.group))
   tibble(
-    TREATMENT = factor(names(ltrs), levels = treatment_levels),
-    letter    = ltrs,
+    TREATMENT = factor(cld_df$TREATMENT, levels = treatment_levels),
+    letter    = cld_df$.group,
     y_pos     = max(rdf[[var]], na.rm = TRUE) + offset,
     Variable  = var,
     Time      = factor(time_val, levels = c("Noon", "9 PM"))
@@ -637,8 +641,6 @@ Having established that treatments differ in NCP and NCC, we now examine whether
 #| fig-width: 10
 #| fig-height: 10
 
-library(ggpubr)
-
 clean_chem_fig <- bind_rows(
   chem_reframe_DAY_clean   |> ungroup() |> mutate(Time = "Noon"),
   chem_reframe_NIGHT_clean |> ungroup() |> mutate(Time = "9 PM")
@@ -770,14 +772,12 @@ anova_table |>
 
 ## Overview
 
-The main path model (Section [-@sec-path]) operates on **tank-level means** (n = 16). This section re-fits the same causal structure on **individual coral fragments** (n = 74), using mixed-effects models to account for two sources of non-independence in the raw data:
+The path model operates on **individual coral fragments** (n = 74 fragments across 16 tanks and 24 genotypes), using mixed-effects models to account for two sources of non-independence in the data:
 
-* **Genotype** (`GENOTYPE`): 24 coral genotypes each appear in exactly 4 tanks (one fragment per genotype per tank). Genotype identity explains variation in physiology that is unrelated to the experimental treatment or tank chemistry.
-* **Tank** (`TANK_NUM`): 6 fragments share the same tank chemistry (pH, DOC) and the same treatment.
+* **Genotype** (`GENOTYPE`): 24 coral genotypes each contributed one fragment per treatment tank. Genotype identity explains baseline physiological variation unrelated to experimental treatment or tank chemistry.
+* **Tank** (`TANK_NUM`): fragments within the same tank share the same community chemistry (pH, DOC) and the same treatment. However, because pH and DOC are themselves tank-level predictors, `TANK_NUM` is excluded as a random intercept in downstream equations — including it would absorb the between-tank variance these predictors are specified to explain.
 
-Because the design is fully crossed (each genotype × treatment combination has one fragment), genotype and tank enter as **crossed** random intercepts: `(1 | TANK_NUM) + (1 | GENOTYPE)`.
-
-The two upstream equations — NCP → pH and NCP → DOC — remain at the tank level (OLS), since both predictor and response are measured per tank. All downstream equations are fragment-level `lmer` models. Path coefficients are standardised (z-scored across all fragments).
+A genotype random intercept (`1 | GENOTYPE`) is included in all fragment-level equations. Path coefficients are standardised (z-scored across all fragments).
 
 ::: {.callout-note}
 Path equations are fitted as `lmer()` models and assembled into a `piecewiseSEM::psem()` object (Lefcheck 2016). Coefficients and Satterthwaite degrees of freedom are extracted with `coefs()`; marginal (R²m) and conditional (R²c) R² values follow Nakagawa & Schielzeth (2013) via `rsquared()`. Global model fit is assessed via Shipley's Fisher's C d-separation statistic.
@@ -817,44 +817,57 @@ Maintenance respiration is expected to scale with metabolically active tissue ma
 
 ## Statistical methods
 
-### Piecewise structural equation modelling
+Statistical analysis proceeded in three sequential stages, each motivated by both the logical structure of the data and a progressively more mechanistic biological question. All models were fitted in R v4.4 (R Core Team 2024) using the `lme4` package (Bates et al. 2015); degrees of freedom and p-values for fixed effects used the Satterthwaite approximation as implemented in `lmerTest` (Kuznetsova et al. 2017).
 
-To evaluate whether benthic community chemistry indirectly drives coral physiology through a sequence of biological mechanisms, we constructed a piecewise structural equation model (pSEM) using the `piecewiseSEM` package v2.3 (Lefcheck 2016) in R v4.4 (R Core Team 2024). Piecewise SEM factorises a multivariate causal hypothesis into a set of local regression equations — one per endogenous variable — each estimating a single structural link in the proposed causal graph (Shipley 2009; Lefcheck 2016). Compared to global (covariance-based) SEM, this approach accommodates mixed-effects models with arbitrary random-effects structures and allows each equation to be specified independently, which is necessary when response variables span different biological levels of organisation (fragment vs. tank) and have different sampling designs.
+### Stage 1 — Treatment effects on community biogeochemistry
 
-### Data preparation and scaling
+The first question is simply whether the four benthic community treatments (control, macroalgae-dominated, coral-dominated, CCA-dominated) produced distinct water chemistry environments. This is a prerequisite for any downstream causal claim: if treatments do not reliably modify pH, DOC, NCP, or NCC, then attributing differences in coral physiology to community-mediated chemistry is unjustified.
 
-Coral fragment physiology was measured at the individual fragment level (n = 74 fragments across 16 tanks and 24 genotypes); community chemistry (mean daytime pH, dissolved organic carbon, DOC) was summarised at the tank level. Physiology variables with right-skewed distributions — chlorophyll-a surface density (µg cm⁻²), endosymbiont cell density (cells cm⁻²), chlorophyll per endosymbiont cell (CPE, µg cell⁻¹), and tissue biomass (mg cm⁻²) — were log-transformed prior to analysis. Gross photosynthesis and respiration (both µmol O₂ cm⁻² hr⁻¹) were used on the measured scale. All variables were then z-scored (centred to mean zero, scaled to unit standard deviation) across all fragments, so that path coefficients (β\*) represent standardised partial regression coefficients directly comparable in magnitude across equations. Tank chemistry predictors (pH, DOC) were z-scored at the tank level prior to assignment to individual fragments.
+For each of the four biogeochemical variables — net community production (NCP, mmol C m⁻² h⁻¹), net community calcification (NCC, mmol CaCO₃ m⁻² h⁻¹), pH (total scale), and dissolved organic carbon (DOC, log-transformed to correct right skew) — we fitted linear mixed-effects models of the form:
 
-### Model equations and random effects
+$$\text{variable} \sim \text{TREATMENT} + (1 \mid \text{TANK\_NUM})$$
 
-The pSEM comprised six linear mixed-effects equations assembled in causal order:
+Measurements were made repeatedly on the same tanks over multiple sampling dates, so tank identity was included as a random intercept to account for the non-independence of repeated observations within tanks. Models were fitted separately for noon and 9 PM time-points to capture diel variation in the treatment signal. Treatment effects were tested with Type III F-tests (Satterthwaite denominator df). Where the omnibus F-test indicated a significant treatment effect, pairwise Tukey-adjusted contrasts were computed via the `emmeans` package (Lenth 2023) to identify which community types differed. For post-hoc letter groupings on summary figures, the same mixed-effects model structure (`variable ~ TREATMENT + (1 | TANK_NUM)`) was used with `emmeans::cld()` to assign compact letter displays.
+
+### Stage 2 — Continuous relationships among biogeochemical variables
+
+Demonstrating that treatments differ on average does not reveal whether the biogeochemical variables are mechanistically coupled across the full range of observed variation. This matters biologically because pH and DOC enter the coral physiology model as continuous predictors, not as categorical treatment means. If NCP, pH, NCC, and DOC do not covary continuously within and across tanks, using them as predictors in a path model would be unjustified.
+
+We therefore examined four pairwise relationships that reflect known reef biogeochemical pathways: NCP → pH (photosynthesis elevates pH by removing CO₂), NCP → DOC (production releases dissolved organics), pH → NCC (carbonate saturation state drives calcification), and NCC → DOC (organic–inorganic carbon coupling). For each relationship we fitted a mixed-effects model of the form:
+
+$$\text{response} \sim \text{predictor} + (1 \mid \text{TANK\_NUM})$$
+
+using all noon and 9 PM observations pooled. The random intercept for tank absorbs baseline between-tank differences, so the fixed-effect slope estimates the within- and across-tank continuous relationship between the two biogeochemical variables. Collectively, these models confirm that the chemistry axes used in the path model are not arbitrary treatment-level summaries but reflect coherent underlying biogeochemical processes.
+
+### Stage 3 — Structural equation modelling of the chemistry-to-physiology pathway
+
+Having established that (1) treatments reliably generate distinct chemistry environments and (2) the chemistry variables are continuously coupled through recognisable biogeochemical mechanisms, the question becomes: how does this tank-level chemistry signal propagate through coral biology? A single bivariate regression of pH against any individual physiology variable is ill-suited to answer this because downstream traits such as endosymbiont density, gross photosynthesis, and respiration are separated from the chemistry signal by several intervening biological steps, each of which introduces additional variance driven by genotype, stochastic fragment-to-fragment variation, and unmeasured covariates. The path analysis framework is designed precisely for this situation: it decomposes a multivariate causal hypothesis into a set of local equations, estimates each link separately while conditioning on its immediate predictors, and then quantifies how much of the upstream signal is transmitted to each downstream outcome via the indirect route.
+
+We constructed a piecewise structural equation model (pSEM) using the `piecewiseSEM` package v2.3 (Lefcheck 2016). Piecewise SEM factorises the causal graph into one regression equation per endogenous variable, accommodating mixed-effects models with arbitrary random-effects structures — which is necessary here because response variables span different biological levels of organisation (fragment vs. tank) and have different sampling designs (Shipley 2009; Lefcheck 2016).
+
+**Data preparation and scaling.** Coral fragment physiology was measured at the individual fragment level (n = 74 fragments across 16 tanks and 24 genotypes); community chemistry (mean daytime pH, DOC) was summarised at the tank level. Physiology variables with right-skewed distributions — chlorophyll-a surface density (µg cm⁻²), endosymbiont cell density (cells cm⁻²), tissue biomass (mg cm⁻²) — were log-transformed prior to analysis. Gross photosynthesis and respiration (µmol O₂ cm⁻² h⁻¹) were used on the measured scale. All variables were then z-scored (centred to mean zero, scaled to unit standard deviation) so that path coefficients (β\*) are standardised partial regression coefficients directly comparable across equations. Tank chemistry predictors were z-scored at the tank level prior to assignment to individual fragments.
+
+**Model equations and random effects.** The pSEM comprised six linear mixed-effects equations assembled in causal order:
 
 | Equation | Response | Predictors | Random effect |
 |---|---|---|---|
 | 1 | log(Chl-a) | pH, DOC | (1 \| GENOTYPE) |
 | 2 | log(Endosymbiont density) | log(Chl-a) | (1 \| GENOTYPE) |
-| 3 | log(Chl-a per cell) | log(Endosymbiont density) | (1 \| GENOTYPE) |
-| 4 | log(Tissue biomass) | log(Endosymbiont density) | (1 \| GENOTYPE) |
-| 5 | Gross photosynthesis | log(Endosymbiont density) | (1 \| GENOTYPE) |
-| 6 | Respiration | Gross photosynthesis, log(Tissue biomass) | (1 \| GENOTYPE) |
+| 3 | log(Tissue biomass) | log(Endosymbiont density) | (1 \| GENOTYPE) |
+| 4 | Gross photosynthesis | log(Endosymbiont density) | (1 \| GENOTYPE) |
+| 5 | Respiration | Gross photosynthesis, log(Tissue biomass) | (1 \| GENOTYPE) |
 
-All fragment-level equations included a random intercept for genotype (`1 | GENOTYPE`) to account for the repeated-measures structure of the experiment: each of 24 coral genotypes contributed one fragment per treatment tank, so genotype identity is expected to explain baseline physiological variation unrelated to experimental treatment. Tank identity (`TANK_NUM`) was deliberately excluded as a random intercept in fragment-level equations because the community chemistry predictors (pH, DOC) are themselves tank-level variables — including `TANK_NUM` as a random effect would absorb the between-tank variance that these predictors are specified to explain, producing downwardly biased coefficient estimates and inflated standard errors for the upstream chemistry paths. Mixed-effects models were fitted using the `lme4` package (Bates et al. 2015); degrees of freedom and p-values for fixed effects used the Satterthwaite approximation as implemented in `lmerTest` (Kuznetsova et al. 2017).
+All equations included a random intercept for genotype (`1 | GENOTYPE`) because each of 24 coral genotypes contributed one fragment per treatment tank, and genotype identity explains baseline physiological variation unrelated to experimental treatment. Tank identity (`TANK_NUM`) was deliberately excluded as a random intercept: because pH and DOC are tank-level variables, including `TANK_NUM` as a random effect would absorb the between-tank variance these predictors are specified to explain, producing downwardly biased coefficients and inflated standard errors for the upstream chemistry paths.
 
-### Global model fit
+**Global model fit.** Global fit was assessed using Shipley's d-separation test (Shipley 2009), which identifies all independence claims implied by the directed acyclic graph and tests whether those claims hold in the data. The test statistic is Fisher's C = −2 Σ ln(*p*ᵢ); under the null hypothesis of correct model structure, C follows a χ² distribution with 2*k* degrees of freedom (*k* = number of independence claims). A non-significant Fisher's C (p > 0.05) indicates no important paths are missing and the proposed causal structure is consistent with the data. Marginal R² (variance explained by fixed effects) and conditional R² (fixed + random effects combined) were computed following Nakagawa & Schielzeth (2013) via the `rsquared()` function.
 
-Global fit of the pSEM was assessed using Shipley's d-separation test (Shipley 2009). This procedure identifies all independence claims implied by the directed acyclic graph — pairs of variables that are d-separated (conditionally independent given their common causes) — and tests whether those claims hold in the data. The test statistic is Fisher's C = −2 Σ ln(*p*ᵢ), where *p*ᵢ are the p-values from each independence claim test; under the null hypothesis of correct model structure, C follows a χ² distribution with 2*k* degrees of freedom (*k* = number of independence claims). A non-significant Fisher's C (p > 0.05) indicates that no important paths are missing and the proposed causal structure is consistent with the data. Marginal R² (variance explained by fixed effects) and conditional R² (fixed + random effects combined) for each endogenous variable were computed following Nakagawa & Schielzeth (2013) via the `rsquared()` function.
-
-### Indirect effect estimation
-
-Indirect effects — the propagated influence of an upstream predictor on a downstream outcome through one or more mediating variables — were calculated as the ordered product of standardised path coefficients along each mediated route (MacKinnon 2008). Standard errors for indirect effects were derived analytically using the delta method (Sobel 1982). For a product of *k* independent path coefficients β₁ × β₂ × … × β*k*, the standard error is obtained by iterative application of the first-order error propagation rule:
+**Indirect effect estimation.** Indirect effects — the propagated influence of an upstream predictor on a downstream outcome through one or more mediating variables — were calculated as the ordered product of standardised path coefficients along each mediated route (MacKinnon 2008). Standard errors were derived analytically using the delta method (Sobel 1982). For a product of *k* independent path coefficients β₁ × β₂ × … × β*k*, the standard error is obtained by iterative application of the first-order error propagation rule:
 
 $$\text{SE}(\hat{\beta}_1 \hat{\beta}_2) \approx \sqrt{\hat{\beta}_1^2\, \text{SE}_2^2 + \hat{\beta}_2^2\, \text{SE}_1^2}$$
 
-with the result treated as a new estimate for subsequent multiplication steps. For terminal outcomes with two parallel indirect routes (pH → Respiration via gross photosynthesis, and pH → Respiration via tissue biomass), the total indirect effect was computed as the sum of the two route products and its standard error derived from the full set of partial derivatives of the composite expression. Significance was assessed with a two-tailed z-test (z = indirect β\* / SE). Path coefficient estimates from separate pSEM equations are treated as statistically independent for the purposes of error propagation, which is appropriate under the piecewise framework where each equation is estimated separately.
+For terminal outcomes with two parallel indirect routes (pH → Respiration via gross photosynthesis, and via tissue biomass), the total indirect effect was computed as the sum of the two route products with the standard error derived from the full set of partial derivatives. Significance was assessed with a two-tailed z-test. Path coefficient estimates from separate pSEM equations are treated as statistically independent for error propagation, which is appropriate under the piecewise framework.
 
-### Comparison with bivariate regression
-
-To evaluate whether the indirect effects of community pH were detectable without path analysis, we fitted a separate bivariate mixed-effects model for each physiology variable using pH as the sole predictor and genotype as a random intercept — identical in structure to the individual path equations but without any mediating variables. The standardised marginal coefficient from each bivariate model (i.e., the direct effect of pH ignoring causal structure) was compared to the path model indirect effect for the same outcome. This comparison tests the proposition that bivariate regression is underpowered to recover the indirect community-to-physiology signal: by regressing pH directly against a downstream outcome such as endosymbiont density or respiration, the bivariate model must explain variation that is driven by many additional sources (genotype, stochastic fragment-to-fragment variation, unmeasured covariates) without partitioning the pH signal into its constituent mediated steps. The path model exploits the causal architecture by estimating each link separately, absorbing within-step noise via the genotype random effect at each stage, and thereby recovering significant indirect effects with substantially smaller standard errors than the equivalent bivariate regressions.
+**Comparison with bivariate regression.** To evaluate whether indirect effects of community pH were detectable without path analysis, we fitted a separate bivariate mixed-effects model for each physiology variable using pH as the sole predictor and genotype as a random intercept. Comparing these bivariate marginal coefficients to the path model indirect effects tests the proposition that bivariate regression is underpowered to recover the community-to-physiology signal: without conditioning on the intervening biological steps, the pH signal is diluted by variation at every downstream stage. The path model recovers this signal by estimating each causal link separately, absorbing within-step noise at each stage via the genotype random effect.
 
 ---
 
@@ -1144,9 +1157,6 @@ ie_tbl |>
 #| fig-width: 6.5
 #| fig-height: 4.5
 
-library(lme4)
-library(lmerTest)
-
 # Bivariate (marginal) effect of pH on each outcome
 ph_outcomes <- list(
   list(var = "log_chla",    label = "Chl-a"),
@@ -1264,8 +1274,6 @@ Bivariate mixed-effects regressions of pH against each downstream physiology var
 #| fig-width: 9
 #| fig-height: 4
 
-library(purrr)
-
 # Extract marginal R² from psem object
 frag_r2_diag <- rsquared(frag_psem) |>
   dplyr::select(Response, r2 = Marginal) |>
@@ -1362,9 +1370,6 @@ ggplot() +
 #| fig-cap: "Raw fragment-level data for each path in the fragment-level path model. Small transparent points are individual coral fragments coloured by benthic treatment; large filled circles are tank means (n = 16 tanks). Lines show marginal OLS trend ± 95% CI. Annotated standardised β and p-values are from the piecewiseSEM path model. Blue = significant path (p < 0.05); grey = non-significant."
 #| fig-width: 11
 #| fig-height: 6.5
-
-library(patchwork)
-library(cowplot)
 
 plot_data <- frag_data_path |>
   mutate(log_cpe = log(cpe))
@@ -1558,930 +1563,14 @@ re_tbl |>
 
 ## Interpretation
 
-**pH → Chl-a attenuates at the fragment level.** In the tank-level model, pH was a significant predictor of Chl-a (β = 0.49, p = 0.024). In the fragment-level model, this path is weaker and non-significant (β = 0.12, p = 0.28). This attenuation is expected: pH varies only between tanks, whereas genotype explains most of the within-experiment variation in Chl-a (R²c = 0.60 vs R²m = 0.01 — genotype and tank random effects account for the majority of Chl-a variance, leaving little signal for tank-level chemistry at the fragment level). The tank-level model effectively aggregates away this within-tank genotype noise to reveal the between-tank chemistry signal; the fragment-level model shows that at the individual fragment level, the pH signal is diluted by genotypic variation.
+**pH → Chl-a path is weak at the fragment level.** The path from pH to Chl-a is non-significant at the fragment level (β = 0.12, p = 0.28). This is expected: pH varies only between tanks, whereas genotype explains the majority of within-experiment variation in Chl-a (R²c = 0.60 vs R²m = 0.01). At the individual fragment level, the between-tank pH signal is diluted by genotypic variation in pigment content.
 
-**DOC → Endosymbiont remains marginally significant.** The direct negative effect of DOC on endosymbiont density (β = −0.17, p = 0.052) is consistent with the main model, suggesting that this antagonistic route is detectable even after accounting for genotype and tank clustering.
+**DOC → Endosymbiont is marginally significant.** The direct negative effect of DOC on endosymbiont density (β = −0.17, p = 0.052) suggests that this antagonistic route is detectable even after accounting for genotype and tank clustering.
 
-**Downstream physiology paths are robust.** Chl-a → Endosymbiont (β = 0.66, p < 0.001), Endosymbiont → GP (β = 0.35, p = 0.012), GP → Respiration (β = 0.55, p < 0.001), and Endosymbiont → Tissue biomass (β = 0.49, p < 0.001) are all significant with effect sizes consistent with the tank-level analysis. These relationships are driven by within-tank fragment-to-fragment covariation rather than between-tank differences, confirming that the physiology chain is a biological signal rather than an artefact of tank-level averaging.
+**Downstream physiology paths are robust.** Chl-a → Endosymbiont (β = 0.66, p < 0.001), Endosymbiont → GP (β = 0.35, p = 0.012), GP → Respiration (β = 0.55, p < 0.001), and Endosymbiont → Tissue biomass (β = 0.49, p < 0.001) are all significant. These relationships reflect genuine within-tank fragment-to-fragment covariation, confirming that the physiology chain is a biological signal rather than an artefact of between-tank differences.
 
-**Genotype and tank explain substantial variance in some traits.** The large gap between R²m and R²c in Gross photosynthesis (0.16 vs 0.67) and Respiration (0.19 vs 0.60) indicates that substantial between-tank and between-genotype variation exists in these traits, even after controlling for fixed-effect predictors. This is an important caveat: the fragment-level fixed effects are estimated from a relatively small number of effective observations at the tank and genotype levels.
+**Genotype and tank explain substantial variance in some traits.** The large gap between R²m and R²c in Gross photosynthesis (0.16 vs 0.67) and Respiration (0.19 vs 0.60) indicates that substantial between-tank and between-genotype variation exists in these traits even after controlling for fixed-effect predictors. The fragment-level fixed effects are therefore estimated from a relatively small number of effective observations at the tank and genotype levels.
 
----
-
-# Fragment-level path analysis — endo-centred model {#sec-mixed-endo}
-
-## Overview
-
-This section tests a revised causal structure in which **endosymbiont density** is the primary hub receiving the community chemistry signal, with Chl-a/cm² and tissue biomass as parallel downstream responses. The key structural changes from @sec-mixed-path are:
-
-- pH + DOC → **Endo** (entry point for community chemistry)
-- Endo → Chl-a/cm²  (cell density drives total pigment)
-- Endo → Tissue biomass
-- Endo → **GP** and Endo → **R** (direct paths added following d-separation test requests in Model 3)
-- Chl-a/cm² → GP and Biomass → R (retained to test whether they carry independent signal)
-
-All continuous variables are z-scored. Random effects: `(1 | GENOTYPE)`.
-
-::: {.callout-note}
-Path equations are fitted as `lmer()` models wrapped in `piecewiseSEM::psem()`. Coefficients and Satterthwaite df are extracted with `coefs()`; R² follows Nakagawa & Schielzeth (2013) via `rsquared()`. Global fit assessed via Shipley's Fisher's C.
-:::
-
-## Model
-
-```{r m3b-models}
-#| label: m3b-models
-
-m3b_endo    <- lmer(log_endo    ~ pH_tank + DOC_tank + (1|GENOTYPE),
-                    data = frag_path_scaled, REML = TRUE)
-m3b_chla    <- lmer(log_chla    ~ log_endo + (1|GENOTYPE),
-                    data = frag_path_scaled, REML = TRUE)
-m3b_biomass <- lmer(log_biomass ~ log_endo + (1|GENOTYPE),
-                    data = frag_path_scaled, REML = TRUE)
-m3b_r       <- lmer(mean_R      ~ log_biomass + log_endo + (1|GENOTYPE),
-                    data = frag_path_scaled, REML = TRUE)
-m3b_gp      <- lmer(mean_GP     ~ log_chla + log_endo + mean_R + (1|GENOTYPE),
-                    data = frag_path_scaled, REML = TRUE)
-
-m3b_psem <- psem(
-  m3b_endo, m3b_chla, m3b_biomass, m3b_r, m3b_gp,
-  data = frag_path_scaled
-)
-
-m3b_singular <- sapply(
-  list(m3b_endo, m3b_chla, m3b_biomass, m3b_r, m3b_gp), isSingular
-)
-cat("Singular fits:", sum(m3b_singular), "/ 5 models\n")
-```
-
-## Global model fit
-
-```{r m3b-global-fit}
-#| label: m3b-global-fit
-
-fc3b <- fisherC(m3b_psem)
-cat(sprintf("Fisher's C = %.3f  df = %d  p = %.3f\n",
-            fc3b$Fisher.C, fc3b$df, fc3b$P.Value))
-```
-
-## Path coefficients
-
-```{r m3b-coefs}
-#| label: m3b-coefs
-
-m3b_coef_tbl <- coefs(m3b_psem) |>
-  dplyr::select(Response, Predictor, Estimate, Std.Error, DF, Crit.Value, P.Value) |>
-  dplyr::transmute(
-    Response  = recode(Response,
-      log_chla    = "Chl-a (log)",
-      log_endo    = "Endosymbiont (log)",
-      log_biomass = "Tissue biomass (log)",
-      mean_R      = "Respiration",
-      mean_GP     = "Gross photosynthesis"),
-    Predictor = recode(Predictor,
-      pH_tank     = "pH",
-      DOC_tank    = "DOC (log)",
-      log_chla    = "Chl-a",
-      log_endo    = "Endosymbiont",
-      log_biomass = "Tissue biomass",
-      mean_R      = "Respiration"),
-    `Std. β` = round(Estimate, 3),
-    SE        = round(Std.Error, 3),
-    df        = round(DF, 1),
-    t         = round(Crit.Value, 3),
-    p         = round(P.Value, 4)
-  )
-
-m3b_coef_tbl |>
-  kbl(
-    caption = paste0(
-      "Endo-centred model path coefficients (n = ", nrow(frag_path_scaled),
-      " fragments, n = 16 tanks). piecewiseSEM; lmer with (1|GENOTYPE). ",
-      "All variables z-scored. Green = p < 0.05; yellow = 0.05 \u2264 p < 0.10."
-    ),
-    col.names = c("Response", "Predictor", "Std. \u03b2", "SE", "df", "t", "p")
-  ) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
-  row_spec(which(m3b_coef_tbl$p <  0.05), background = "#d4edda") |>
-  row_spec(which(m3b_coef_tbl$p >= 0.05 & m3b_coef_tbl$p < 0.10), background = "#fff3cd")
-```
-
-## R² for endogenous variables
-
-```{r m3b-r2}
-#| label: m3b-r2
-
-m3b_singular_tbl <- tibble(
-  Response = c("log_endo", "log_chla", "log_biomass", "mean_R", "mean_GP"),
-  Singular = unname(m3b_singular)
-)
-
-m3b_r2_tbl <- rsquared(m3b_psem) |>
-  dplyr::select(Response, `R² / R²m` = Marginal, `R²c` = Conditional) |>
-  left_join(m3b_singular_tbl, by = "Response") |>
-  mutate(
-    Response = recode(Response,
-      log_chla    = "Chl-a (log)",
-      log_endo    = "Endosymbiont (log)",
-      log_biomass = "Tissue biomass (log)",
-      mean_R      = "Respiration",
-      mean_GP     = "Gross photosynthesis"),
-    across(where(is.numeric), ~round(., 3))
-  )
-
-m3b_r2_tbl |>
-  kbl(
-    caption = paste0(
-      "R\u00b2 per equation (piecewiseSEM). R\u00b2m = marginal (fixed effects); ",
-      "R\u00b2c = conditional (fixed + random; Nakagawa & Schielzeth 2013). ",
-      "Singular = random-effect variance estimated at zero."
-    ),
-    col.names = c("Response", "R\u00b2 / R\u00b2m", "R\u00b2c", "Singular fit")
-  ) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, position = "left")
-```
-
-## Random effects variance components
-
-```{r m3b-re}
-#| label: m3b-re
-
-purrr::map2_dfr(
-  list(m3b_endo, m3b_chla, m3b_biomass, m3b_r, m3b_gp),
-  c("Endosymbiont (log)", "Chl-a (log)", "Tissue biomass (log)",
-    "Respiration", "Gross photosynthesis"),
-  function(mod, nm) {
-    as.data.frame(VarCorr(mod)) |>
-      dplyr::filter(is.na(var2)) |>
-      dplyr::transmute(Response = nm, Group = grp,
-                       Variance = round(vcov, 4), SD = round(sdcor, 4))
-  }
-) |>
-  kbl(caption = "Random-effect variance components for each equation.",
-      col.names = c("Response", "Group", "Variance", "SD")) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
-  collapse_rows(columns = 1, valign = "top")
-```
-
-## Path diagram
-
-```{r m3b-diagram}
-#| label: m3b-diagram
-#| fig-cap: "Endo-centred fragment-level path diagram (n = 74 fragments, 16 tanks, 24 genotypes). Green = significant positive (p < 0.05); grey = n.s. Standardised β. R²m shown in each endogenous node."
-#| fig-width: 10
-#| fig-height: 4.5
-
-m3b_r2_diag <- rsquared(m3b_psem) |>
-  dplyr::select(Response, r2 = Marginal) |>
-  deframe()
-
-m3b_edges <- coefs(m3b_psem) |>
-  dplyr::select(Response, Predictor, Estimate, P.Value) |>
-  mutate(
-    from = recode(Predictor,
-      pH_tank     = "pH",   DOC_tank    = "DOC",
-      log_endo    = "Endo", log_chla    = "Chla",
-      log_biomass = "Bio",  mean_R      = "R"),
-    to   = recode(Response,
-      log_endo    = "Endo", log_chla    = "Chla",
-      log_biomass = "Bio",  mean_R      = "R",  mean_GP = "GP"),
-    coef   = round(Estimate, 3),
-    pval   = P.Value,
-    colour = case_when(
-      P.Value < 0.05 & Estimate > 0 ~ "pos",
-      P.Value < 0.05 & Estimate < 0 ~ "neg",
-      TRUE ~ "ns")
-  ) |>
-  dplyr::select(from, to, coef, pval, colour)
-
-m3b_nodes <- tibble(
-  id    = c("pH",  "DOC",  "Endo",                  "Chla",         "Bio",             "R",           "GP"),
-  label = c("pH",  "DOC",  "Endosymbiont\ndensity", "Chl-a\n(log)", "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
-  x     = c(1,     1,      3.5,                      6,              6,                  8.5,           10.5),
-  y     = c(1.0,  -1.0,    0,                        0.8,           -0.8,               -0.3,            0),
-  r2    = c(NA, NA,
-            m3b_r2_diag["log_endo"],
-            m3b_r2_diag["log_chla"],
-            m3b_r2_diag["log_biomass"],
-            m3b_r2_diag["mean_R"],
-            m3b_r2_diag["mean_GP"])
-) |>
-  mutate(r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", round(r2, 2)), NA_character_),
-         label_y  = ifelse(!is.na(r2), y + 0.07, y))
-
-m3b_e <- m3b_edges |>
-  left_join(m3b_nodes |> dplyr::select(id, x, y), by = c("from" = "id")) |>
-  rename(x0 = x, y0 = y) |>
-  left_join(m3b_nodes |> dplyr::select(id, x, y), by = c("to" = "id")) |>
-  rename(x1 = x, y1 = y) |>
-  mutate(
-    dx = x1-x0, dy = y1-y0, d = sqrt(dx^2+dy^2),
-    xs = x0+dx/d*0.5, ys = y0+dy/d*0.5,
-    xe = x1-dx/d*0.5, ye = y1-dy/d*0.5,
-    mx = (x0+x1)/2,   my = (y0+y1)/2
-  )
-
-colour_vals <- c("pos" = "#2ca25f", "neg" = "#e34a33", "ns" = "grey70")
-
-ggplot() +
-  geom_segment(data = m3b_e,
-    aes(x=xs, y=ys, xend=xe, yend=ye, color=colour),
-    linewidth = 0.85, arrow = arrow(length = unit(0.2, "cm"), type = "closed"),
-    show.legend = FALSE) +
-  geom_label(data = m3b_e,
-    aes(x=mx, y=my, label=sprintf("%.2f", coef), color=colour),
-    size = 2.5, label.padding = unit(0.10, "lines"), label.size = 0,
-    fill = "white", show.legend = FALSE) +
-  geom_tile(data = m3b_nodes, aes(x=x, y=y),
-    width = 0.88, height = 0.56, fill = "white", color = "grey35", linewidth = 0.55) +
-  geom_text(data = m3b_nodes, aes(x=x, y=label_y, label=label),
-    size = 2.6, lineheight = 0.88) +
-  geom_text(data = m3b_nodes |> dplyr::filter(!is.na(r2_label)),
-    aes(x=x, y=y-0.13, label=r2_label),
-    size = 2.0, color = "grey40", fontface = "italic") +
-  scale_color_manual(values = colour_vals) +
-  annotate("text", x = 0.6, y = -1.6,
-    label = paste0("Green = sig. positive   Grey = n.s.",
-                   "   Standardised \u03b2   n = 74 fragments"),
-    hjust = 0, size = 2.4, color = "grey35") +
-  coord_equal(xlim = c(0.3, 11.3), ylim = c(-1.8, 1.6), expand = FALSE) +
-  theme_void() +
-  theme(plot.margin = margin(6, 6, 6, 6))
-```
-
----
-
-# Tank-level path analysis — Chl-a-centred model {#sec-tank-endo}
-
-## Overview
-
-This section fits the **Chl-a-centred** causal structure at the **tank level** (n = 16 tank means, `lm()`). Aggregating to tank means removes within-tank genotypic noise and isolates the between-tank community chemistry signal. The causal structure follows the original fragment-level model (@sec-mixed-path), with pH and DOC entering through Chl-a/cm²:
-
-- pH + DOC → Chl-a/cm²
-- Chl-a/cm² → Endosymbiont density
-- Endosymbiont density → Tissue biomass
-- Endosymbiont density + Tissue biomass → Respiration
-- Endosymbiont density + Respiration → Gross photosynthesis
-
-Tank physiology means are computed with `na.rm = TRUE` across all available fragments per variable (not restricted to complete cases). All variables are z-scored across the 16 tank means.
-
-::: {.callout-note}
-With n = 16 observations and five equations, df ≈ 12–14 per equation. Interpret effect sizes and standard errors with appropriate caution.
-:::
-
-## Data preparation
-
-```{r tank-endo-data}
-#| label: tank-endo-data
-
-# Daytime mean pH per tank from cleaned noon observations (outliers removed)
-day_ph_tank <- chem_reframe_DAY_clean |>
-  dplyr::group_by(TANK_NUM) |>
-  dplyr::summarise(pH_day_only = mean(pH, na.rm = TRUE), .groups = "drop") |>
-  dplyr::mutate(TANK_NUM = as.numeric(TANK_NUM))
-
-# Aggregate physiology to tank means using all available fragments per variable
-# (na.rm = TRUE avoids complete-case restriction that leaves some tanks with n=1)
-tank_m3b_raw <- frag_data_path |>
-  dplyr::left_join(day_ph_tank, by = "TANK_NUM") |>
-  dplyr::group_by(TANK_NUM) |>
-  dplyr::summarise(
-    log_chla    = mean(log(chla_ug_cm2),         na.rm = TRUE),
-    log_endo    = mean(log(endo_per_cm2),         na.rm = TRUE),
-    log_biomass = mean(log(mean_tissue_biomass),  na.rm = TRUE),
-    mean_R      = mean(mean_R,                    na.rm = TRUE),
-    mean_GP     = mean(mean_GP,                   na.rm = TRUE),
-    pH_day      = mean(log(pH_day_only),               na.rm = TRUE),
-    DOC         = mean(log(DOC_tank),                  na.rm = TRUE),
-    .groups     = "drop"
-  )
-
-tank_m3b <- tank_m3b_raw |>
-  dplyr::mutate(across(c(log_chla, log_endo, log_biomass,
-                         mean_R, mean_GP, pH_day, DOC), scale_vec))
-
-cat("n tanks:", nrow(tank_m3b), "\n")
-```
-
-## Model
-
-```{r tank-endo-models}
-#| label: tank-endo-models
-#| message: false
-
-tk_chla    <- lm(log_chla    ~ pH_day + DOC,              data = tank_m3b)
-tk_endo    <- lm(log_endo    ~ log_chla,                   data = tank_m3b)
-tk_biomass <- lm(log_biomass ~ log_endo,                   data = tank_m3b)
-tk_r       <- lm(mean_R      ~ log_biomass + log_endo,     data = tank_m3b)
-tk_gp      <- lm(mean_GP     ~ log_endo + mean_R,          data = tank_m3b)
-
-tk_psem <- psem(tk_chla, tk_endo, tk_biomass, tk_r, tk_gp, data = tank_m3b)
-```
-
-## Global model fit
-
-```{r tank-endo-global-fit}
-#| label: tank-endo-global-fit
-
-fc_tk <- fisherC(tk_psem)
-cat(sprintf("Fisher's C = %.3f  df = %d  p = %.3f\n",
-            fc_tk$Fisher.C, fc_tk$df, fc_tk$P.Value))
-```
-
-## Path coefficients
-
-```{r tank-endo-coefs}
-#| label: tank-endo-coefs
-
-tk_coef_tbl <- coefs(tk_psem) |>
-  dplyr::select(Response, Predictor, Estimate, Std.Error, DF, Crit.Value, P.Value) |>
-  dplyr::transmute(
-    Response  = dplyr::recode(Response,
-      log_chla    = "Chl-a (log)",
-      log_endo    = "Endosymbiont (log)",
-      log_biomass = "Tissue biomass (log)",
-      mean_R      = "Respiration",
-      mean_GP     = "Gross photosynthesis"),
-    Predictor = dplyr::recode(Predictor,
-      pH_day      = "pH (daytime)",
-      DOC         = "DOC",
-      log_chla    = "Chl-a",
-      log_endo    = "Endosymbiont",
-      log_biomass = "Tissue biomass",
-      mean_R      = "Respiration",
-      mean_GP     = "Gross photosynthesis"),
-    `Std. β` = round(Estimate, 3),
-    SE        = round(Std.Error, 3),
-    df        = round(DF, 1),
-    t         = round(Crit.Value, 3),
-    p         = round(P.Value, 4)
-  )
-
-tk_coef_tbl |>
-  kbl(
-    caption = paste0(
-      "Tank-level Chl-a-centred model path coefficients (n = ", nrow(tank_m3b),
-      " tanks). piecewiseSEM with lm(). ",
-      "All variables z-scored across tank means. ",
-      "Green = p < 0.05; yellow = 0.05 \u2264 p < 0.10."
-    ),
-    col.names = c("Response", "Predictor", "Std. \u03b2", "SE", "df", "t", "p")
-  ) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
-  row_spec(which(tk_coef_tbl$p <  0.05), background = "#d4edda") |>
-  row_spec(which(tk_coef_tbl$p >= 0.05 & tk_coef_tbl$p < 0.10), background = "#fff3cd")
-```
-
-## R² for endogenous variables
-
-```{r tank-endo-r2}
-#| label: tank-endo-r2
-
-rsquared(tk_psem) |>
-  dplyr::select(Response, R2 = R.squared) |>
-  dplyr::mutate(
-    Response = dplyr::recode(Response,
-      log_chla    = "Chl-a (log)",
-      log_endo    = "Endosymbiont (log)",
-      log_biomass = "Tissue biomass (log)",
-      mean_R      = "Respiration",
-      mean_GP     = "Gross photosynthesis"),
-    R2 = round(R2, 3)
-  ) |>
-  kbl(caption = "R\u00b2 per equation (tank-level OLS).",
-      col.names = c("Response", "R\u00b2")) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"),
-                full_width = FALSE, position = "left")
-```
-
-## Path diagram
-
-```{r tank-endo-diagram}
-#| label: tank-endo-diagram
-#| fig-cap: "Tank-level Chl-a-centred path diagram (n = 16 tank means, lm). Green = significant positive (p < 0.05); grey = n.s. Standardised β. R² shown in each endogenous node."
-#| fig-width: 10
-#| fig-height: 4.5
-
-tk_r2_diag <- rsquared(tk_psem) |>
-  dplyr::select(Response, r2 = R.squared) |>
-  tibble::deframe()
-
-tk_edges <- coefs(tk_psem) |>
-  dplyr::select(Response, Predictor, Estimate, P.Value) |>
-  dplyr::mutate(
-    from = dplyr::recode(Predictor,
-      pH_day      = "pH",   DOC         = "DOC",
-      log_chla    = "Chla", log_endo    = "Endo",
-      log_biomass = "Bio",  mean_R      = "R"),
-    to   = dplyr::recode(Response,
-      log_chla    = "Chla", log_endo    = "Endo",
-      log_biomass = "Bio",  mean_R      = "R",  mean_GP = "GP"),
-    coef   = round(Estimate, 3),
-    pval   = P.Value,
-    colour = dplyr::case_when(
-      P.Value < 0.05 & Estimate > 0 ~ "pos",
-      P.Value < 0.05 & Estimate < 0 ~ "neg",
-      TRUE ~ "ns")
-  ) |>
-  dplyr::select(from, to, coef, pval, colour)
-
-# Chl-a-centred layout: pH/DOC → Chla → Endo → Bio/R → GP
-tk_nodes <- tibble::tibble(
-  id    = c("pH",  "DOC",  "Chla",         "Endo",                  "Bio",             "R",           "GP"),
-  label = c("pH",  "DOC",  "Chl-a\n(log)", "Endosymbiont\ndensity", "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
-  x     = c(1,     1,      3.5,             6,                        8.5,               8.5,           10.5),
-  y     = c(1.0,  -1.0,    0,               0,                        0.8,              -0.8,            0),
-  r2    = c(NA, NA,
-            tk_r2_diag["log_chla"],
-            tk_r2_diag["log_endo"],
-            tk_r2_diag["log_biomass"],
-            tk_r2_diag["mean_R"],
-            tk_r2_diag["mean_GP"])
-) |>
-  dplyr::mutate(
-    r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", round(r2, 2)), NA_character_),
-    label_y  = ifelse(!is.na(r2), y + 0.07, y)
-  )
-
-tk_e <- tk_edges |>
-  dplyr::left_join(tk_nodes |> dplyr::select(id, x, y), by = c("from" = "id")) |>
-  dplyr::rename(x0 = x, y0 = y) |>
-  dplyr::left_join(tk_nodes |> dplyr::select(id, x, y), by = c("to" = "id")) |>
-  dplyr::rename(x1 = x, y1 = y) |>
-  dplyr::mutate(
-    dx = x1 - x0, dy = y1 - y0, d = sqrt(dx^2 + dy^2),
-    xs = x0 + dx/d*0.5, ys = y0 + dy/d*0.5,
-    xe = x1 - dx/d*0.5, ye = y1 - dy/d*0.5,
-    mx = (x0 + x1)/2,   my = (y0 + y1)/2
-  )
-
-colour_vals <- c("pos" = "#2ca25f", "neg" = "#e34a33", "ns" = "grey70")
-
-ggplot() +
-  geom_segment(data = tk_e,
-    aes(x = xs, y = ys, xend = xe, yend = ye, color = colour),
-    linewidth = 0.85, arrow = arrow(length = unit(0.2, "cm"), type = "closed"),
-    show.legend = FALSE) +
-  geom_label(data = tk_e,
-    aes(x = mx, y = my, label = sprintf("%.2f", coef), color = colour),
-    size = 2.5, label.padding = unit(0.10, "lines"), label.size = 0,
-    fill = "white", show.legend = FALSE) +
-  geom_tile(data = tk_nodes, aes(x = x, y = y),
-    width = 0.88, height = 0.56, fill = "white", color = "grey35", linewidth = 0.55) +
-  geom_text(data = tk_nodes, aes(x = x, y = label_y, label = label),
-    size = 2.6, lineheight = 0.88) +
-  geom_text(data = tk_nodes |> dplyr::filter(!is.na(r2_label)),
-    aes(x = x, y = y - 0.13, label = r2_label),
-    size = 2.0, color = "grey40", fontface = "italic") +
-  scale_color_manual(values = colour_vals) +
-  annotate("text", x = 0.6, y = -1.6,
-    label = paste0("Green = sig. positive   Grey = n.s.",
-                   "   Standardised \u03b2   n = 16 tanks"),
-    hjust = 0, size = 2.4, color = "grey35") +
-  coord_equal(xlim = c(0.3, 11.3), ylim = c(-1.8, 1.6), expand = FALSE) +
-  theme_void() +
-  theme(plot.margin = margin(6, 6, 6, 6))
-```
-
----
-
-# Fragment vs tank path model comparison {#sec-endo-comparison}
-
-## Overview
-
-This section compares the fragment-level endo-centred model (@sec-mixed-endo, n = 74 fragments, `lmer`) with the tank-level Chl-a-centred model (@sec-tank-endo, n = 16 tank means, `lm`). The two models differ in structure: at the fragment level the community chemistry signal enters through endosymbiont density; at the tank level it enters through Chl-a/cm², consistent with the original fragment-level Chl-a model (@sec-mixed-path). Paths present in one model but not the other are marked accordingly.
-
-## Comparison table
-
-```{r endo-comparison-table}
-#| label: endo-comparison-table
-
-# Shared paths (present in both models)
-shared_labels <- c(
-  "Endosymbiont \u2192 Tissue biomass",
-  "Tissue biomass \u2192 Respiration",
-  "Endosymbiont \u2192 Respiration",
-  "Endosymbiont \u2192 Gross photosynthesis",
-  "Respiration \u2192 Gross photosynthesis"
-)
-shared_paths <- list(
-  list(r = "log_biomass", p_frag = "log_endo",    p_tank = "log_endo"),
-  list(r = "mean_R",      p_frag = "log_biomass", p_tank = "log_biomass"),
-  list(r = "mean_R",      p_frag = "log_endo",    p_tank = "log_endo"),
-  list(r = "mean_GP",     p_frag = "log_endo",    p_tank = "log_endo"),
-  list(r = "mean_GP",     p_frag = "mean_R",      p_tank = "mean_R")
-)
-
-frag_coefs <- coefs(m3b_psem) |> dplyr::select(Response, Predictor, Estimate, P.Value)
-tank_coefs <- coefs(tk_psem)  |> dplyr::select(Response, Predictor, Estimate, P.Value)
-
-pull_path <- function(tbl, resp, pred) {
-  row <- dplyr::filter(tbl, Response == resp, Predictor == pred)
-  if (nrow(row) == 0) return(c(NA_real_, NA_real_))
-  c(row$Estimate, row$P.Value)
-}
-
-shared_tbl <- purrr::map2_dfr(shared_paths, shared_labels, function(path, lbl) {
-  fv <- pull_path(frag_coefs, path$r, path$p_frag)
-  tv <- pull_path(tank_coefs, path$r, path$p_tank)
-  tibble::tibble(Path=lbl,
-                 Frag_beta=round(fv[1],3), Frag_p=round(fv[2],4),
-                 Tank_beta=round(tv[1],3), Tank_p=round(tv[2],4),
-                 note = "both")
-})
-
-# Fragment-only paths (endo-centred entry)
-frag_only_tbl <- tibble::tibble(
-  Path      = c("pH \u2192 Endosymbiont", "DOC \u2192 Endosymbiont",
-                "Endosymbiont \u2192 Chl-a"),
-  Frag_beta = c(round(pull_path(frag_coefs,"log_endo","pH_tank")[1],3),
-                round(pull_path(frag_coefs,"log_endo","DOC_tank")[1],3),
-                round(pull_path(frag_coefs,"log_chla","log_endo")[1],3)),
-  Frag_p    = c(round(pull_path(frag_coefs,"log_endo","pH_tank")[2],4),
-                round(pull_path(frag_coefs,"log_endo","DOC_tank")[2],4),
-                round(pull_path(frag_coefs,"log_chla","log_endo")[2],4)),
-  Tank_beta = NA_real_, Tank_p = NA_real_,
-  note      = "frag only"
-)
-
-# Tank-only paths (Chl-a-centred entry)
-tank_only_tbl <- tibble::tibble(
-  Path      = c("pH \u2192 Chl-a", "DOC \u2192 Chl-a", "Chl-a \u2192 Endosymbiont"),
-  Frag_beta = NA_real_, Frag_p = NA_real_,
-  Tank_beta = c(round(pull_path(tank_coefs,"log_chla","pH_day")[1],3),
-                round(pull_path(tank_coefs,"log_chla","DOC")[1],3),
-                round(pull_path(tank_coefs,"log_endo","log_chla")[1],3)),
-  Tank_p    = c(round(pull_path(tank_coefs,"log_chla","pH_day")[2],4),
-                round(pull_path(tank_coefs,"log_chla","DOC")[2],4),
-                round(pull_path(tank_coefs,"log_endo","log_chla")[2],4)),
-  note      = "tank only"
-)
-
-cmp_tbl <- dplyr::bind_rows(frag_only_tbl, tank_only_tbl, shared_tbl)
-
-cmp_tbl |>
-  dplyr::select(-note) |>
-  kbl(
-    caption = paste0(
-      "Comparison of fragment-level endo-centred (m3b; n = 74, lmer) and ",
-      "tank-level Chl-a-centred (n = 16, lm) path models. ",
-      sprintf("Fragment Fisher's C p = %.3f; ", fisherC(m3b_psem)$P.Value),
-      sprintf("tank Fisher's C p = %.3f. ", fc_tk$P.Value),
-      "NA = path not present in that model. All \u03b2 standardised."
-    ),
-    col.names = c("Path", "Fragment \u03b2", "Fragment p", "Tank \u03b2", "Tank p")
-  ) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
-  pack_rows("Fragment-only entry paths (endo-centred)", 1, 3) |>
-  pack_rows("Tank-only entry paths (Chl-a-centred)", 4, 6) |>
-  pack_rows("Shared downstream paths", 7, 11) |>
-  column_spec(2:3,
-    color = ifelse(is.na(cmp_tbl$Frag_p), "grey80",
-            ifelse(cmp_tbl$Frag_p < 0.05, "#2ca25f",
-            ifelse(cmp_tbl$Frag_p < 0.10, "#b8860b", "grey50")))) |>
-  column_spec(4:5,
-    color = ifelse(is.na(cmp_tbl$Tank_p), "grey80",
-            ifelse(cmp_tbl$Tank_p < 0.05, "#2ca25f",
-            ifelse(cmp_tbl$Tank_p < 0.10, "#b8860b", "grey50"))))
-```
-
-## Global fit summary
-
-```{r endo-comparison-fit}
-#| label: endo-comparison-fit
-
-tibble::tibble(
-  Model        = c("Fragment-level (lmer, n = 74)", "Tank-level (lm, n = 16)"),
-  `Fisher's C` = c(round(fisherC(m3b_psem)$Fisher.C, 3),
-                   round(fc_tk$Fisher.C, 3)),
-  df           = c(fisherC(m3b_psem)$df, fc_tk$df),
-  p            = c(round(fisherC(m3b_psem)$P.Value, 3),
-                   round(fc_tk$P.Value, 3))
-) |>
-  kbl(caption = "Global fit comparison for the endo-centred model at two levels of aggregation.") |>
-  kable_styling(bootstrap_options = c("striped", "condensed"),
-                full_width = FALSE, position = "left")
-```
-
----
-
-# Fragment-level path analysis — Chl-a per endosymbiont {#sec-mixed-cpe}
-
-## Overview
-
-This section repeats the fragment-level mixed-effects path analysis ([Section -@sec-mixed-path]) using **Chl-a per endosymbiont cell** (µg chl cell⁻¹) as the pigment variable, mirroring the tank-level CPE model ([Section -@sec-chl-per-endo]). The causal structure follows the CPE logic: community chemistry (pH, DOC) shapes per-cell pigment content, which then determines symbiont cell density via the self-shading packaging trade-off, and downstream physiology follows from the resulting endosymbiont population. All continuous variables are z-scored; random effects are `(1 | TANK_NUM) + (1 | GENOTYPE)` for all fragment-level equations.
-
----
-
-## Data preparation
-
-```{r frag-cpe-data}
-#| label: frag-cpe-data
-
-scale_vec <- function(x) as.numeric(scale(x))
-
-frag_cpe_data <- metadata |>
-  mutate(
-    mean_tissue_biomass = ifelse(mean_tissue_biomass > 30, NA, mean_tissue_biomass),
-    cpe = chla_ug_cm2 / endo_per_cm2   # µg chl per cell
-  ) |>
-   mutate(cpe  = ifelse(cpe < 20, cpe, NA)) %>%
-  left_join(
-    chem_reframe_DAY_clean |>
-    #  bind_rows(chem_reframe_NIGHT_clean) |>
-      group_by(TANK_NUM) |>
-      summarize(
-        NEP_tank = mean(NEP, na.rm = TRUE),
-        pH_tank  = mean(pH,  na.rm = TRUE),
-        DOC_tank = log(mean(DOC, na.rm = TRUE)),
-        .groups  = "drop"
-      ) |>
-      mutate(TANK_NUM = as.numeric(TANK_NUM)),
-    by = "TANK_NUM"
-  ) |>
-  drop_na(NEP_tank) |>
-  mutate(
-    log_cpe     = log(cpe),
-    log_endo    = log(endo_per_cm2),
-    log_biomass = log(mean_tissue_biomass),
-    mean_R      = R,
-    mean_GP     = GP
-  ) |>
-  drop_na(log_cpe, log_endo, log_biomass, mean_GP, mean_R)
-
-frag_cpe_scaled <- frag_cpe_data |>
-  mutate(across(c(NEP_tank, pH_tank, DOC_tank,
-                  log_cpe, log_endo, mean_GP, mean_R, log_biomass), scale_vec))
-
-tank_rows_cpe <- frag_cpe_scaled |>
-  distinct(TANK_NUM, NEP_tank, pH_tank, DOC_tank)
-
-cat("Fragments in model:", nrow(frag_cpe_scaled), "\n")
-cat("Tanks represented:", n_distinct(frag_cpe_scaled$TANK_NUM), "\n")
-cat("Genotypes represented:", n_distinct(frag_cpe_scaled$GENOTYPE), "\n")
-```
-
----
-
-## Path equations
-
-```{r frag-cpe-models}
-#| label: frag-cpe-models
-
-# Fragment-level CPE equations: (1|GENOTYPE) random intercept
-# REML = TRUE required for piecewiseSEM's Kenward-Roger F-tests
-cpe_m_cpe     <- lmer(log_cpe     ~ pH_tank + DOC_tank + 
-                        (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = TRUE)
-cpe_m_endo    <- lmer(log_endo    ~ log_cpe + (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = TRUE)
-cpe_m_biomass <- lmer(log_biomass ~ log_endo + (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = TRUE)
-cpe_m_r       <- lmer(mean_R      ~ log_biomass + (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = TRUE)
-cpe_m_gp      <- lmer(mean_GP     ~ log_endo + mean_R + (1|GENOTYPE),
-                      data = frag_cpe_scaled, REML = TRUE)
-
-# Wrap into a piecewiseSEM object
-cpe_psem <- psem(
-  cpe_m_cpe,
-  cpe_m_endo,
-  cpe_m_biomass,
-  cpe_m_r,
-  cpe_m_gp,
-  data = frag_cpe_scaled
-)
-
-cpe_frag_mods <- list(cpe=cpe_m_cpe, endo=cpe_m_endo, biomass=cpe_m_biomass,
-                      R=cpe_m_r, GP=cpe_m_gp)
-cpe_singular  <- sapply(cpe_frag_mods, isSingular)
-cat("Singular fits:", sum(cpe_singular), "/ 5 fragment-level models\n")
-```
-
-::: {.callout-warning}
-**Singular fits.** `r sum(cpe_singular)` of the 5 fragment-level CPE models are singular, meaning one random-effect variance component is estimated at exactly zero. This occurs when the fixed chemistry predictors already explain the between-tank variation. The fixed-effect coefficients remain valid; singularity reflects a data limitation rather than a model failure.
-:::
-
----
-
-## Direct path coefficients
-
-```{r frag-cpe-coefs}
-#| label: frag-cpe-coefs
-
-cpe_coef_tbl <- coefs(cpe_psem) |>
-  # coefs() appends an unnamed trailing column; select only the needed columns
-  dplyr::select(Response, Predictor, Estimate, Std.Error, DF, Crit.Value, P.Value) |>
-  dplyr::transmute(
-    Response  = recode(Response,
-      log_cpe     = "Chl-a/cell (log)",
-      log_endo    = "Endosymbiont (log)",
-      log_biomass = "Tissue biomass (log)",
-      mean_R      = "Respiration",
-      mean_GP     = "Gross photosynthesis"),
-    Predictor = recode(Predictor,
-      pH_tank     = "pH",
-      DOC_tank    = "DOC (log)",
-      log_cpe     = "Chl-a/cell",
-      log_endo    = "Endosymbiont",
-      log_biomass = "Tissue biomass",
-      mean_R      = "Respiration"),
-    `Std. β` = round(Estimate, 3),
-    SE        = round(Std.Error, 3),
-    df        = round(DF, 1),
-    t         = round(Crit.Value, 3),
-    p         = round(P.Value, 4)
-  )
-
-cpe_coef_tbl |>
-  kbl(
-    caption = paste0(
-      "Fragment-level CPE path coefficients (n = ", nrow(frag_cpe_scaled),
-      " fragments, n = 16 tanks). Fitted with piecewiseSEM; lmer models with ",
-      "(1|GENOTYPE). All variables z-scored. ",
-      "Green = p < 0.05; yellow = 0.05 \u2264 p < 0.10."
-    ),
-    col.names = c("Response", "Predictor", "Std. \u03b2", "SE", "df", "t", "p")
-  ) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE) |>
-  row_spec(which(cpe_coef_tbl$p <= 0.05),  background = "#d4edda") |>
-  row_spec(which(cpe_coef_tbl$p > 0.05 & cpe_coef_tbl$p < 0.10), background = "#fff3cd")
-```
-
----
-
-## Path diagram
-
-```{r frag-cpe-diagram}
-#| label: frag-cpe-diagram
-#| fig-cap: "Fragment-level CPE path diagram (n = 74 fragments, 16 tanks, 24 genotypes). Green = significant positive path (p < 0.05); red = significant negative path (p < 0.05); grey = n.s. Coefficients are standardised β. R²m (marginal, fixed effects only) shown in each endogenous node."
-#| fig-width: 9
-#| fig-height: 5
-
-library(purrr)
-
-# Marginal R² from psem object
-cpe_r2_diag <- rsquared(cpe_psem) |>
-  dplyr::select(Response, r2 = Marginal) |>
-  deframe()
-
-# Node positions — pH and DOC are exogenous (no upstream model)
-cpe_frag_nodes <- tibble(
-  id    = c("pH",  "DOC",  "Chla",            "Endo",                  "Bio",             "R",           "GP"),
-  label = c("pH",  "DOC",  "Chl-a\nper cell", "Endosymbiont\ndensity", "Tissue\nbiomass", "Respiration", "Gross\nphotosynthesis"),
-  x     = c(1,     1,      3.5,                5.5,                     7.5,               9.0,           10.5),
-  y     = c(1.0,  -1.0,    0,                  0,                       0.6,               0.3,           0.0)
-) |>
-  mutate(
-    r2 = c(NA, NA,
-           cpe_r2_diag["log_cpe"],
-           cpe_r2_diag["log_endo"],
-           cpe_r2_diag["log_biomass"],
-           cpe_r2_diag["mean_R"],
-           cpe_r2_diag["mean_GP"]),
-    r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", round(r2, 2)), NA_character_),
-    label_y  = ifelse(!is.na(r2), y + 0.07, y)
-  )
-
-# Build edge table directly from piecewiseSEM coefs
-cpe_frag_edges <- coefs(cpe_psem) |>
-  dplyr::select(Response, Predictor, Estimate, P.Value) |>
-  mutate(
-    from = recode(Predictor,
-      pH_tank     = "pH",
-      DOC_tank    = "DOC",
-      log_cpe     = "Chla",
-      log_endo    = "Endo",
-      log_biomass = "Bio",
-      mean_R      = "R"),
-    to = recode(Response,
-      log_cpe     = "Chla",
-      log_endo    = "Endo",
-      log_biomass = "Bio",
-      mean_R      = "R",
-      mean_GP     = "GP"),
-    coef = round(Estimate, 3),
-    p    = P.Value
-  ) |>
-  dplyr::select(from, to, coef, p) |>
-  mutate(colour = case_when(
-    p < 0.05 & coef > 0 ~ "pos",
-    p < 0.05 & coef < 0 ~ "neg",
-    TRUE                  ~ "ns"
-  )) |>
-  left_join(cpe_frag_nodes |> dplyr::select(id,x,y), by=c("from"="id")) |> rename(x0=x,y0=y) |>
-  left_join(cpe_frag_nodes |> dplyr::select(id,x,y), by=c("to"="id"))   |> rename(x1=x,y1=y) |>
-  pmap_dfr(function(from,to,coef,p,colour,x0,y0,x1,y1) {
-    dx<-x1-x0; dy<-y1-y0; d<-sqrt(dx^2+dy^2)
-    tibble(from,to,coef,colour,
-           xs=x0+dx/d*0.5, ys=y0+dy/d*0.5,
-           xe=x1-dx/d*0.5, ye=y1-dy/d*0.5,
-           mx=(x0+dx/d*0.5+x1-dx/d*0.5)/2,
-           my=(y0+dy/d*0.5+y1-dy/d*0.5)/2)
-  })
-
-colour_vals <- c("pos"="#2ca25f","neg"="#e34a33","ns"="grey70")
-
-ggplot() +
-  geom_segment(data=cpe_frag_edges,
-    aes(x=xs,y=ys,xend=xe,yend=ye,color=colour),
-    linewidth=0.85, arrow=arrow(length=unit(0.2,"cm"),type="closed"),
-    show.legend=FALSE) +
-  geom_label(data=cpe_frag_edges,
-    aes(x=mx,y=my,label=sprintf("%.2f",coef),color=colour),
-    size=2.5, label.padding=unit(0.10,"lines"), label.size=0,
-    fill="white", show.legend=FALSE) +
-  geom_tile(data=cpe_frag_nodes, aes(x=x,y=y),
-    width=0.88, height=0.56,
-    fill="white", color="grey35", linewidth=0.55) +
-  geom_text(data=cpe_frag_nodes, aes(x=x,y=label_y,label=label),
-    size=2.6, lineheight=0.88) +
-  geom_text(data=cpe_frag_nodes |> filter(!is.na(r2_label)),
-    aes(x=x,y=y-0.13,label=r2_label),
-    size=2.0, color="grey40", fontface="italic") +
-  scale_color_manual(values=colour_vals) +
-  annotate("text", x=0.3, y=-1.6,
-    label="Green = sig. positive   Red = sig. negative   Grey = n.s.   Standardised \u03b2   n = 74 fragments",
-    hjust=0, size=2.5, color="grey35") +
-  coord_equal(xlim=c(0.2, 11.2), ylim=c(-1.8, 1.8), expand=FALSE) +
-  theme_void() +
-  theme(plot.margin=margin(6,6,6,6))
-```
-
----
-
-## R² for endogenous variables
-
-```{r frag-cpe-r2}
-#| label: frag-cpe-r2
-
-cpe_singular_tbl <- tibble(
-  Response = c("log_cpe", "log_endo", "log_biomass", "mean_R", "mean_GP"),
-  Singular = unname(cpe_singular)
-)
-
-frag_cpe_r2 <- rsquared(cpe_psem) |>
-  dplyr::select(Response, `R² / R²m` = Marginal, `R²c` = Conditional) |>
-  left_join(cpe_singular_tbl, by = "Response") |>
-  mutate(
-    Response = recode(Response,
-      log_cpe     = "Chl-a/cell (log)",
-      log_endo    = "Endosymbiont (log)",
-      log_biomass = "Tissue biomass (log)",
-      mean_R      = "Respiration",
-      mean_GP     = "Gross photosynthesis"),
-    across(where(is.numeric), ~round(., 3))
-  )
-
-frag_cpe_r2 |>
-  kbl(
-    caption = paste0(
-      "R\u00b2 per CPE path equation (piecewiseSEM). ",
-      "R\u00b2m = marginal (fixed effects only); ",
-      "R\u00b2c = conditional (fixed + random effects); ",
-      "Nakagawa & Schielzeth (2013). Singular = one random-effect variance at zero."
-    ),
-    col.names = c("Response", "R\u00b2 / R\u00b2m", "R\u00b2c", "Singular fit")
-  ) |>
-  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, position = "left")
-```
-
----
-
-## Random effects variance components
-
-```{r frag-cpe-re}
-#| label: frag-cpe-re
-
-purrr::map2_dfr(
-  list(cpe_m_cpe, cpe_m_endo, cpe_m_biomass, cpe_m_r, cpe_m_gp),
-  c("Chl-a/cell (log)", "Endosymbiont (log)", "Tissue biomass (log)",
-    "Respiration", "Gross photosynthesis"),
-  function(mod, nm) {
-    as.data.frame(VarCorr(mod)) |>
-      dplyr::filter(is.na(var2)) |>
-      dplyr::transmute(Response=nm, Group=grp,
-                       Variance=round(vcov,4), SD=round(sdcor,4))
-  }
-) |>
-  kbl(caption = "Random-effect variance components for the CPE fragment-level equations.",
-      col.names = c("Response","Group","Variance","SD")) |>
-  kable_styling(bootstrap_options = c("striped","condensed"), full_width = FALSE) |>
-  collapse_rows(columns = 1, valign = "top")
-```
-
----
-
-## Interpretation
-
-**pH → Chl-a/cell is non-significant at the fragment level.** As in the Chl-a/cm² fragment model, the pH signal (β = −0.04, p = 0.76) does not reach per-cell pigment content once genotype variation is accounted for. Marginal R²m for the Chl-a/cell equation is close to zero, whereas R²c is large, indicating that genotype (not tank chemistry) drives most of the variation in per-cell chlorophyll content across fragments.
-
-**The Chl-a/cell → Endosymbiont packaging trade-off is the dominant signal.** The strong negative path (β = −0.64, p < 0.001) replicates the tank-level result and reflects the well-documented self-shading trade-off: corals with higher per-cell chlorophyll harbour fewer endosymbiont cells per unit area. This relationship is primarily driven by fragment-to-fragment covariation and is robust to the inclusion of genotype and tank random effects.
-
-**Downstream physiology is driven by endosymbiont density.** Endosymbiont → Tissue biomass (β = 0.52, p < 0.001), Endosymbiont → Gross photosynthesis (β = 0.34, p < 0.001), and Respiration → Gross photosynthesis (β = 0.47, p < 0.001) are all significant. Biomass → Respiration and Endosymbiont → Respiration are non-significant, suggesting that GP is driven more directly by endosymbiont abundance than by respiratory demand scaling with tissue mass at the fragment level.
-
-**Comparison with the tank-level CPE model.** The fragment-level and tank-level CPE models tell a consistent story for the downstream physiology chain. The main divergence is in the upstream chemistry → Chl-a/cell link, which is significant at the tank level (pH β = 0.49, p = 0.02) but not at the fragment level. This attenuation mirrors the pattern in the Chl-a/cm² fragment model and reflects the fundamental limitation of detecting tank-level chemistry effects in models where genotype dominates within-experiment variation in pigment content.
-
----
 
 # Supplementary figures {#sec-supp}
 
