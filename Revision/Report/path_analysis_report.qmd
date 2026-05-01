@@ -521,7 +521,7 @@ tank_chem <- chem_reframe_DAY_clean |>
   group_by(TREATMENT, TANK_NUM) |>
   summarize(
     NEP_mean = mean(NEP,       na.rm = TRUE),
-    pH_mean  = mean(pH,        na.rm = TRUE),
+    pH_mean  = max(pH,         na.rm = TRUE),
     DOC_mean = log(mean(DOC,   na.rm = TRUE)),
     .groups  = "drop"
   ) |>
@@ -673,6 +673,32 @@ tank_path_coefs |>
            background = "#fff3cd")
 ```
 
+## R² for endogenous variables
+
+```{r tank-path-r2}
+#| label: tank-path-r2
+
+lavInspect(tank_path_fit, "r2") |>
+  tibble::enframe(name = "Variable", value = "R2") |>
+  mutate(
+    Variable = recode(Variable,
+      pH_mean     = "pH",
+      DOC_mean    = "DOC (log)",
+      log_chla    = "Chl-a (log)",
+      log_endo    = "Endosymbiont (log)",
+      mean_GP     = "Gross photosynthesis",
+      mean_R      = "Respiration",
+      log_biomass = "Tissue biomass (log)"
+    ),
+    R2 = round(R2, 3)
+  ) |>
+  kbl(
+    caption = "R² for each endogenous variable in the daytime-means path model. Values represent the proportion of variance explained by all predictors in the model for each response variable.",
+    col.names = c("Variable", "R²")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, position = "left")
+```
+
 ## Path diagram
 
 ```{r path-diagram}
@@ -690,6 +716,19 @@ path_nodes <- tibble(
   x     = c(1,      3,     3,      5,        7,                       7,                       7,             7),
   y     = c(0,      0.8,  -0.8,    0,        1.8,                     0.6,                    -0.6,          -1.8)
 )
+
+# Add R² from model to each endogenous node
+r2_m1 <- lavInspect(tank_path_fit, "r2")
+path_nodes <- path_nodes |>
+  left_join(
+    tibble(id = c("pH",     "DOC",      "Chla",     "Endo",     "GP",       "R",      "Bio"),
+           r2 = r2_m1[c("pH_mean","DOC_mean","log_chla","log_endo","mean_GP","mean_R","log_biomass")]),
+    by = "id"
+  ) |>
+  mutate(
+    r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", r2), NA_character_),
+    label_y  = ifelse(!is.na(r2), y + 0.07, y)
+  )
 
 # Direct path results pulled dynamically from model
 path_direct <- parameterEstimates(tank_path_fit, standardized = TRUE) |>
@@ -745,13 +784,18 @@ ggplot() +
   geom_tile(
     data = path_nodes,
     aes(x = x, y = y),
-    width = 0.9, height = 0.42,
+    width = 0.9, height = 0.54,
     fill = "white", color = "grey35", linewidth = 0.6
   ) +
   geom_text(
     data = path_nodes,
-    aes(x = x, y = y, label = label),
+    aes(x = x, y = label_y, label = label),
     size = 2.9, lineheight = 0.9
+  ) +
+  geom_text(
+    data = path_nodes |> filter(!is.na(r2_label)),
+    aes(x = x, y = y - 0.13, label = r2_label),
+    size = 2.1, color = "grey40", fontface = "italic"
   ) +
   scale_color_manual(values = c("TRUE" = "#2ca25f", "FALSE" = "grey60")) +
   annotate("text", x = 0.3, y = -2.5,
@@ -865,7 +909,7 @@ scatter_path <- function(df, x, y, xlab, ylab, log_y = FALSE) {
 plot_m1 <- chem_reframe_DAY_clean |>
   group_by(TREATMENT, TANK_NUM) |>
   summarize(NEP_mean = mean(NEP, na.rm = TRUE),
-            pH_mean  = mean(pH,  na.rm = TRUE),
+            pH_mean  = max(pH,   na.rm = TRUE),
             DOC_mean = log(mean(DOC, na.rm = TRUE)),
             .groups  = "drop") |>
   drop_na() |>
@@ -876,9 +920,9 @@ plot_m1 <- chem_reframe_DAY_clean |>
 
 p1a <- scatter_path(plot_m1, "NEP_mean", "pH_mean",
                     expression("NCP  (mmol C m"^-2~hr^-1~")"),
-                    expression("Mean pH"[T]))
+                    expression("Max pH"[T]))
 p1b <- scatter_path(plot_m1, "pH_mean", "mean_chla",
-                    expression("Mean pH"[T]),
+                    expression("Max pH"[T]),
                     expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
 p1c <- scatter_path(plot_m1, "mean_chla", "mean_endo",
                     expression("Chl-a  ("*mu*g~cm^-2*")"),
@@ -1084,6 +1128,32 @@ var_path_coefs |>
            background = "#fff3cd")
 ```
 
+## R² for endogenous variables
+
+```{r var-path-r2}
+#| label: var-path-r2
+
+lavInspect(fit_var, "r2") |>
+  tibble::enframe(name = "Variable", value = "R2") |>
+  mutate(
+    Variable = recode(Variable,
+      log_pH_var  = "log(pH variance)",
+      log_DOC_var = "log(DOC variance)",
+      log_chla    = "Chl-a (log)",
+      log_endo    = "Endosymbiont (log)",
+      mean_GP     = "Gross photosynthesis",
+      mean_R      = "Respiration",
+      log_biomass = "Tissue biomass (log)"
+    ),
+    R2 = round(R2, 3)
+  ) |>
+  kbl(
+    caption = "R² for each endogenous variable in the pH-variance path model. Values represent the proportion of variance explained by all predictors in the model for each response variable.",
+    col.names = c("Variable", "R²")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, position = "left")
+```
+
 ## Path diagram
 
 ```{r var-path-diagram}
@@ -1098,6 +1168,19 @@ var_nodes <- tibble(
   x     = c(1,      3,                   3,                    5,        7,                       7,                       7,             7),
   y     = c(0,      0.8,                -0.8,                   0,        1.8,                     0.6,                    -0.6,          -1.8)
 )
+
+# Add R² from model to each endogenous node
+r2_m2 <- lavInspect(fit_var, "r2")
+var_nodes <- var_nodes |>
+  left_join(
+    tibble(id = c("pHvar",      "DOCvar",      "Chla",     "Endo",     "GP",       "R",      "Bio"),
+           r2 = r2_m2[c("log_pH_var","log_DOC_var","log_chla","log_endo","mean_GP","mean_R","log_biomass")]),
+    by = "id"
+  ) |>
+  mutate(
+    r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", r2), NA_character_),
+    label_y  = ifelse(!is.na(r2), y + 0.07, y)
+  )
 
 var_direct <- parameterEstimates(fit_var, standardized = TRUE) |>
   filter(op == "~") |>
@@ -1146,13 +1229,18 @@ ggplot() +
   geom_tile(
     data = var_nodes,
     aes(x = x, y = y),
-    width = 0.95, height = 0.42,
+    width = 0.95, height = 0.56,
     fill = "white", color = "grey35", linewidth = 0.6
   ) +
   geom_text(
     data = var_nodes,
-    aes(x = x, y = y, label = label),
+    aes(x = x, y = label_y, label = label),
     size = 2.7, lineheight = 0.9
+  ) +
+  geom_text(
+    data = var_nodes |> filter(!is.na(r2_label)),
+    aes(x = x, y = y - 0.13, label = r2_label),
+    size = 2.1, color = "grey40", fontface = "italic"
   ) +
   scale_color_manual(values = c("TRUE" = "#2ca25f", "FALSE" = "grey60")) +
   annotate("text", x = 0.3, y = -2.5,
@@ -1332,7 +1420,7 @@ tank_chem_dn <- chem_reframe_DAYNIGHT_clean |>
   group_by(TREATMENT, TANK_NUM) |>
   summarize(
     NEP_mean = mean(NEP, na.rm = TRUE),
-    pH_mean  = mean(pH,  na.rm = TRUE),
+    pH_mean  = max(pH,   na.rm = TRUE),
     DOC_mean = log(mean(DOC, na.rm = TRUE)),
     .groups  = "drop"
   ) |>
@@ -1452,6 +1540,32 @@ dn_path_coefs |>
            background = "#fff3cd")
 ```
 
+## R² for endogenous variables
+
+```{r dn-path-r2}
+#| label: dn-path-r2
+
+lavInspect(fit_dn, "r2") |>
+  tibble::enframe(name = "Variable", value = "R2") |>
+  mutate(
+    Variable = recode(Variable,
+      pH_mean     = "pH",
+      DOC_mean    = "DOC (log)",
+      log_chla    = "Chl-a (log)",
+      log_endo    = "Endosymbiont (log)",
+      mean_GP     = "Gross photosynthesis",
+      mean_R      = "Respiration",
+      log_biomass = "Tissue biomass (log)"
+    ),
+    R2 = round(R2, 3)
+  ) |>
+  kbl(
+    caption = "R² for each endogenous variable in the day+night means path model. Values represent the proportion of variance explained by all predictors in the model for each response variable.",
+    col.names = c("Variable", "R²")
+  ) |>
+  kable_styling(bootstrap_options = c("striped", "condensed"), full_width = FALSE, position = "left")
+```
+
 ## Path diagram
 
 ```{r dn-path-diagram}
@@ -1466,6 +1580,19 @@ dn_nodes <- tibble(
   x     = c(1,      3,     3,      5,        7,                        7,                       7,             7),
   y     = c(0,      0.8,  -0.8,    0,        1.8,                      0.6,                    -0.6,          -1.8)
 )
+
+# Add R² from model to each endogenous node
+r2_m3 <- lavInspect(fit_dn, "r2")
+dn_nodes <- dn_nodes |>
+  left_join(
+    tibble(id = c("pH",     "DOC",      "Chla",     "Endo",     "GP",       "R",      "Bio"),
+           r2 = r2_m3[c("pH_mean","DOC_mean","log_chla","log_endo","mean_GP","mean_R","log_biomass")]),
+    by = "id"
+  ) |>
+  mutate(
+    r2_label = ifelse(!is.na(r2), sprintf("R\u00b2=%.2f", r2), NA_character_),
+    label_y  = ifelse(!is.na(r2), y + 0.07, y)
+  )
 
 dn_direct <- parameterEstimates(fit_dn, standardized = TRUE) |>
   filter(op == "~") |>
@@ -1514,13 +1641,18 @@ ggplot() +
   geom_tile(
     data = dn_nodes,
     aes(x = x, y = y),
-    width = 0.9, height = 0.42,
+    width = 0.9, height = 0.54,
     fill = "white", color = "grey35", linewidth = 0.6
   ) +
   geom_text(
     data = dn_nodes,
-    aes(x = x, y = y, label = label),
+    aes(x = x, y = label_y, label = label),
     size = 2.9, lineheight = 0.9
+  ) +
+  geom_text(
+    data = dn_nodes |> filter(!is.na(r2_label)),
+    aes(x = x, y = y - 0.13, label = r2_label),
+    size = 2.1, color = "grey40", fontface = "italic"
   ) +
   scale_color_manual(values = c("TRUE" = "#2ca25f", "FALSE" = "grey60")) +
   annotate("text", x = 0.3, y = -2.5,
@@ -1611,9 +1743,9 @@ plot_m3 <- tank_chem_dn |>
 
 p3a <- scatter_path(plot_m3, "NEP_mean", "pH_mean",
                     expression("NCP  (mmol C m"^-2~hr^-1~")"),
-                    expression("Mean pH"[T]))
+                    expression("Max pH"[T]))
 p3b <- scatter_path(plot_m3, "pH_mean", "mean_chla",
-                    expression("Mean pH"[T]),
+                    expression("Max pH"[T]),
                     expression("Chl-a  ("*mu*g~cm^-2*")"), log_y = TRUE)
 p3c <- scatter_path(plot_m3, "DOC_mean", "mean_chla",
                     expression("Mean DOC  ("*mu*mol~L^-1*")"),
