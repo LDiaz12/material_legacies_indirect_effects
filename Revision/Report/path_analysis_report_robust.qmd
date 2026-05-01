@@ -1561,16 +1561,6 @@ re_tbl |>
 
 ---
 
-## Interpretation
-
-**pH → Chl-a path is weak at the fragment level.** The path from pH to Chl-a is non-significant at the fragment level (β = 0.12, p = 0.28). This is expected: pH varies only between tanks, whereas genotype explains the majority of within-experiment variation in Chl-a (R²c = 0.60 vs R²m = 0.01). At the individual fragment level, the between-tank pH signal is diluted by genotypic variation in pigment content.
-
-**DOC → Endosymbiont is marginally significant.** The direct negative effect of DOC on endosymbiont density (β = −0.17, p = 0.052) suggests that this antagonistic route is detectable even after accounting for genotype and tank clustering.
-
-**Downstream physiology paths are robust.** Chl-a → Endosymbiont (β = 0.66, p < 0.001), Endosymbiont → GP (β = 0.35, p = 0.012), GP → Respiration (β = 0.55, p < 0.001), and Endosymbiont → Tissue biomass (β = 0.49, p < 0.001) are all significant. These relationships reflect genuine within-tank fragment-to-fragment covariation, confirming that the physiology chain is a biological signal rather than an artefact of between-tank differences.
-
-**Genotype and tank explain substantial variance in some traits.** The large gap between R²m and R²c in Gross photosynthesis (0.16 vs 0.67) and Respiration (0.19 vs 0.60) indicates that substantial between-tank and between-genotype variation exists in these traits even after controlling for fixed-effect predictors. The fragment-level fixed effects are therefore estimated from a relatively small number of effective observations at the tank and genotype levels.
-
 
 # Supplementary figures {#sec-supp}
 
